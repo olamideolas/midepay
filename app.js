@@ -1181,12 +1181,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const heroQuickBills = document.getElementById('hero-quick-bills');
   const heroQuickCards = document.getElementById('hero-quick-cards');
 
-  if (btnOpenSend) btnOpenSend.addEventListener('click', () => modalSend?.classList.remove('hidden'));
-  if (qaTransfer) qaTransfer.addEventListener('click', () => modalSend?.classList.remove('hidden'));
+  function openSendModal() {
+    const sendModalBalance = document.getElementById('transfer-modal-balance');
+    if (sendModalBalance) {
+      sendModalBalance.textContent = formatNaira(state.dashBalance);
+    }
+    modalSend?.classList.remove('hidden');
+  }
+
+  if (btnOpenSend) btnOpenSend.addEventListener('click', openSendModal);
+  if (qaTransfer) qaTransfer.addEventListener('click', openSendModal);
   if (heroQuickSend) {
     heroQuickSend.addEventListener('click', () => {
       showView('dashboard');
-      modalSend?.classList.remove('hidden');
+      openSendModal();
     });
   }
 
@@ -1202,6 +1210,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCloseAirtime = document.getElementById('close-airtime-modal-btn');
   const modalBills = document.getElementById('modal-bill-payment');
   const btnCloseBills = document.getElementById('close-bills-modal-btn');
+  const modalCards = document.getElementById('modal-virtual-cards');
+  const btnCloseCards = document.getElementById('close-card-modal-btn');
   const modalReceipt = document.getElementById('modal-receipt');
   const btnCloseReceipt = document.getElementById('close-receipt-modal-btn');
 
@@ -1209,10 +1219,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCloseAdd) btnCloseAdd.addEventListener('click', () => modalAdd?.classList.add('hidden'));
   if (btnCloseAirtime) btnCloseAirtime.addEventListener('click', () => modalAirtime?.classList.add('hidden'));
   if (btnCloseBills) btnCloseBills.addEventListener('click', () => modalBills?.classList.add('hidden'));
+  if (btnCloseCards) btnCloseCards.addEventListener('click', () => modalCards?.classList.add('hidden'));
   if (btnCloseReceipt) btnCloseReceipt.addEventListener('click', () => modalReceipt?.classList.add('hidden'));
 
   // Close modals when clicking backdrop
-  [modalSend, modalAdd, modalAirtime, modalBills, modalReceipt].forEach(m => {
+  [modalSend, modalAdd, modalAirtime, modalBills, modalCards, modalReceipt].forEach(m => {
     if (!m) return;
     m.addEventListener('click', (e) => {
       if (e.target === m) m.classList.add('hidden');
@@ -1235,6 +1246,111 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Quick Test Fund button for Transfers (gives instant ₦50k so ₦0 users can test transfers)
+  const btnQuickFundTransfer = document.getElementById('btn-quick-fund-transfer');
+  if (btnQuickFundTransfer) {
+    btnQuickFundTransfer.addEventListener('click', () => {
+      const fundAmt = 50000;
+      state.dashBalance += fundAmt;
+      const sendModalBalance = document.getElementById('transfer-modal-balance');
+      if (sendModalBalance) sendModalBalance.textContent = formatNaira(state.dashBalance);
+      renderBalances();
+      renderDashboardTransactions();
+      if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user?.id) {
+        window.MidePayDB.recordDeposit({
+          walletId: state.user.walletId,
+          userId: state.user.id,
+          amount: fundAmt
+        }).catch(console.error);
+      }
+      showToast('🎉 Added ₦50,000.00 test credit to your MidePay wallet!');
+    });
+  }
+
+  // Popular Nigerian Banks Quick Select & 10-Digit NUBAN Account Resolution
+  const bankQuickBtns = document.querySelectorAll('#popular-banks-grid .bank-quick-btn');
+  const sendDestSelect = document.getElementById('send-destination');
+  const sendRecipientInput = document.getElementById('send-recipient');
+  const accountResolvedBox = document.getElementById('account-resolved-box');
+  const accountResolvedText = document.getElementById('account-resolved-text');
+  const recipientVerifyHint = document.getElementById('recipient-verify-hint');
+
+  const SAMPLE_NIGERIAN_BENEFICIARIES = [
+    'ADELEKE BABATUNDE CHUKWUEMEKA',
+    'OKONKWO IFEANYI EMMANUEL',
+    'FATIMA BELLO SULAIMAN',
+    'OLASUNKANMI OLAMIDE',
+    'CHIDINMA CHIOMA NWOSU',
+    'IBRAHIM MUSA DANGOTE',
+    'FOLASHADE ADEDAPO BAKARE',
+    'EMMANUEL OLUWASEUN OJO',
+    'AISHA ABUBAKAR MOHAMMED',
+    'ZAINAB ALIYU YUSUF'
+  ];
+
+  function resolveNubanAccount() {
+    if (!sendRecipientInput) return;
+    const val = sendRecipientInput.value.trim();
+    const bank = sendDestSelect ? sendDestSelect.value : 'Nigerian Bank';
+
+    if (!val) {
+      if (accountResolvedBox) accountResolvedBox.classList.add('hidden');
+      if (recipientVerifyHint) recipientVerifyHint.classList.remove('hidden');
+      return;
+    }
+
+    if (val.startsWith('@')) {
+      if (accountResolvedBox) {
+        accountResolvedBox.classList.remove('hidden');
+        if (accountResolvedText) accountResolvedText.textContent = `Resolved MideTag: ${val} (Verified MidePay Account)`;
+      }
+      if (recipientVerifyHint) recipientVerifyHint.classList.add('hidden');
+      return;
+    }
+
+    if (/^\d{10}$/.test(val)) {
+      const charCodeSum = val.split('').reduce((acc, digit) => acc + parseInt(digit, 10), 0);
+      const nameIndex = charCodeSum % SAMPLE_NIGERIAN_BENEFICIARIES.length;
+      const resolvedName = SAMPLE_NIGERIAN_BENEFICIARIES[nameIndex];
+
+      if (accountResolvedBox) {
+        accountResolvedBox.classList.remove('hidden');
+        if (accountResolvedText) accountResolvedText.textContent = `Resolved Account: ${resolvedName} (${bank})`;
+      }
+      if (recipientVerifyHint) recipientVerifyHint.classList.add('hidden');
+      return;
+    }
+
+    if (accountResolvedBox) accountResolvedBox.classList.add('hidden');
+    if (recipientVerifyHint) recipientVerifyHint.classList.remove('hidden');
+  }
+
+  bankQuickBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      bankQuickBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const selectedBank = btn.getAttribute('data-bank');
+      if (sendDestSelect) {
+        sendDestSelect.value = selectedBank;
+      }
+      resolveNubanAccount();
+    });
+  });
+
+  if (sendDestSelect) {
+    sendDestSelect.addEventListener('change', () => {
+      const cur = sendDestSelect.value;
+      bankQuickBtns.forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-bank') === cur);
+      });
+      resolveNubanAccount();
+    });
+  }
+
+  if (sendRecipientInput) {
+    sendRecipientInput.addEventListener('input', resolveNubanAccount);
+  }
+
   // Send Money Form Simulation & Database Record
   const sendMoneyForm = document.getElementById('send-money-form');
   if (sendMoneyForm) {
@@ -1256,22 +1372,33 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (amount > state.dashBalance) {
-        showToast('Insufficient balance for this transfer simulation.', 'error');
+        showToast(`Insufficient balance (${formatNaira(state.dashBalance)}). Click "+ Add ₦50k Test Credit" above to fund instantly!`, 'error');
         return;
       }
 
       // Deduct balance
       state.dashBalance -= amount;
 
+      // Determine clean recipient display name from resolution if available
+      let recipientDisplayName = recipient;
+      if (accountResolvedText && !accountResolvedBox?.classList.contains('hidden')) {
+        const text = accountResolvedText.textContent;
+        if (text.includes('Resolved Account:')) {
+          recipientDisplayName = text.replace('Resolved Account:', '').trim();
+        } else if (text.includes('Resolved MideTag:')) {
+          recipientDisplayName = text.replace('Resolved MideTag:', '').trim();
+        }
+      }
+
       // Add to transaction list with rich receipt metadata
       const txRef = 'MP-TR-' + Date.now().toString().slice(-8);
       const newTx = {
         id: 'tx-' + Date.now(),
         ref: txRef,
-        title: `Transfer to ${recipient}`,
+        title: `Transfer to ${recipientDisplayName}`,
         category: 'Bank Transfer',
         sender: state.user?.fullName || 'Babatunde Adeleke',
-        beneficiary: `${recipient} (${dest})`,
+        beneficiary: `${recipientDisplayName} (${dest})`,
         narration: note,
         date: 'Just now',
         type: 'outflow',
@@ -1287,7 +1414,7 @@ document.addEventListener('DOMContentLoaded', () => {
           walletId: state.user.walletId,
           userId: state.user.id,
           amount,
-          recipient: `${recipient} (${dest})`,
+          recipient: `${recipientDisplayName} (${dest})`,
           destinationBank: dest,
           narration: note
         }).then(() => {
@@ -1299,7 +1426,9 @@ document.addEventListener('DOMContentLoaded', () => {
       renderDashboardTransactions();
       modalSend.classList.add('hidden');
       sendMoneyForm.reset();
-      showToast(`Sent ${formatNaira(amount)} to ${recipient} successfully!`);
+      if (accountResolvedBox) accountResolvedBox.classList.add('hidden');
+      if (recipientVerifyHint) recipientVerifyHint.classList.remove('hidden');
+      showToast(`Sent ${formatNaira(amount)} to ${recipientDisplayName} successfully!`);
 
       // Open official transaction receipt immediately
       openReceiptModal(newTx);
@@ -1645,7 +1774,75 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Meter Type Toggles
+  // DisCo Quick Brand Selectors
+  const discoQuickBtns = document.querySelectorAll('#disco-quick-grid .brand-select-btn');
+  discoQuickBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      discoQuickBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const disco = btn.getAttribute('data-disco');
+      if (discoSelect) {
+        discoSelect.value = disco;
+      }
+      updateBillButtonText();
+    });
+  });
+
+  if (discoSelect) {
+    discoSelect.addEventListener('change', () => {
+      discoQuickBtns.forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-disco') === discoSelect.value);
+      });
+      updateBillButtonText();
+    });
+  }
+
+  // Cable TV Quick Brand Selectors
+  const cableQuickBtns = document.querySelectorAll('#cable-quick-grid .brand-select-btn');
+  cableQuickBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      cableQuickBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cable = btn.getAttribute('data-cable');
+      if (cableProviderSelect) {
+        cableProviderSelect.value = cable;
+      }
+
+      // Automatically select first package matching the brand
+      if (cablePackageSelect) {
+        for (let i = 0; i < cablePackageSelect.options.length; i++) {
+          const opt = cablePackageSelect.options[i];
+          const pkg = (opt.getAttribute('data-pkg') || '').toUpperCase();
+          if (pkg.includes(cable.toUpperCase())) {
+            cablePackageSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      updateBillButtonText();
+    });
+  });
+
+  if (cableProviderSelect) {
+    cableProviderSelect.addEventListener('change', () => {
+      const selectedProvider = cableProviderSelect.value;
+      cableQuickBtns.forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-cable') === selectedProvider);
+      });
+
+      if (cablePackageSelect) {
+        for (let i = 0; i < cablePackageSelect.options.length; i++) {
+          const opt = cablePackageSelect.options[i];
+          const pkg = (opt.getAttribute('data-pkg') || '').toUpperCase();
+          if (pkg.includes(selectedProvider.toUpperCase())) {
+            cablePackageSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+      updateBillButtonText();
+    });
+  }
   const meterRadios = document.querySelectorAll('input[name="meter-type"]');
   meterRadios.forEach(radio => {
     radio.addEventListener('change', () => {
@@ -1946,13 +2143,229 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     });
   }
 
-  // Quick Action simulations (Virtual Cards) & Bill Payment trigger
-  function promptSim(featureName, details) {
-    showToast(`Simulated: ${featureName} — ${details}`);
+  // -------------------------------------------------------------
+  // VIRTUAL CARDS INTERACTIVE CONTROLLER (USD & NGN)
+  // -------------------------------------------------------------
+  const virtualCardState = {
+    activeType: 'usd', // 'usd' | 'ngn'
+    usd: {
+      title: 'MidePay Black',
+      network: 'Mastercard',
+      fullPan: '5399 4120 8920 4091',
+      maskedPan: '5399 •••• •••• 4091',
+      expiry: '08/29',
+      cvv: '834',
+      balance: '$250.00',
+      limit: '$1,000 / month',
+      spentText: '$250.00 spent of $1,000.00 limit',
+      progress: '25%',
+      isFrozen: false,
+      isPanRevealed: false,
+      isCvvRevealed: false
+    },
+    ngn: {
+      title: 'MidePay Green',
+      network: 'Visa',
+      fullPan: '5061 9840 2319 7820',
+      maskedPan: '5061 •••• •••• 7820',
+      expiry: '11/28',
+      cvv: '492',
+      balance: '₦150,000.00',
+      limit: '₦500,000 / month',
+      spentText: '₦150,000.00 spent of ₦500,000.00 limit',
+      progress: '30%',
+      isFrozen: false,
+      isPanRevealed: false,
+      isCvvRevealed: false
+    }
+  };
+
+  const tabCardUsd = document.getElementById('tab-card-usd');
+  const tabCardNgn = document.getElementById('tab-card-ngn');
+  const activeCardEl = document.getElementById('active-virtual-card');
+  const cardBrandTitle = document.getElementById('card-brand-title');
+  const cardNetworkLogo = document.getElementById('card-network-logo');
+  const cardPanDisplay = document.getElementById('card-pan-display');
+  const btnTogglePan = document.getElementById('btn-toggle-pan');
+  const cardHolderName = document.getElementById('card-holder-name');
+  const cardExpiryVal = document.getElementById('card-expiry-val');
+  const cardCvvVal = document.getElementById('card-cvv-val');
+  const btnToggleCvv = document.getElementById('btn-toggle-cvv');
+  const cardBalanceDisplay = document.getElementById('card-balance-display');
+  const btnFreezeCard = document.getElementById('btn-freeze-card');
+  const freezeIcon = document.getElementById('freeze-icon');
+  const freezeText = document.getElementById('freeze-text');
+  const cardStatusBadge = document.getElementById('card-status-badge');
+  const btnCopyCard = document.getElementById('btn-copy-card');
+  const btnFundCardModal = document.getElementById('btn-fund-card-modal');
+  const cardLimitVal = document.getElementById('card-limit-val');
+  const cardSpentSubtext = document.getElementById('card-spent-subtext');
+  const cardProgressFill = document.querySelector('.limit-progress-fill');
+
+  function renderVirtualCard() {
+    const card = virtualCardState[virtualCardState.activeType];
+    const isUsd = virtualCardState.activeType === 'usd';
+
+    if (activeCardEl) {
+      if (isUsd) {
+        activeCardEl.classList.remove('ngn-card');
+      } else {
+        activeCardEl.classList.add('ngn-card');
+      }
+      activeCardEl.classList.toggle('frozen', card.isFrozen);
+    }
+
+    if (cardBrandTitle) cardBrandTitle.textContent = card.title;
+
+    if (cardNetworkLogo) {
+      if (isUsd) {
+        cardNetworkLogo.innerHTML = `
+          <svg width="42" height="26" viewBox="0 0 40 25" fill="none">
+            <circle cx="15" cy="12.5" r="10" fill="#EB001B" />
+            <circle cx="25" cy="12.5" r="10" fill="#F79E1B" fill-opacity="0.85" />
+          </svg>
+        `;
+      } else {
+        cardNetworkLogo.innerHTML = `
+          <svg width="46" height="20" viewBox="0 0 48 18" fill="none">
+            <text x="2" y="16" font-family="'Inter', sans-serif" font-weight="900" font-size="18" fill="#FFF" letter-spacing="1">VISA</text>
+          </svg>
+        `;
+      }
+    }
+
+    const currentUserName = (state.user?.fullName || 'BABATUNDE ADELEKE').toUpperCase();
+    if (cardHolderName) cardHolderName.textContent = currentUserName;
+    if (cardExpiryVal) cardExpiryVal.textContent = card.expiry;
+
+    // PAN reveal / mask
+    if (cardPanDisplay) {
+      cardPanDisplay.textContent = card.isPanRevealed ? card.fullPan : card.maskedPan;
+    }
+    if (btnTogglePan) {
+      btnTogglePan.textContent = card.isPanRevealed ? '🙈' : '👁';
+    }
+
+    // CVV reveal / mask
+    if (cardCvvVal) {
+      cardCvvVal.textContent = card.isCvvRevealed ? card.cvv : '•••';
+    }
+    if (btnToggleCvv) {
+      btnToggleCvv.textContent = card.isCvvRevealed ? '🙈' : '👁';
+    }
+
+    // Freeze state & badges
+    if (cardStatusBadge) {
+      if (card.isFrozen) {
+        cardStatusBadge.textContent = 'Frozen';
+        cardStatusBadge.className = 'badge-danger-sm';
+      } else {
+        cardStatusBadge.textContent = 'Active';
+        cardStatusBadge.className = 'badge-emerald-sm';
+      }
+    }
+
+    if (freezeIcon && freezeText) {
+      if (card.isFrozen) {
+        freezeIcon.textContent = '🔓';
+        freezeText.textContent = 'Unfreeze Card';
+      } else {
+        freezeIcon.textContent = '🔒';
+        freezeText.textContent = 'Freeze Card';
+      }
+    }
+
+    // Metrics
+    if (cardBalanceDisplay) cardBalanceDisplay.textContent = card.balance;
+    if (cardLimitVal) cardLimitVal.textContent = card.limit;
+    if (cardSpentSubtext) cardSpentSubtext.textContent = card.spentText;
+    if (cardProgressFill) cardProgressFill.style.width = card.progress;
   }
 
+  function openCardsModal() {
+    renderVirtualCard();
+    modalCards?.classList.remove('hidden');
+  }
+
+  if (tabCardUsd && tabCardNgn) {
+    tabCardUsd.addEventListener('click', () => {
+      virtualCardState.activeType = 'usd';
+      tabCardUsd.classList.add('active');
+      tabCardNgn.classList.remove('active');
+      renderVirtualCard();
+    });
+
+    tabCardNgn.addEventListener('click', () => {
+      virtualCardState.activeType = 'ngn';
+      tabCardNgn.classList.add('active');
+      tabCardUsd.classList.remove('active');
+      renderVirtualCard();
+    });
+  }
+
+  if (btnTogglePan) {
+    btnTogglePan.addEventListener('click', () => {
+      const card = virtualCardState[virtualCardState.activeType];
+      card.isPanRevealed = !card.isPanRevealed;
+      renderVirtualCard();
+    });
+  }
+
+  if (btnToggleCvv) {
+    btnToggleCvv.addEventListener('click', () => {
+      const card = virtualCardState[virtualCardState.activeType];
+      card.isCvvRevealed = !card.isCvvRevealed;
+      renderVirtualCard();
+    });
+  }
+
+  if (btnFreezeCard) {
+    btnFreezeCard.addEventListener('click', () => {
+      const card = virtualCardState[virtualCardState.activeType];
+      card.isFrozen = !card.isFrozen;
+      renderVirtualCard();
+      if (card.isFrozen) {
+        showToast(`🔒 ${card.title} frozen. All online authorizations temporarily locked.`);
+      } else {
+        showToast(`✅ ${card.title} unfrozen. Ready for payments!`);
+      }
+    });
+  }
+
+  if (btnCopyCard) {
+    btnCopyCard.addEventListener('click', () => {
+      const card = virtualCardState[virtualCardState.activeType];
+      const holder = (state.user?.fullName || 'BABATUNDE ADELEKE').toUpperCase();
+      const cardDetails = `Card: ${card.title}\nNumber: ${card.fullPan}\nExpires: ${card.expiry}\nCVV: ${card.cvv}\nCardholder: ${holder}`;
+      navigator.clipboard.writeText(cardDetails).then(() => {
+        showToast(`📋 Copied ${card.title} details to clipboard!`);
+      }).catch(() => {
+        showToast(`Card: ${card.fullPan} | Exp: ${card.expiry} | CVV: ${card.cvv}`);
+      });
+    });
+  }
+
+  if (btnFundCardModal) {
+    btnFundCardModal.addEventListener('click', () => {
+      const card = virtualCardState[virtualCardState.activeType];
+      if (virtualCardState.activeType === 'usd') {
+        card.balance = '$300.00';
+        showToast(`Funding USD Card: $50.00 credited to your Virtual Mastercard!`);
+      } else {
+        if (state.dashBalance >= 20000) {
+          state.dashBalance -= 20000;
+          renderBalances();
+        }
+        card.balance = '₦170,000.00';
+        showToast(`₦20,000.00 transferred from your main wallet to your Virtual Naira Card!`);
+      }
+      renderVirtualCard();
+    });
+  }
+
+  // Quick Action Buttons
   if (qaBills) qaBills.addEventListener('click', () => openBillsModal('electricity'));
-  if (qaCard) qaCard.addEventListener('click', () => promptSim('Virtual Cards', 'Your MidePay Virtual Dollar Card is active.'));
+  if (qaCard) qaCard.addEventListener('click', openCardsModal);
 
   if (heroQuickBills) heroQuickBills.addEventListener('click', () => {
     showView('dashboard');
@@ -1960,6 +2373,6 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   });
   if (heroQuickCards) heroQuickCards.addEventListener('click', () => {
     showView('dashboard');
-    promptSim('Virtual Cards', 'Your MidePay Virtual Dollar Card is active.');
+    openCardsModal();
   });
 });

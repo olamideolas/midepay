@@ -3096,3 +3096,487 @@ select.form-input option {
   }
 }
 
+/* ==========================================================================
+   BANK QUICK SELECTOR & NUBAN VERIFICATION STYLES
+   ========================================================================== */
+.bank-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+@media (max-width: 480px) {
+  .bank-quick-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.bank-quick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.3rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.bank-quick-btn:hover {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: var(--primary-emerald);
+  transform: translateY(-2px);
+}
+
+.bank-quick-btn.active {
+  border-color: var(--primary-emerald);
+  background: rgba(16, 185, 129, 0.14);
+  box-shadow: 0 0 0 1px var(--primary-emerald);
+}
+
+.bank-badge-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.72rem;
+  color: #FFF;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.bank-badge-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.15;
+}
+
+.bank-quick-btn.active .bank-badge-name {
+  color: var(--text-primary);
+}
+
+.account-resolved-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: #34D399;
+  margin-top: 0.4rem;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.account-resolved-box.verifying {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #FBBF24;
+}
+
+.transfer-balance-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.75rem 1rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  color: #FDE68A;
+  margin-bottom: 0.5rem;
+}
+
+.btn-demo-fund {
+  background: #10B981;
+  color: #042F2C;
+  font-weight: 700;
+  font-size: 0.76rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-demo-fund:hover {
+  background: #34D399;
+}
+
+/* ==========================================================================
+   NETWORK & BILL BRAND LOGOS
+   ========================================================================== */
+.network-badge-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.brand-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+@media (max-width: 500px) {
+  .brand-selector-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.brand-select-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.75rem 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.brand-select-btn:hover {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: var(--primary-emerald);
+}
+
+.brand-select-btn.active {
+  border-color: var(--primary-emerald);
+  background: rgba(16, 185, 129, 0.14);
+  box-shadow: 0 0 0 1px var(--primary-emerald);
+}
+
+.brand-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.brand-select-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.brand-select-btn.active .brand-select-title {
+  color: var(--text-primary);
+}
+
+/* ==========================================================================
+   VIRTUAL CARDS MODAL & 3D CARD GRAPHICS
+   ========================================================================== */
+.modal-box-wide {
+  max-width: 540px;
+}
+
+.virtual-card-container {
+  perspective: 1000px;
+  margin: 1.2rem 0;
+}
+
+.debit-card {
+  width: 100%;
+  aspect-ratio: 1.586 / 1;
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #090D16 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 1.6rem 1.8rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.debit-card.frozen {
+  filter: grayscale(0.85) contrast(0.9);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.debit-card.frozen::after {
+  content: "FROZEN";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  color: rgba(248, 113, 113, 0.7);
+  border: 4px dashed rgba(248, 113, 113, 0.6);
+  padding: 0.4rem 1.6rem;
+  border-radius: 12px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+.debit-card.ngn-card {
+  background: linear-gradient(135deg, #064E3B 0%, #065F46 50%, #022C22 100%);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.card-bg-glow {
+  position: absolute;
+  top: -40%;
+  right: -30%;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-brand-text {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #FFF;
+}
+
+.card-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.5rem 0;
+}
+
+.emv-chip {
+  width: 42px;
+  height: 32px;
+  background: linear-gradient(135deg, #E2B15D 0%, #F5CE83 50%, #C8953C 100%);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.chip-line {
+  position: absolute;
+  background: rgba(90, 60, 15, 0.4);
+}
+
+.chip-line:nth-child(1) {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.chip-line:nth-child(2) {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.contactless-icon {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.card-pan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-pan-number {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: clamp(1.1rem, 2.8vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #FFF;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.btn-pan-toggle,
+.btn-cvv-toggle {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.btn-pan-toggle:hover,
+.btn-cvv-toggle:hover {
+  color: #FFF;
+}
+
+.card-bottom-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.card-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 0.2rem;
+}
+
+.card-val {
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #FFF;
+  letter-spacing: 0.04em;
+}
+
+.card-controls-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.2rem;
+}
+
+.card-metric-label {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.card-metric-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.card-actions-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.card-limits-box {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.2rem;
+}
+
+.limit-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.limit-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+
+.limit-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10B981, #34D399);
+  border-radius: 4px;
+}
+
+.limit-spent-subtext {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.card-section-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.6rem;
+}
+
+.card-mini-tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mini-tx-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+.mini-tx-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mini-tx-icon {
+  font-size: 1.2rem;
+}
+
+.mini-tx-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mini-tx-date {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.mini-tx-amount.negative {
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: #F87171;
+}
+

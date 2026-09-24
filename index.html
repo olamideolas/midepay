@@ -1132,30 +1132,110 @@
       </div>
 
       <form class="modal-form" id="send-money-form">
+        <!-- Balance Alert / Test Top-up Bar -->
+        <div class="transfer-balance-alert" id="transfer-balance-notice">
+          <span>Available: <strong id="transfer-modal-balance">₦0.00</strong></span>
+          <button type="button" class="btn-demo-fund" id="btn-quick-fund-transfer">+ Add ₦50k Test Credit</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Popular Nigerian Banks</label>
+          <div class="bank-quick-grid" id="popular-banks-grid">
+            <button type="button" class="bank-quick-btn" data-bank="OPay">
+              <div class="bank-badge-icon" style="background:#00B875;">O</div>
+              <span class="bank-badge-name">OPay</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="PalmPay">
+              <div class="bank-badge-icon" style="background:#5C24FF;">P</div>
+              <span class="bank-badge-name">PalmPay</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="Kuda Bank">
+              <div class="bank-badge-icon" style="background:#40196D;">K</div>
+              <span class="bank-badge-name">Kuda</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="Moniepoint">
+              <div class="bank-badge-icon" style="background:#032B69;">M</div>
+              <span class="bank-badge-name">Moniepoint</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="GTBank">
+              <div class="bank-badge-icon" style="background:#DD4F05;">GT</div>
+              <span class="bank-badge-name">GTBank</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="Access Bank">
+              <div class="bank-badge-icon" style="background:#E85D04;">AC</div>
+              <span class="bank-badge-name">Access</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="Zenith Bank">
+              <div class="bank-badge-icon" style="background:#E11928;">Z</div>
+              <span class="bank-badge-name">Zenith</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="United Bank for Africa (UBA)">
+              <div class="bank-badge-icon" style="background:#CF0000;">UBA</div>
+              <span class="bank-badge-name">UBA</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="First Bank of Nigeria">
+              <div class="bank-badge-icon" style="background:#002D62; border: 1px solid #D4AF37;">FBN</div>
+              <span class="bank-badge-name">FirstBank</span>
+            </button>
+            <button type="button" class="bank-quick-btn" data-bank="Providus Bank">
+              <div class="bank-badge-icon" style="background:#222; color:#D4AF37; border: 1px solid #D4AF37;">PB</div>
+              <span class="bank-badge-name">Providus</span>
+            </button>
+          </div>
+        </div>
+
         <div class="form-group">
           <label for="send-destination" class="form-label">Destination Bank or MideTag</label>
           <select id="send-destination" class="form-input form-select" required>
             <option value="MidePay Tag">MidePay Tag (@username) — Instant & Free</option>
             <option value="Access Bank">Access Bank Plc</option>
-            <option value="GTBank">Guaranty Trust Bank (GTBank)</option>
+            <option value="Citibank Nigeria">Citibank Nigeria</option>
+            <option value="Ecobank Nigeria">Ecobank Nigeria</option>
+            <option value="Fidelity Bank">Fidelity Bank Plc</option>
+            <option value="First Bank of Nigeria">First Bank of Nigeria</option>
+            <option value="First City Monument Bank (FCMB)">First City Monument Bank (FCMB)</option>
+            <option value="GTBank" selected>Guaranty Trust Bank (GTBank)</option>
+            <option value="Heritage Bank">Heritage Bank Plc</option>
+            <option value="Jaiz Bank">Jaiz Bank</option>
+            <option value="Keystone Bank">Keystone Bank</option>
             <option value="Kuda Bank">Kuda Microfinance Bank</option>
+            <option value="Lotus Bank">Lotus Bank</option>
+            <option value="Moniepoint">Moniepoint Microfinance Bank</option>
             <option value="OPay">OPay Digital Services</option>
+            <option value="PalmPay">PalmPay</option>
+            <option value="Polaris Bank">Polaris Bank</option>
+            <option value="PremiumTrust Bank">PremiumTrust Bank</option>
             <option value="Providus Bank">Providus Bank</option>
+            <option value="Stanbic IBTC Bank">Stanbic IBTC Bank</option>
+            <option value="Standard Chartered Bank">Standard Chartered Bank</option>
+            <option value="Sterling Bank">Sterling Bank</option>
+            <option value="SunTrust Bank">SunTrust Bank</option>
+            <option value="Taj Bank">Taj Bank</option>
+            <option value="Titan Trust Bank">Titan Trust Bank</option>
+            <option value="Union Bank of Nigeria">Union Bank of Nigeria</option>
             <option value="United Bank for Africa (UBA)">United Bank for Africa (UBA)</option>
+            <option value="Unity Bank">Unity Bank</option>
+            <option value="VFD Microfinance Bank">VFD Microfinance Bank</option>
+            <option value="Wema Bank (ALAT)">Wema Bank / ALAT</option>
             <option value="Zenith Bank">Zenith Bank Plc</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="send-recipient" class="form-label">Account Number or Tag</label>
+          <label for="send-recipient" class="form-label">10-Digit NUBAN or @MideTag</label>
           <input 
             type="text" 
             id="send-recipient" 
             class="form-input" 
             placeholder="e.g. 0123456789 or @chidi" 
+            maxlength="20"
             required
           >
-          <span class="form-hint" id="recipient-verify-hint">Recipient: Verified Account Simulation</span>
+          <div class="account-resolved-box hidden" id="account-resolved-box">
+            <span class="badge-resolved-check">✓</span>
+            <span id="account-resolved-text">Resolving account...</span>
+          </div>
+          <span class="form-hint" id="recipient-verify-hint">Enter 10-digit NUBAN to verify account name instantly.</span>
         </div>
 
         <div class="form-group">
@@ -1275,24 +1355,44 @@
         <button type="button" class="service-tab-btn" id="tab-recharge-data" role="tab">Data Bundle</button>
       </div>
 
-      <!-- Network Operator Selector -->
+      <!-- Network Operator Selector with Brand Logos -->
       <div class="network-select-section">
         <label class="form-label">Select Network Provider</label>
         <div class="network-grid" id="network-selector-grid">
           <button type="button" class="network-btn active" data-network="MTN">
-            <span class="network-badge mtn">MTN</span>
+            <div class="network-badge-logo" style="background:#FFCC00; color:#000;">
+              <svg width="22" height="15" viewBox="0 0 28 18" fill="none">
+                <ellipse cx="14" cy="9" rx="13" ry="8" stroke="#000" stroke-width="2"/>
+                <text x="5" y="12" font-family="sans-serif" font-weight="900" font-size="8" fill="#000">MTN</text>
+              </svg>
+            </div>
             <span class="network-name">MTN</span>
           </button>
           <button type="button" class="network-btn" data-network="Airtel">
-            <span class="network-badge airtel">airtel</span>
+            <div class="network-badge-logo" style="background:#E60000; color:#FFF;">
+              <svg width="22" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3C7 3 4 7 4 12C4 16 7 20 12 20C17 20 20 16 20 12" stroke="#FFF" stroke-width="2.5" stroke-linecap="round"/>
+                <circle cx="12" cy="12" r="3" fill="#FFF"/>
+              </svg>
+            </div>
             <span class="network-name">Airtel</span>
           </button>
           <button type="button" class="network-btn" data-network="Glo">
-            <span class="network-badge glo">glo</span>
+            <div class="network-badge-logo" style="background:#00A859; color:#FFF;">
+              <svg width="22" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#99CC00" stroke-width="2"/>
+                <text x="6" y="15" font-family="sans-serif" font-weight="900" font-size="9" fill="#FFF">glo</text>
+              </svg>
+            </div>
             <span class="network-name">Glo</span>
           </button>
           <button type="button" class="network-btn" data-network="9mobile">
-            <span class="network-badge nine-mobile">9mobile</span>
+            <div class="network-badge-logo" style="background:#004F32; color:#99CC00; border:1px solid #99CC00;">
+              <svg width="22" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="8" fill="#004F32"/>
+                <text x="8" y="16" font-family="sans-serif" font-weight="900" font-size="12" fill="#99CC00">9</text>
+              </svg>
+            </div>
             <span class="network-name">9mobile</span>
           </button>
         </div>
@@ -1398,7 +1498,37 @@
         <!-- ELECTRICITY PROVIDER & FORM SECTION -->
         <div id="section-bill-electricity">
           <div class="form-group">
-            <label for="disco-provider-select" class="form-label">Electricity Distribution Company (DisCo)</label>
+            <label class="form-label">Popular Electricity DisCos</label>
+            <div class="brand-selector-grid" id="disco-quick-grid">
+              <button type="button" class="brand-select-btn active" data-disco="IKEDC - Ikeja Electric">
+                <div class="brand-icon-box" style="background: linear-gradient(135deg, #DC2626, #991B1B); color:#FFF;">
+                  ⚡
+                </div>
+                <span class="brand-select-title">IKEDC (Ikeja)</span>
+              </button>
+              <button type="button" class="brand-select-btn" data-disco="EKEDC - Eko Electric">
+                <div class="brand-icon-box" style="background: linear-gradient(135deg, #0284C7, #0369A1); color:#FFF;">
+                  🌊
+                </div>
+                <span class="brand-select-title">EKEDC (Eko)</span>
+              </button>
+              <button type="button" class="brand-select-btn" data-disco="AEDC - Abuja Electricity">
+                <div class="brand-icon-box" style="background: linear-gradient(135deg, #D97706, #B45309); color:#FFF;">
+                  🏛️
+                </div>
+                <span class="brand-select-title">AEDC (Abuja)</span>
+              </button>
+              <button type="button" class="brand-select-btn" data-disco="IBEDC - Ibadan Electricity">
+                <div class="brand-icon-box" style="background: linear-gradient(135deg, #059669, #047857); color:#FFF;">
+                  💡
+                </div>
+                <span class="brand-select-title">IBEDC (Ibadan)</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="disco-provider-select" class="form-label">All Electricity Distribution Companies</label>
             <select id="disco-provider-select" class="form-input form-select" required>
               <option value="IKEDC - Ikeja Electric">Ikeja Electric (IKEDC) — Lagos</option>
               <option value="EKEDC - Eko Electric">Eko Electric (EKEDC) — Lagos Island</option>
@@ -1468,10 +1598,40 @@
         <!-- CABLE TV PROVIDER & FORM SECTION (Hidden by default) -->
         <div id="section-bill-cable" class="hidden">
           <div class="form-group">
-            <label for="cable-provider-select" class="form-label">Cable TV Provider</label>
+            <label class="form-label">Select Cable TV Provider</label>
+            <div class="brand-selector-grid" id="cable-quick-grid">
+              <button type="button" class="brand-select-btn active" data-cable="DSTV">
+                <div class="brand-icon-box" style="background: linear-gradient(135deg, #0055A5, #003366); color:#FFF; font-weight:900; font-size:0.75rem;">
+                  DStv
+                </div>
+                <span class="brand-select-title">DStv</span>
+              </button>
+              <button type="button" class="brand-select-btn" data-cable="GOTV">
+                <div class="brand-icon-box" style="background: linear-gradient(135deg, #72BE44, #4D8B28); color:#FFF; font-weight:900; font-size:0.75rem;">
+                  GOtv
+                </div>
+                <span class="brand-select-title">GOtv</span>
+              </button>
+              <button type="button" class="brand-select-btn" data-cable="StarTimes">
+                <div class="brand-icon-box" style="background: linear-gradient(135deg, #FF6600, #CC5200); color:#FFF; font-weight:900; font-size:0.65rem;">
+                  ⭐ Star
+                </div>
+                <span class="brand-select-title">StarTimes</span>
+              </button>
+              <button type="button" class="brand-select-btn" data-cable="Showmax">
+                <div class="brand-icon-box" style="background: linear-gradient(135deg, #831843, #500724); color:#F43F5E; font-weight:900; font-size:0.65rem;">
+                  Showmax
+                </div>
+                <span class="brand-select-title">Showmax</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="cable-provider-select" class="form-label">Provider Dropdown</label>
             <select id="cable-provider-select" class="form-input form-select">
-              <option value="DSTV">DSTV Nigeria</option>
-              <option value="GOTV">GOTV Nigeria</option>
+              <option value="DSTV" selected>DStv Nigeria</option>
+              <option value="GOTV">GOtv Nigeria</option>
               <option value="StarTimes">StarTimes</option>
               <option value="Showmax">Showmax 1-Month Mobile</option>
             </select>
@@ -1518,6 +1678,144 @@
           Pay ₦10,000.00 & Generate Token
         </button>
       </form>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL 4B: VIRTUAL CARDS (USD & NGN MASTERCARD/VISA)           -->
+  <!-- ============================================================= -->
+  <div class="modal-overlay hidden" id="modal-virtual-cards" role="dialog" aria-modal="true" aria-labelledby="cards-modal-title">
+    <div class="modal-box modal-box-wide">
+      <div class="modal-header">
+        <div class="modal-title-with-badge">
+          <h3 class="modal-title" id="cards-modal-title">Virtual Cards</h3>
+          <span class="badge-emerald-sm" id="card-status-badge">Active</span>
+        </div>
+        <button class="modal-close-btn" id="close-card-modal-btn" aria-label="Close modal">✕</button>
+      </div>
+
+      <!-- Card Type Switcher: USD vs NGN -->
+      <div class="service-tab-pill" role="tablist">
+        <button type="button" class="service-tab-btn active" id="tab-card-usd" role="tab">🇺🇸 Virtual Dollar Card (USD)</button>
+        <button type="button" class="service-tab-btn" id="tab-card-ngn" role="tab">🇳🇬 Virtual Naira Card (NGN)</button>
+      </div>
+
+      <!-- 3D Realistic Debit Card -->
+      <div class="virtual-card-container">
+        <div class="debit-card" id="active-virtual-card">
+          <div class="card-bg-glow"></div>
+          <div class="card-top-row">
+            <span class="card-brand-text" id="card-brand-title">MidePay Black</span>
+            <div class="card-type-icon" id="card-network-logo">
+              <!-- Mastercard overlapping circles -->
+              <svg width="42" height="26" viewBox="0 0 40 25" fill="none">
+                <circle cx="15" cy="12.5" r="10" fill="#EB001B" />
+                <circle cx="25" cy="12.5" r="10" fill="#F79E1B" fill-opacity="0.85" />
+              </svg>
+            </div>
+          </div>
+          <div class="card-chip-row">
+            <div class="emv-chip">
+              <div class="chip-line"></div>
+              <div class="chip-line"></div>
+            </div>
+            <svg class="contactless-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8.5 16.5a5 5 0 0 1 0-9"></path>
+              <path d="M12 19a8.5 8.5 0 0 0 0-14"></path>
+              <path d="M15.5 21.5a12 12 0 0 0 0-19"></path>
+            </svg>
+          </div>
+          <div class="card-pan-row">
+            <span class="card-pan-number" id="card-pan-display">5399 &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; 4091</span>
+            <button type="button" class="btn-pan-toggle" id="btn-toggle-pan" title="Show/Hide Full Card Number">👁</button>
+          </div>
+          <div class="card-bottom-row">
+            <div class="card-holder-col">
+              <span class="card-label">CARDHOLDER</span>
+              <span class="card-val" id="card-holder-name">BABATUNDE ADELEKE</span>
+            </div>
+            <div class="card-expiry-col">
+              <span class="card-label">EXPIRES</span>
+              <span class="card-val" id="card-expiry-val">08/29</span>
+            </div>
+            <div class="card-cvv-col">
+              <span class="card-label">CVV</span>
+              <div style="display:flex; align-items:center; gap:0.3rem;">
+                <span class="card-val cv-val" id="card-cvv-val">&bull;&bull;&bull;</span>
+                <button type="button" class="btn-cvv-toggle" id="btn-toggle-cvv" title="Show CVV">👁</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Balance & Quick Controls -->
+      <div class="card-controls-panel">
+        <div class="card-balance-metric">
+          <span class="card-metric-label">Available Balance</span>
+          <span class="card-metric-val" id="card-balance-display">$250.00</span>
+        </div>
+        <div class="card-actions-row">
+          <button type="button" class="btn btn-outline-sm" id="btn-freeze-card">
+            <span id="freeze-icon">🔒</span> <span id="freeze-text">Freeze Card</span>
+          </button>
+          <button type="button" class="btn btn-outline-sm" id="btn-copy-card">
+            📋 Copy Details
+          </button>
+          <button type="button" class="btn btn-primary-sm" id="btn-fund-card-modal">
+            + Fund Card
+          </button>
+        </div>
+      </div>
+
+      <!-- Card Spending Limit & Settings -->
+      <div class="card-limits-box">
+        <div class="limit-header-row">
+          <span class="limit-label">Monthly Spending Limit</span>
+          <span class="limit-value" id="card-limit-val">$1,000 / month</span>
+        </div>
+        <div class="limit-progress-bar">
+          <div class="limit-progress-fill" style="width: 25%;"></div>
+        </div>
+        <span class="limit-spent-subtext" id="card-spent-subtext">$250.00 spent of $1,000.00 limit</span>
+      </div>
+
+      <!-- Recent Card Charges -->
+      <div class="card-tx-section">
+        <span class="card-section-label">Recent Subscriptions &amp; Payments</span>
+        <div class="card-mini-tx-list">
+          <div class="mini-tx-item">
+            <div class="mini-tx-left">
+              <span class="mini-tx-icon">🎵</span>
+              <div>
+                <div class="mini-tx-title">Spotify Premium Family</div>
+                <div class="mini-tx-date">Today, 2:10 PM</div>
+              </div>
+            </div>
+            <div class="mini-tx-amount negative">-$9.99</div>
+          </div>
+          <div class="mini-tx-item">
+            <div class="mini-tx-left">
+              <span class="mini-tx-icon">☁️</span>
+              <div>
+                <div class="mini-tx-title">Amazon Web Services</div>
+                <div class="mini-tx-date">22 Sep 2026</div>
+              </div>
+            </div>
+            <div class="mini-tx-amount negative">-$42.50</div>
+          </div>
+          <div class="mini-tx-item">
+            <div class="mini-tx-left">
+              <span class="mini-tx-icon">🎬</span>
+              <div>
+                <div class="mini-tx-title">Netflix International</div>
+                <div class="mini-tx-date">19 Sep 2026</div>
+              </div>
+            </div>
+            <div class="mini-tx-amount negative">-$12.00</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
