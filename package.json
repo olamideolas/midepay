@@ -1,0 +1,17 @@
+{
+  "name": "midepay",
+  "version": "1.0.0",
+  "description": "MidePay — Modern Nigerian Fintech Digital Wallet Concept",
+  "main": "index.html",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "keywords": [
+    "fintech",
+    "wallet",
+    "nigeria",
+    "supabase"
+  ],
+  "author": "MidePay",
+  "license": "MIT"
+}

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="mp-bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#24C16E"/>
+      <stop offset="50%" stop-color="#1EAA60"/>
+      <stop offset="100%" stop-color="#137D45"/>
+    </linearGradient>
+    <linearGradient id="mp-fold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#178046"/>
+      <stop offset="100%" stop-color="#0F5A30"/>
+    </linearGradient>
+    <linearGradient id="mp-coin-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F5BD6B"/>
+      <stop offset="60%" stop-color="#DEA253"/>
+      <stop offset="100%" stop-color="#C58536"/>
+    </linearGradient>
+    <filter id="mp-drop" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Main Squircle Body with Top-Left Cutout -->
+  <path d="M 32 6 
+           H 80 
+           C 90 6, 94 10, 94 20 
+           V 80 
+           C 94 90, 90 94, 80 94 
+           H 20 
+           C 10 94, 6 90, 6 80 
+           V 32 
+           Z" 
+        fill="url(#mp-bg-grad)"/>
+
+  <!-- Folded Dog-Ear Corner -->
+  <path d="M 6 32 
+           L 32 32 
+           L 32 6 
+           Z" 
+        fill="url(#mp-fold-grad)" 
+        filter="url(#mp-drop)"/>
+
+  <!-- Golden Coin / Wallet Dot -->
+  <circle cx="64" cy="55" r="13" fill="url(#mp-coin-grad)"/>
+</svg>
