@@ -1448,10 +1448,16 @@ document.addEventListener('DOMContentLoaded', () => {
     lastTransaction: null
   };
 
-  // Step Containers (Unified 3-Screen OPay / PalmPay flow)
+  // Step Containers (Unified 3-Screen OPay / PalmPay flow + CodeFronts Animated Processing)
   const stepForm = document.getElementById('send-step-form');
   const stepPinConfirm = document.getElementById('send-step-pin-confirm');
+  const stepProcessing = document.getElementById('send-step-processing');
   const stepSuccess = document.getElementById('send-step-success');
+
+  // CodeFronts Loading Animation Elements
+  const paymentLoader = document.getElementById('midepay-payment-loader');
+  const laProcessingAmt = document.getElementById('la-processing-amt');
+  const laProcessingRef = document.getElementById('la-processing-ref');
 
   // Modal Close & Back Navigation Buttons
   const closeSendBtn = document.getElementById('close-send-modal-btn');
@@ -1515,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sendFlowState.currentStep = stepName;
 
     // Hide all steps
-    [stepForm, stepPinConfirm, stepSuccess].forEach(s => {
+    [stepForm, stepPinConfirm, stepProcessing, stepSuccess].forEach(s => {
       if (s) s.classList.add('hidden');
     });
 
@@ -1530,6 +1536,14 @@ document.addEventListener('DOMContentLoaded', () => {
       clearPinBoxes();
       if (pinAuthError) pinAuthError.classList.add('hidden');
       setTimeout(() => authPinBoxes[0]?.focus(), 60);
+    } else if (stepName === 'processing') {
+      stepProcessing?.classList.remove('hidden');
+      if (paymentLoader) {
+        paymentLoader.classList.remove('is-ready');
+        paymentLoader.dataset.state = 'loading';
+      }
+      if (laProcessingAmt) laProcessingAmt.textContent = formatNaira(sendFlowState.amount);
+      if (laProcessingRef) laProcessingRef.textContent = `${sendFlowState.selectedBank} • NIP Route`;
     } else if (stepName === 'success') {
       stepSuccess?.classList.remove('hidden');
     }
@@ -2015,13 +2029,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (successTxFee) successTxFee.textContent = formatNaira(sendFlowState.transferFee);
         if (successTxDate) successTxDate.textContent = txTimestamp;
 
-        showSendStep('success');
-        showToast(`🎉 Transfer Successful! Sent ${formatNaira(sendFlowState.amount)} to ${sendFlowState.resolvedName}`);
+        // Switch to CodeFronts Processing Animation Stage
+        showSendStep('processing');
 
-        loadDashboardData().catch(console.warn);
+        // Allow animation to narrate Payment -> NIP Switch -> Receipt
+        setTimeout(() => {
+          if (paymentLoader) {
+            paymentLoader.classList.add('is-ready');
+            paymentLoader.dataset.state = 'ready';
+          }
+
+          // Transition to full receipt success screen
+          setTimeout(() => {
+            showSendStep('success');
+            showToast(`🎉 Transfer Successful! Sent ${formatNaira(sendFlowState.amount)} to ${sendFlowState.resolvedName}`);
+            loadDashboardData().catch(console.warn);
+          }, 850);
+        }, 2200);
       } catch (err) {
         console.error('Transfer execution error:', err);
         showToast(`Transfer failed: ${err.message || 'Unknown network error'}`, 'error');
+        showSendStep('pin-confirm');
       } finally {
         btnAuthorizePay.disabled = false;
         if (btnAuthorizePayText) {

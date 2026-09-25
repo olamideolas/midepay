@@ -15,6 +15,7 @@
   <link rel="apple-touch-icon" href="favicon.svg">
   
   <link rel="stylesheet" href="style.css?v=2.6">
+  <link rel="stylesheet" href="loading-animation.css">
 </head>
 <body>
   <!-- Toast Notification Container -->
@@ -1443,6 +1444,45 @@
             </button>
           </div>
         </form>
+      </div>
+
+      <!-- INTERMEDIATE STAGE: CODEFRONTS CHECKOUT / PAYMENT PROCESSING ANIMATION -->
+      <div class="send-step hidden" id="send-step-processing">
+        <div class="la-01" id="midepay-payment-loader" data-state="loading">
+          <section class="la-01__card" role="status" aria-live="polite" aria-label="Processing your transfer">
+            <div class="la-01__stage" aria-hidden="true">
+              <span class="la-01__item la-01__item--a"></span>
+              <span class="la-01__item la-01__item--b"></span>
+              <span class="la-01__item la-01__item--c"></span>
+              <svg class="la-01__cart" viewBox="0 0 64 64" focusable="false">
+                <path d="M5 11h8l7.6 25.4A5 5 0 0 0 25.4 40h21.9a5 5 0 0 0 4.8-3.5L58 19H16.5"/>
+                <circle cx="27" cy="52" r="4.2"/><circle cx="47" cy="52" r="4.2"/>
+              </svg>
+              <svg class="la-01__seal" viewBox="0 0 64 64" focusable="false">
+                <circle cx="32" cy="32" r="21"/><path class="la-01__tick" d="M22 33 29.6 40.4 43 24.6"/>
+              </svg>
+            </div>
+
+            <div class="la-01__copy">
+              <p class="la-01__label">
+                <span class="la-01__load">Processing Payment...</span>
+                <span class="la-01__ready">Payment Confirmed!</span>
+              </p>
+              <p class="la-01__meta"><span class="la-01__amt" id="la-processing-amt">₦5,000.00</span> <span aria-hidden="true">·</span> <span id="la-processing-ref">Routing NIP Switch</span></p>
+            </div>
+
+            <ol class="la-01__steps">
+              <li class="la-01__step">Authorizing PIN</li>
+              <li class="la-01__step">NIP Switch</li>
+              <li class="la-01__step">Generating Receipt</li>
+            </ol>
+
+            <div class="la-01__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="68" aria-valuetext="Processing payment">
+              <span class="la-01__fill"></span>
+            </div>
+            <p class="la-01__pct"></p>
+          </section>
+        </div>
       </div>
 
       <!-- SCREEN 3: OPAY / PALMPAY STYLE SUCCESS CONFIRMATION SCREEN -->

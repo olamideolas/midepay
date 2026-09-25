@@ -1,0 +1,405 @@
+/**
+ * CodeFronts E-Commerce Checkout / Payment Loading Animation
+ * Scoped under .la-01
+ * MIT Licensed - Source: https://codefronts.com/motion/css-loading-animations/e-commerce-checkout-cart-loading-animation/
+ */
+
+@property --la-01-p {
+  syntax: '<integer>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@property --la-01-spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.la-01 {
+  --bg: #090d16;
+  --surface: #111827;
+  --ink: #f9fafb;
+  --muted: #9ca3af;
+  --line: rgba(255, 255, 255, 0.1);
+  --acc: #00b875;
+  --acc-ink: #ffffff;
+  --ok: #10b981;
+  --ring: #00b875;
+  --shadow: rgba(0, 0, 0, 0.4);
+  --dur: 2.8s;
+  --sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  position: relative;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 1rem;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.la-01,
+.la-01 *,
+.la-01 *::before,
+.la-01 *::after {
+  box-sizing: border-box;
+}
+
+.la-01__card {
+  position: relative;
+  inline-size: min(24rem, 100%);
+  padding: 2.1rem 1.6rem 1.5rem;
+  display: grid;
+  justify-items: center;
+  gap: 1.15rem;
+  border-radius: 1.75rem;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.88), rgba(15, 23, 42, 0.95));
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.la-01__stage {
+  position: relative;
+  inline-size: 7.5rem;
+  block-size: 7.5rem;
+  display: grid;
+  place-items: center;
+}
+
+.la-01__stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: conic-gradient(from var(--la-01-spin), rgba(0, 184, 117, 0.7), transparent 42%, rgba(0, 184, 117, 0.7));
+  mask: radial-gradient(closest-side, transparent 76%, black 77%);
+  -webkit-mask: radial-gradient(closest-side, transparent 76%, black 77%);
+  animation: la-01-spin 3.2s linear infinite;
+}
+
+@keyframes la-01-spin {
+  to {
+    --la-01-spin: 360deg;
+  }
+}
+
+.la-01__cart,
+.la-01__seal {
+  position: absolute;
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.la-01__seal {
+  stroke: var(--ok);
+  opacity: 0;
+  scale: .7;
+  transition: opacity .35s ease, scale .45s cubic-bezier(.16, 1, .3, 1);
+}
+
+.la-01__tick {
+  stroke-dasharray: 32;
+  stroke-dashoffset: 32;
+  transition: stroke-dashoffset .5s .12s ease;
+}
+
+.la-01__item {
+  position: absolute;
+  inline-size: .85rem;
+  block-size: .85rem;
+  border-radius: .28rem;
+  background: var(--acc);
+  box-shadow: 0 4px 10px -4px var(--acc);
+  animation: la-01-drop 1.8s cubic-bezier(.5, 0, .6, 1) infinite;
+}
+
+.la-01__item--a {
+  --x: -1.5rem;
+  background: var(--acc);
+  animation-delay: 0s;
+}
+
+.la-01__item--b {
+  --x: 0rem;
+  background: #34d399;
+  animation-delay: .6s;
+}
+
+.la-01__item--c {
+  --x: 1.5rem;
+  background: #10b981;
+  animation-delay: 1.2s;
+}
+
+@keyframes la-01-drop {
+  0% {
+    translate: var(--x) -3.4rem;
+    opacity: 0;
+    rotate: -25deg;
+  }
+  22% {
+    opacity: 1;
+  }
+  60% {
+    translate: var(--x) -.1rem;
+    opacity: 1;
+    rotate: 8deg;
+  }
+  74%,
+  100% {
+    translate: var(--x) .5rem;
+    opacity: 0;
+    rotate: 14deg;
+  }
+}
+
+.la-01__copy {
+  display: grid;
+  gap: .3rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.la-01__label {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 600;
+  letter-spacing: -.02em;
+}
+
+.la-01__ready {
+  display: none;
+  color: var(--ok);
+}
+
+.la-01__meta {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: .78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.la-01__amt {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.la-01__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: .75rem;
+  letter-spacing: .02em;
+  color: var(--muted);
+}
+
+.la-01__step {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  opacity: .38;
+  animation: la-01-step var(--dur) linear infinite;
+}
+
+.la-01__step::before {
+  content: "";
+  inline-size: .42rem;
+  block-size: .42rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.la-01__step:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.la-01__step:nth-child(2) {
+  animation-delay: calc(var(--dur) / 3);
+}
+
+.la-01__step:nth-child(3) {
+  animation-delay: calc(var(--dur) * 2 / 3);
+}
+
+@keyframes la-01-step {
+  0%,
+  3% {
+    opacity: .34;
+    color: var(--muted);
+  }
+  8%,
+  30% {
+    opacity: 1;
+    color: var(--acc);
+  }
+  35%,
+  100% {
+    opacity: .34;
+    color: var(--muted);
+  }
+}
+
+.la-01__track {
+  inline-size: 100%;
+  block-size: .5rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.la-01__fill {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  inline-size: calc(var(--la-01-p, 68) * 1%);
+  background: linear-gradient(90deg, #34d399, var(--acc));
+  animation: la-01-count var(--dur) linear infinite;
+}
+
+.la-01__pct {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: .72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  counter-reset: la-01-pct var(--la-01-p, 68);
+  animation: la-01-count var(--dur) linear infinite;
+}
+
+.la-01__pct::after {
+  content: counter(la-01-pct) "%";
+}
+
+@keyframes la-01-count {
+  from {
+    --la-01-p: 0;
+  }
+  to {
+    --la-01-p: 100;
+  }
+}
+
+/* ── Completed State: what your success callback switches on ── */
+
+.la-01.is-ready .la-01__cart {
+  opacity: 0;
+  scale: .8;
+}
+
+.la-01.is-ready .la-01__seal {
+  opacity: 1;
+  scale: 1;
+}
+
+.la-01.is-ready .la-01__tick {
+  stroke-dashoffset: 0;
+}
+
+.la-01.is-ready .la-01__item,
+.la-01.is-ready .la-01__stage::before {
+  animation: none;
+  opacity: 0;
+}
+
+.la-01.is-ready .la-01__load {
+  display: none;
+}
+
+.la-01.is-ready .la-01__ready {
+  display: inline;
+}
+
+.la-01.is-ready .la-01__step {
+  animation: none;
+  opacity: 1;
+  color: var(--ok);
+}
+
+.la-01.is-ready .la-01__fill {
+  animation: none;
+  inline-size: 100%;
+  background: var(--ok);
+}
+
+.la-01.is-ready .la-01__pct {
+  animation: none;
+  --la-01-p: 100;
+}
+
+.la-01.is-ready .la-01__card {
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+/* ── Optional Theme & Done Chrome buttons (for interactive standalone testing) ── */
+.la-01__chrome {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 20;
+  display: flex;
+  gap: .5rem;
+}
+
+.la-01__btn {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition: background .25s ease, transform .25s cubic-bezier(.16, 1, .3, 1), color .25s ease;
+}
+
+.la-01__btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.la-01__btn svg {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.la-01__sun {
+  display: none;
+}
+
+.la-01__theme[aria-pressed="true"] .la-01__sun {
+  display: block;
+}
+
+.la-01__theme[aria-pressed="true"] .la-01__moon {
+  display: none;
+}
+
+.la-01__done[aria-pressed="true"] {
+  background: var(--ok);
+  border-color: transparent;
+  color: #fff;
+}
