@@ -23,7 +23,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     title: 'Transfer from Kuda Bank',
     category: 'Bank Inflow',
     sender: 'Kuda MFB • Chinedu Eze',
-    beneficiary: 'Babatunde Adeleke',
+    beneficiary: 'Demo Account',
     narration: 'Freelance Design Reimbursement',
     date: 'Today, 3:15 PM',
     type: 'inflow',
@@ -35,7 +35,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     ref: 'MP-TX-20260923-741920',
     title: 'Payment to Jumia Nigeria',
     category: 'Online Merchant',
-    sender: 'Babatunde Adeleke',
+    sender: 'Demo Account',
     beneficiary: 'Jumia Nigeria Online Checkout',
     narration: 'Office Electronics & Accessories',
     date: 'Today, 1:40 PM',
@@ -49,7 +49,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     title: 'Flutterwave Payout',
     category: 'Merchant Settlement',
     sender: 'Flutterwave Technologies Ltd',
-    beneficiary: 'Babatunde Adeleke',
+    beneficiary: 'Demo Account',
     narration: 'Merchant Weekly Settlement Payout',
     date: 'Yesterday, 6:10 PM',
     type: 'inflow',
@@ -61,7 +61,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     ref: 'MP-TX-20260922-384910',
     title: 'Cafe Neo • Victoria Island',
     category: 'POS Payment',
-    sender: 'Babatunde Adeleke',
+    sender: 'Demo Account',
     beneficiary: 'Cafe Neo Lagos VI (POS #4091)',
     narration: 'Lunch & Coffee Order',
     date: 'Yesterday, 11:20 AM',
@@ -74,7 +74,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     ref: 'MP-TX-20260921-294819',
     title: 'EKEDC Electricity Bill',
     category: 'Electricity Utility',
-    sender: 'Babatunde Adeleke',
+    sender: 'Demo Account',
     beneficiary: 'Eko Electric (EKEDC - 04192847291)',
     narration: 'EKEDC Prepaid Meter Recharge',
     date: '21 Sep 2026, 09:14 AM',
@@ -89,7 +89,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     ref: 'MP-TX-20260920-583920',
     title: 'MTN Airtime & Data Bundle',
     category: 'Mobile Network VTU',
-    sender: 'Babatunde Adeleke',
+    sender: 'Demo Account',
     beneficiary: 'MTN Nigeria (08031234567)',
     narration: 'Mobile Airtime & Data Bundle',
     date: '20 Sep 2026, 04:30 PM',
@@ -99,14 +99,14 @@ const DEFAULT_DEMO_TRANSACTIONS = [
   }
 ];
 
-// Default Demo User for instant testing
+// Default Demo User for instant preview / fallback
 const DEFAULT_DEMO_USER = {
-  fullName: 'Babatunde Adeleke',
-  email: 'babatunde@example.ng',
+  fullName: 'MidePay Demo',
+  email: 'demo@midepay.ng',
   phone: '8031234567',
   password: 'password123',
-  tag: '@babatunde',
-  nuban: '9048291048',
+  tag: '@midepaydemo',
+  nuban: '9021849102',
   bank: 'Providus Bank'
 };
 
@@ -201,10 +201,36 @@ function formatNaira(amount) {
   });
 }
 
-// Extract First Name
+// Generate Unique 10-Digit Nigerian NUBAN
+function generateUserNuban(seed) {
+  if (!seed) return '90' + Math.floor(10000000 + Math.random() * 90000000);
+  let hash = 0;
+  const str = String(seed).trim().toLowerCase();
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const pos = Math.abs(hash);
+  const numPart = (pos % 90000000 + 10000000).toString();
+  return '90' + numPart;
+}
+
+// Format 10-digit NUBAN with clean spacing (e.g. 9012 3456 78)
+function formatNubanDisplay(nuban) {
+  if (!nuban) return '9000 0000 00';
+  const clean = String(nuban).replace(/\s+/g, '');
+  if (clean.length === 10) {
+    return `${clean.slice(0, 4)} ${clean.slice(4, 8)} ${clean.slice(8)}`;
+  }
+  return clean;
+}
+
+// Extract First Name or Display Name
 function getFirstName(fullName) {
   if (!fullName) return 'User';
-  return fullName.trim().split(' ')[0];
+  const trimmed = fullName.trim();
+  if (trimmed.length <= 15) return trimmed;
+  return trimmed.split(' ')[0];
 }
 
 // Show Toast Notification
@@ -462,9 +488,11 @@ function openReceiptModal(receiptData) {
   }
   if (elRef) elRef.textContent = receiptData.ref || ('MP-TX-' + Date.now().toString().slice(-8));
   if (elCategory) elCategory.textContent = receiptData.category || (receiptData.type === 'inflow' ? 'Deposit / Inflow' : 'Transfer Outflow');
-  if (elSender) elSender.textContent = receiptData.sender || state.user?.fullName || 'Babatunde Adeleke';
+  if (elSender) elSender.textContent = receiptData.sender || state.user?.fullName || 'Account Holder';
   if (elBeneficiary) elBeneficiary.textContent = receiptData.beneficiary || receiptData.title || 'MidePay Beneficiary';
   if (elNarration) elNarration.textContent = receiptData.narration || receiptData.title || 'MidePay Financial Transaction';
+  const elSourceAcc = document.getElementById('receipt-source-account');
+  if (elSourceAcc) elSourceAcc.textContent = `${state.user?.bank || 'Providus Bank'} • ${state.user?.nuban || '9000 0000 00'}`;
 
   // 20-digit Prepaid Electricity Token Container
   if (receiptData.token && tokenContainer) {
@@ -480,37 +508,68 @@ function openReceiptModal(receiptData) {
 
 // Synchronize User Data to Dashboard Elements
 function syncUserToDashboard() {
-  const user = state.user || DEFAULT_DEMO_USER;
-  const firstName = getFirstName(user.fullName);
+  const user = state.user;
+  if (!user) {
+    const greetingEl = document.getElementById('dash-greeting-text');
+    if (greetingEl) greetingEl.textContent = 'Welcome back 👋';
+    const emailEl = document.getElementById('dash-email-tag');
+    if (emailEl) emailEl.textContent = 'wallet@midepay.ng';
+    const nubanEl = document.getElementById('dash-nuban-text');
+    if (nubanEl) nubanEl.textContent = '9000 0000 00';
+    const tagEl = document.getElementById('dash-tag-text');
+    if (tagEl) tagEl.textContent = '@midepay';
+    return;
+  }
+
+  const displayName = user.fullName || 'MidePay User';
+  const displayNuban = user.nuban || generateUserNuban(user.email || displayName);
+  user.nuban = displayNuban;
 
   // Top header greeting
   const greetingEl = document.getElementById('dash-greeting-text');
-  if (greetingEl) greetingEl.textContent = `Welcome back, ${firstName} 👋`;
+  if (greetingEl) greetingEl.textContent = `Welcome back, ${displayName} 👋`;
 
   // Email meta
   const emailEl = document.getElementById('dash-email-tag');
-  if (emailEl) emailEl.textContent = user.email;
+  if (emailEl) emailEl.textContent = user.email || '';
 
   // Account details
   const nubanEl = document.getElementById('dash-nuban-text');
-  if (nubanEl) nubanEl.textContent = user.nuban || '9048291048';
+  if (nubanEl) nubanEl.textContent = formatNubanDisplay(displayNuban);
 
   const tagEl = document.getElementById('dash-tag-text');
-  if (tagEl) tagEl.textContent = user.tag || `@${firstName.toLowerCase()}`;
+  const cleanTag = user.tag || `@${displayName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+  if (tagEl) tagEl.textContent = cleanTag;
 
   // Nav avatar pill
   const navInitials = document.getElementById('nav-user-initials');
-  if (navInitials) navInitials.textContent = firstName.charAt(0).toUpperCase();
+  if (navInitials) navInitials.textContent = displayName.charAt(0).toUpperCase();
 
   const navName = document.getElementById('nav-user-name');
-  if (navName) navName.textContent = firstName;
+  if (navName) navName.textContent = displayName.length > 15 ? displayName.split(' ')[0] : displayName;
 
   // Beneficiary in Add Modal
   const modalBeneficiary = document.getElementById('modal-user-beneficiary');
-  if (modalBeneficiary) modalBeneficiary.textContent = user.fullName;
+  if (modalBeneficiary) modalBeneficiary.textContent = displayName;
 
   const modalNuban = document.getElementById('modal-nuban-copy');
-  if (modalNuban) modalNuban.textContent = user.nuban || '9048291048';
+  if (modalNuban) modalNuban.textContent = displayNuban;
+
+  // Card holder name in Virtual Card
+  const cardHolder = document.getElementById('card-holder-name');
+  if (cardHolder) cardHolder.textContent = displayName.toUpperCase();
+
+  // Receipt sender & source account
+  const receiptSender = document.getElementById('receipt-sender');
+  if (receiptSender) receiptSender.textContent = displayName;
+
+  const receiptSourceAcc = document.getElementById('receipt-source-account');
+  if (receiptSourceAcc) receiptSourceAcc.textContent = `${user.bank || 'Providus Bank'} • ${displayNuban}`;
+
+  // Keep saved in localStorage
+  try {
+    localStorage.setItem('midepay_user', JSON.stringify(user));
+  } catch (e) {}
 }
 
 // Query and Load Live Dashboard Data from Supabase
@@ -528,18 +587,18 @@ async function loadDashboardData() {
       const authUser = data?.user;
       if (authUser) {
         currentUserId = authUser.id;
-        if (!state.user || state.user.id !== authUser.id) {
-          const profile = await window.MidePayDB.getProfile(authUser.id);
-          state.user = {
-            id: authUser.id,
-            fullName: profile?.full_name || authUser.user_metadata?.full_name || 'MidePay User',
-            email: authUser.email,
-            phone: profile?.phone || authUser.user_metadata?.phone || '',
-            tag: profile?.tag || `@${getFirstName(profile?.full_name || authUser.email).toLowerCase()}`,
-            nuban: '9048291048',
-            bank: 'Providus Bank'
-          };
-        }
+        const profile = await window.MidePayDB.getProfile(authUser.id);
+        const name = profile?.full_name || authUser.user_metadata?.full_name || state.user?.fullName || authUser.email.split('@')[0];
+        const nuban = state.user?.nuban || generateUserNuban(authUser.email || authUser.id);
+        state.user = {
+          id: authUser.id,
+          fullName: name,
+          email: authUser.email,
+          phone: profile?.phone || authUser.user_metadata?.phone || state.user?.phone || '',
+          tag: profile?.tag || state.user?.tag || `@${name.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+          nuban: nuban,
+          bank: 'Providus Bank'
+        };
       }
     }
 
@@ -641,17 +700,20 @@ document.addEventListener('DOMContentLoaded', () => {
     window.MidePayDB.getCurrentUser().then(async (supaUser) => {
       if (supaUser) {
         const profile = await window.MidePayDB.getProfile(supaUser.id);
+        const name = profile?.full_name || supaUser.user_metadata?.full_name || state.user?.fullName || supaUser.email.split('@')[0];
+        const userNuban = state.user?.nuban || generateUserNuban(supaUser.email || supaUser.id);
         state.user = {
           id: supaUser.id,
-          fullName: profile?.full_name || supaUser.user_metadata?.full_name || 'MidePay User',
+          fullName: name,
           email: supaUser.email,
           phone: profile?.phone || '',
-          tag: profile?.tag || `@${getFirstName(profile?.full_name || supaUser.email).toLowerCase()}`,
-          nuban: '9048291048',
+          tag: profile?.tag || state.user?.tag || `@${name.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+          nuban: userNuban,
           bank: 'Providus Bank'
         };
         localStorage.setItem('midepay_user', JSON.stringify(state.user));
         localStorage.setItem('midepay_session', JSON.stringify({ email: state.user.email, loggedIn: true }));
+        syncUserToDashboard();
         await loadDashboardData();
       }
     }).catch(console.warn);
@@ -933,18 +995,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (supaUser) supaUserId = supaUser.id;
       }
 
-      const firstName = getFirstName(fullName);
-      const generatedTag = `@${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-      const randomNuban = '90' + Math.floor(10000000 + Math.random() * 90000000);
+      const uniqueNuban = generateUserNuban(email || fullName);
+      const cleanTag = `@${fullName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
       const newUser = {
         id: supaUserId || 'user-' + Date.now(),
-        fullName,
-        email,
-        phone,
-        password,
-        tag: generatedTag,
-        nuban: randomNuban,
+        fullName: fullName,
+        email: email,
+        phone: phone,
+        password: password,
+        tag: cleanTag,
+        nuban: uniqueNuban,
         bank: 'Providus Bank',
         registeredAt: new Date().toISOString()
       };
@@ -954,20 +1015,21 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('midepay_session', JSON.stringify({ email: newUser.email, loggedIn: true }));
 
       state.user = newUser;
+      state.dashBalance = 0.00;
+      state.transactions = [];
+
+      // CRITICAL: Always immediately sync newly registered account to dashboard UI
+      syncUserToDashboard();
+      renderBalances();
+      renderDashboardTransactions();
 
       if (supaUserId) {
-        // Query live Supabase database for the new user's wallet and transactions
-        await loadDashboardData();
-      } else {
-        state.dashBalance = 0.00;
-        state.transactions = [];
-        syncUserToDashboard();
-        renderBalances();
-        renderDashboardTransactions();
+        // Query live Supabase database for any existing wallet or data without blocking UI
+        loadDashboardData().catch(console.warn);
       }
 
       showView('dashboard');
-      showToast(`Welcome to MidePay, ${firstName}! Your wallet is ready.`);
+      showToast(`Welcome to MidePay, ${fullName}! Your unique account is ready.`);
     });
   }
 
@@ -1033,22 +1095,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (supaUser) {
           const profile = await window.MidePayDB.getProfile(supaUser.id);
+          const userName = profile?.full_name || supaUser.user_metadata?.full_name || state.user?.fullName || email.split('@')[0];
+          const userNuban = state.user?.nuban || generateUserNuban(supaUser.email || supaUser.id);
           matchedUser = {
             id: supaUser.id,
-            fullName: profile?.full_name || supaUser.user_metadata?.full_name || 'MidePay User',
+            fullName: userName,
             email: supaUser.email,
             phone: profile?.phone || '',
-            tag: profile?.tag || `@${getFirstName(profile?.full_name || supaUser.email).toLowerCase()}`,
-            nuban: '9048291048',
+            tag: profile?.tag || state.user?.tag || `@${userName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+            nuban: userNuban,
             bank: 'Providus Bank'
           };
           state.user = matchedUser;
           localStorage.setItem('midepay_user', JSON.stringify(matchedUser));
           localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
 
+          syncUserToDashboard();
           await loadDashboardData();
           showView('dashboard');
-          showToast(`Welcome back, ${getFirstName(matchedUser.fullName)}!`);
+          showToast(`Welcome back, ${matchedUser.fullName}!`);
           return;
         }
       }
@@ -1068,18 +1133,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Check default demo credentials
       if (!matchedUser && email.toLowerCase() === DEFAULT_DEMO_USER.email.toLowerCase() && password === DEFAULT_DEMO_USER.password) {
-        matchedUser = DEFAULT_DEMO_USER;
+        matchedUser = { ...DEFAULT_DEMO_USER };
       }
 
       if (matchedUser) {
         // Successful login
         state.user = matchedUser;
+        if (!matchedUser.nuban) matchedUser.nuban = generateUserNuban(matchedUser.email);
+        localStorage.setItem('midepay_user', JSON.stringify(matchedUser));
         localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
         syncUserToDashboard();
         renderBalances();
         renderDashboardTransactions();
         showView('dashboard');
-        showToast(`Welcome back, ${getFirstName(matchedUser.fullName)}!`);
+        showToast(`Welcome back, ${matchedUser.fullName}!`);
       } else {
         showLoginError('Invalid email or password. Use "Use Demo Account" or register a new wallet.');
       }
@@ -1133,15 +1200,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (copyNubanBtn) {
     copyNubanBtn.addEventListener('click', () => {
-      const user = state.user || DEFAULT_DEMO_USER;
-      copyNuban(user.nuban || '9048291048');
+      const num = state.user?.nuban || document.getElementById('dash-nuban-text')?.textContent.replace(/\s+/g, '') || generateUserNuban('user');
+      copyNuban(num);
     });
   }
 
   if (modalCopyBtn) {
     modalCopyBtn.addEventListener('click', () => {
-      const user = state.user || DEFAULT_DEMO_USER;
-      copyNuban(user.nuban || '9048291048');
+      const num = state.user?.nuban || document.getElementById('modal-nuban-copy')?.textContent.trim() || generateUserNuban('user');
+      copyNuban(num);
     });
   }
 
@@ -1397,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ref: txRef,
         title: `Transfer to ${recipientDisplayName}`,
         category: 'Bank Transfer',
-        sender: state.user?.fullName || 'Babatunde Adeleke',
+        sender: state.user?.fullName || 'Account Holder',
         beneficiary: `${recipientDisplayName} (${dest})`,
         narration: note,
         date: 'Just now',
@@ -1458,7 +1525,7 @@ document.addEventListener('DOMContentLoaded', () => {
         title: 'Wallet Funding Deposit',
         category: 'Card & Bank Funding',
         sender: 'Providus Bank Checkout',
-        beneficiary: state.user?.fullName || 'Babatunde Adeleke',
+        beneficiary: state.user?.fullName || 'Account Holder',
         narration: 'Instant Wallet Inflow via Providus Virtual NUBAN',
         date: 'Just now',
         type: 'inflow',
@@ -1651,7 +1718,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ref: txRef,
         title: description,
         category: airtimeServiceMode === 'airtime' ? 'Airtime VTU' : 'Data Bundle VTU',
-        sender: state.user?.fullName || 'Babatunde Adeleke',
+        sender: state.user?.fullName || 'Account Holder',
         beneficiary: `${airtimeNetwork} (${phone})`,
         narration: description,
         date: 'Just now',
@@ -1671,7 +1738,7 @@ document.addEventListener('DOMContentLoaded', () => {
         title: `3% Airtime Cashback (${airtimeNetwork})`,
         category: 'Cashback Reward',
         sender: 'MidePay Loyalty Rewards',
-        beneficiary: state.user?.fullName || 'Babatunde Adeleke',
+        beneficiary: state.user?.fullName || 'Account Holder',
         narration: `3% instant cashback for ${description}`,
         date: 'Just now',
         type: 'inflow',
@@ -1890,7 +1957,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Please enter a valid 11 or 13 digit meter number.', 'error');
         return;
       }
-      const userName = state.user?.fullName || 'Babatunde Adeleke';
+      const userName = state.user?.fullName || 'Account Holder';
       if (meterVerifiedStatus) {
         meterVerifiedStatus.textContent = `✓ Customer: ${userName} (Meter Verified)`;
         meterVerifiedStatus.classList.remove('hidden');
@@ -1907,7 +1974,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Please enter a valid 10-digit Smartcard/IUC number.', 'error');
         return;
       }
-      const userName = state.user?.fullName || 'Babatunde Adeleke';
+      const userName = state.user?.fullName || 'Account Holder';
       if (cableVerifiedStatus) {
         cableVerifiedStatus.textContent = `✓ Smartcard: ${userName} (Active)`;
         cableVerifiedStatus.classList.remove('hidden');
@@ -2009,7 +2076,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ref: txRef,
         title: txTitle,
         category: txCategory,
-        sender: state.user?.fullName || 'Babatunde Adeleke',
+        sender: state.user?.fullName || 'Account Holder',
         beneficiary: txBeneficiary,
         narration: txNarration,
         date: 'Just now',
@@ -2234,7 +2301,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       }
     }
 
-    const currentUserName = (state.user?.fullName || 'BABATUNDE ADELEKE').toUpperCase();
+    const currentUserName = (state.user?.fullName || 'ACCOUNT HOLDER').toUpperCase();
     if (cardHolderName) cardHolderName.textContent = currentUserName;
     if (cardExpiryVal) cardExpiryVal.textContent = card.expiry;
 
@@ -2335,7 +2402,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   if (btnCopyCard) {
     btnCopyCard.addEventListener('click', () => {
       const card = virtualCardState[virtualCardState.activeType];
-      const holder = (state.user?.fullName || 'BABATUNDE ADELEKE').toUpperCase();
+      const holder = (state.user?.fullName || 'ACCOUNT HOLDER').toUpperCase();
       const cardDetails = `Card: ${card.title}\nNumber: ${card.fullPan}\nExpires: ${card.expiry}\nCVV: ${card.cvv}\nCardholder: ${holder}`;
       navigator.clipboard.writeText(cardDetails).then(() => {
         showToast(`📋 Copied ${card.title} details to clipboard!`);

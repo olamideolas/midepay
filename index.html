@@ -958,10 +958,10 @@
       <!-- Dashboard Top Header Bar -->
       <div class="dashboard-header-bar">
         <div class="user-greeting-box">
-          <h1 class="dash-greeting" id="dash-greeting-text">Welcome back, Babatunde 👋</h1>
+          <h1 class="dash-greeting" id="dash-greeting-text">Welcome back 👋</h1>
           <div class="dash-meta-row">
             <span class="badge-gold-sm">Tier 2 Verified</span>
-            <span class="meta-tag" id="dash-email-tag">babatunde@example.ng</span>
+            <span class="meta-tag" id="dash-email-tag">wallet@midepay.ng</span>
           </div>
         </div>
 
@@ -1014,7 +1014,7 @@
               <div class="acc-detail-item">
                 <span class="acc-detail-label">Virtual Account (Providus)</span>
                 <div class="acc-number-row">
-                  <span class="acc-number" id="dash-nuban-text">9048291048</span>
+                  <span class="acc-number" id="dash-nuban-text">9000 0000 00</span>
                   <button class="btn-copy-acc" id="copy-nuban-btn" title="Copy account number">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -1026,7 +1026,7 @@
               </div>
               <div class="acc-detail-item">
                 <span class="acc-detail-label">Your MideTag</span>
-                <span class="acc-tag" id="dash-tag-text">@babatunde</span>
+                <span class="acc-tag" id="dash-tag-text">@midepay</span>
               </div>
             </div>
 
@@ -1141,44 +1141,101 @@
         <div class="form-group">
           <label class="form-label">Popular Nigerian Banks</label>
           <div class="bank-quick-grid" id="popular-banks-grid">
-            <button type="button" class="bank-quick-btn" data-bank="OPay">
-              <div class="bank-badge-icon" style="background:#00B875;">O</div>
+            <button type="button" class="bank-quick-btn" data-bank="OPay" title="OPay Digital Services">
+              <div class="bank-badge-icon" style="background:#00B875;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="8.5" stroke="#FFF" stroke-width="2.8"/>
+                  <path d="M12 3.5 A8.5 8.5 0 0 1 20.5 12" stroke="#A7F3D0" stroke-width="2.8" stroke-linecap="round"/>
+                  <circle cx="12" cy="12" r="2.8" fill="#FFF"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">OPay</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="PalmPay">
-              <div class="bank-badge-icon" style="background:#5C24FF;">P</div>
+            <button type="button" class="bank-quick-btn" data-bank="PalmPay" title="PalmPay">
+              <div class="bank-badge-icon" style="background:#6366F1;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#FFF"/>
+                  <circle cx="12" cy="8.5" r="2.2" fill="#6366F1"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">PalmPay</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="Kuda Bank">
-              <div class="bank-badge-icon" style="background:#40196D;">K</div>
+            <button type="button" class="bank-quick-btn" data-bank="Kuda Bank" title="Kuda Microfinance Bank">
+              <div class="bank-badge-icon" style="background:#40196D;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <rect x="5.5" y="4" width="3.2" height="16" rx="1.6" fill="#00D287"/>
+                  <path d="M18 5L9.5 12.5L18 20" stroke="#FFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">Kuda</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="Moniepoint">
-              <div class="bank-badge-icon" style="background:#032B69;">M</div>
+            <button type="button" class="bank-quick-btn" data-bank="Moniepoint" title="Moniepoint Microfinance Bank">
+              <div class="bank-badge-icon" style="background:#032B69;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 19V9l8 6 8-6v10" stroke="#38BDF8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4 14l8-7 8 7" stroke="#FBBF24" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">Moniepoint</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="GTBank">
-              <div class="bank-badge-icon" style="background:#DD4F05;">GT</div>
+            <button type="button" class="bank-quick-btn" data-bank="GTBank" title="Guaranty Trust Bank (GTBank)">
+              <div class="bank-badge-icon" style="background:#E65100;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="#FFF"/>
+                  <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="#E65100"/>
+                  <circle cx="14.5" cy="9.5" r="1.5" fill="#FFF"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">GTBank</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="Access Bank">
-              <div class="bank-badge-icon" style="background:#E85D04;">AC</div>
+            <button type="button" class="bank-quick-btn" data-bank="Access Bank" title="Access Bank Plc">
+              <div class="bank-badge-icon" style="background:#0A1833;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 12l5-5 5 5-5 5-5-5z" fill="#F97316"/>
+                  <path d="M11 12l4-4 4 4-4 4-4-4z" fill="#38BDF8"/>
+                  <path d="M8 12l3-3 3 3-3 3-3-3z" fill="#FFF"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">Access</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="Zenith Bank">
-              <div class="bank-badge-icon" style="background:#E11928;">Z</div>
+            <button type="button" class="bank-quick-btn" data-bank="Zenith Bank" title="Zenith Bank Plc">
+              <div class="bank-badge-icon" style="background:#DC2626;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 6h14l-8.5 12H19" stroke="#FFF" stroke-width="3.2" stroke-linecap="square" stroke-linejoin="miter"/>
+                  <line x1="7" y1="12" x2="17" y2="12" stroke="#FFF" stroke-width="2"/>
+                  <circle cx="16.5" cy="8.5" r="1.5" fill="#DC2626"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">Zenith</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="United Bank for Africa (UBA)">
-              <div class="bank-badge-icon" style="background:#CF0000;">UBA</div>
+            <button type="button" class="bank-quick-btn" data-bank="United Bank for Africa (UBA)" title="United Bank for Africa (UBA)">
+              <div class="bank-badge-icon" style="background:#B91C1C;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 7v6c0 3.3 2.7 6 6 6s6-2.7 6-6V7" stroke="#FFF" stroke-width="2.5" stroke-linecap="round"/>
+                  <path d="M9 10v3c0 1.7 1.3 3 3 3s3-1.3 3-3v-3" stroke="#FFF" stroke-width="2" stroke-linecap="round"/>
+                  <circle cx="12" cy="5.5" r="1.5" fill="#FFF"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">UBA</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="First Bank of Nigeria">
-              <div class="bank-badge-icon" style="background:#002D62; border: 1px solid #D4AF37;">FBN</div>
+            <button type="button" class="bank-quick-btn" data-bank="First Bank of Nigeria" title="First Bank of Nigeria">
+              <div class="bank-badge-icon" style="background:#002D62;">
+                <svg width="24" height="22" viewBox="0 0 26 24" fill="none">
+                  <path d="M7 16c0-4 2-7 6-7 3.5 0 5.5 2 6 5 .3 1.8-.5 3-2 3.5-1.5.5-2.5 0-3-1.5 0 2-1 3-3 3-2.5 0-4-1.5-4-3z" fill="#D4AF37"/>
+                  <path d="M19 14c1 0 2.5 1.5 2 3.5-.5 2-2.5 2.5-3.5 2.5" stroke="#FFF" stroke-width="1.5" stroke-linecap="round"/>
+                  <circle cx="11" cy="11" r="1" fill="#002D62"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">FirstBank</span>
             </button>
-            <button type="button" class="bank-quick-btn" data-bank="Providus Bank">
-              <div class="bank-badge-icon" style="background:#222; color:#D4AF37; border: 1px solid #D4AF37;">PB</div>
+            <button type="button" class="bank-quick-btn" data-bank="Providus Bank" title="Providus Bank">
+              <div class="bank-badge-icon" style="background:#18181B; border:1px solid rgba(212,175,55,0.45);">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3.5l7.5 4.3v8.4l-7.5 4.3-7.5-4.3V7.8l7.5-4.3z" stroke="#D4AF37" stroke-width="1.6" fill="none"/>
+                  <path d="M12 6.8l4.5 2.6v5.2L12 17.2l-4.5-2.6V9.4L12 6.8z" fill="#D4AF37"/>
+                  <circle cx="12" cy="12" r="1.8" fill="#18181B"/>
+                </svg>
+              </div>
               <span class="bank-badge-name">Providus</span>
             </button>
           </div>
@@ -1298,10 +1355,10 @@
           <div class="fund-label">Transfer from any Nigerian Bank app:</div>
           <div class="fund-bank-name">Providus Bank</div>
           <div class="fund-nuban-row">
-            <span class="fund-nuban-code" id="modal-nuban-copy">9048291048</span>
+            <span class="fund-nuban-code" id="modal-nuban-copy">9000000000</span>
             <button type="button" class="btn-copy-acc" id="modal-copy-btn">Copy</button>
           </div>
-          <div class="fund-beneficiary">Beneficiary: <strong id="modal-user-beneficiary">MidePay User</strong></div>
+          <div class="fund-beneficiary">Beneficiary: <strong id="modal-user-beneficiary">Account Holder</strong></div>
         </div>
 
         <div class="divider-text">OR SIMULATE INSTANT TOP-UP</div>
@@ -1500,27 +1557,42 @@
           <div class="form-group">
             <label class="form-label">Popular Electricity DisCos</label>
             <div class="brand-selector-grid" id="disco-quick-grid">
-              <button type="button" class="brand-select-btn active" data-disco="IKEDC - Ikeja Electric">
-                <div class="brand-icon-box" style="background: linear-gradient(135deg, #DC2626, #991B1B); color:#FFF;">
-                  ⚡
+              <button type="button" class="brand-select-btn active" data-disco="IKEDC - Ikeja Electric" title="Ikeja Electric (IKEDC)">
+                <div class="brand-icon-box" style="background:#B91C1C;">
+                  <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                    <polygon points="16,3 8,15 14,15 12,25 21,11 15,11" fill="#FEF08A"/>
+                  </svg>
                 </div>
                 <span class="brand-select-title">IKEDC (Ikeja)</span>
               </button>
-              <button type="button" class="brand-select-btn" data-disco="EKEDC - Eko Electric">
-                <div class="brand-icon-box" style="background: linear-gradient(135deg, #0284C7, #0369A1); color:#FFF;">
-                  🌊
+              <button type="button" class="brand-select-btn" data-disco="EKEDC - Eko Electric" title="Eko Electric (EKEDC)">
+                <div class="brand-icon-box" style="background:#0284C7;">
+                  <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                    <path d="M5 14c3-4 6-4 9 0s6 4 9 0" stroke="#FFF" stroke-width="2.6" stroke-linecap="round"/>
+                    <path d="M5 19c3-4 6-4 9 0s6 4 9 0" stroke="#BAE6FD" stroke-width="2.6" stroke-linecap="round"/>
+                    <circle cx="14" cy="8" r="3" fill="#FEF08A"/>
+                  </svg>
                 </div>
                 <span class="brand-select-title">EKEDC (Eko)</span>
               </button>
-              <button type="button" class="brand-select-btn" data-disco="AEDC - Abuja Electricity">
-                <div class="brand-icon-box" style="background: linear-gradient(135deg, #D97706, #B45309); color:#FFF;">
-                  🏛️
+              <button type="button" class="brand-select-btn" data-disco="AEDC - Abuja Electricity" title="Abuja Electricity (AEDC)">
+                <div class="brand-icon-box" style="background:#D97706;">
+                  <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                    <path d="M14 4L7 24h14L14 4z" stroke="#FFF" stroke-width="2.2" fill="none"/>
+                    <line x1="9" y1="12" x2="19" y2="12" stroke="#FFF" stroke-width="2"/>
+                    <line x1="8" y1="18" x2="20" y2="18" stroke="#FFF" stroke-width="2"/>
+                    <line x1="9" y1="12" x2="19" y2="18" stroke="#FEF08A" stroke-width="1.8"/>
+                  </svg>
                 </div>
                 <span class="brand-select-title">AEDC (Abuja)</span>
               </button>
-              <button type="button" class="brand-select-btn" data-disco="IBEDC - Ibadan Electricity">
-                <div class="brand-icon-box" style="background: linear-gradient(135deg, #059669, #047857); color:#FFF;">
-                  💡
+              <button type="button" class="brand-select-btn" data-disco="IBEDC - Ibadan Electricity" title="Ibadan Electricity (IBEDC)">
+                <div class="brand-icon-box" style="background:#059669;">
+                  <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                    <path d="M14 5a6 6 0 0 0-4 10.5V19h8v-3.5A6 6 0 0 0 14 5z" fill="#FFF"/>
+                    <rect x="12" y="20" width="4" height="3" rx="1" fill="#FEF08A"/>
+                    <path d="M14 8v5" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
                 </div>
                 <span class="brand-select-title">IBEDC (Ibadan)</span>
               </button>
@@ -1568,7 +1640,7 @@
               >
               <button type="button" class="btn-verify-input" id="btn-verify-meter">Verify</button>
             </div>
-            <span class="form-hint text-success" id="meter-verified-status">✓ Customer: Babatunde Adeleke (Meter Verified)</span>
+            <span class="form-hint text-success" id="meter-verified-status">✓ Customer: Meter Verified & Active</span>
           </div>
 
           <div class="form-group">
@@ -1600,27 +1672,40 @@
           <div class="form-group">
             <label class="form-label">Select Cable TV Provider</label>
             <div class="brand-selector-grid" id="cable-quick-grid">
-              <button type="button" class="brand-select-btn active" data-cable="DSTV">
-                <div class="brand-icon-box" style="background: linear-gradient(135deg, #0055A5, #003366); color:#FFF; font-weight:900; font-size:0.75rem;">
-                  DStv
+              <button type="button" class="brand-select-btn active" data-cable="DSTV" title="DStv Nigeria">
+                <div class="brand-icon-box" style="background:#0055A5;">
+                  <svg width="34" height="18" viewBox="0 0 46 22" fill="none">
+                    <path d="M4 3h14c6 0 10 3.5 10 8s-4 8-10 8H4V3z" fill="#003366"/>
+                    <path d="M10 6h8c3.5 0 6 2 6 5s-2.5 5-6 5h-8V6z" fill="#FFF"/>
+                    <path d="M26 14l5-6h4l-5 6 5 5h-4l-5-5z" fill="#38BDF8"/>
+                    <text x="32" y="16" font-family="'Inter', sans-serif" font-weight="900" font-size="9" fill="#FFF">tv</text>
+                  </svg>
                 </div>
                 <span class="brand-select-title">DStv</span>
               </button>
-              <button type="button" class="brand-select-btn" data-cable="GOTV">
-                <div class="brand-icon-box" style="background: linear-gradient(135deg, #72BE44, #4D8B28); color:#FFF; font-weight:900; font-size:0.75rem;">
-                  GOtv
+              <button type="button" class="brand-select-btn" data-cable="GOTV" title="GOtv Nigeria">
+                <div class="brand-icon-box" style="background:#5B9E2D;">
+                  <svg width="34" height="18" viewBox="0 0 44 22" fill="none">
+                    <text x="3" y="16" font-family="'Arial Black', sans-serif" font-weight="900" font-size="13" fill="#FFF" letter-spacing="-0.5">GO<tspan fill="#FDE047">tv</tspan></text>
+                  </svg>
                 </div>
                 <span class="brand-select-title">GOtv</span>
               </button>
-              <button type="button" class="brand-select-btn" data-cable="StarTimes">
-                <div class="brand-icon-box" style="background: linear-gradient(135deg, #FF6600, #CC5200); color:#FFF; font-weight:900; font-size:0.65rem;">
-                  ⭐ Star
+              <button type="button" class="brand-select-btn" data-cable="StarTimes" title="StarTimes">
+                <div class="brand-icon-box" style="background:#FF6600;">
+                  <svg width="34" height="18" viewBox="0 0 46 22" fill="none">
+                    <polygon points="12,3 14,8 19,8 15,12 17,17 12,14 7,17 9,12 5,8 10,8" fill="#FFF"/>
+                    <text x="21" y="15" font-family="'Inter', sans-serif" font-weight="900" font-size="9" fill="#FFF">Star</text>
+                  </svg>
                 </div>
                 <span class="brand-select-title">StarTimes</span>
               </button>
-              <button type="button" class="brand-select-btn" data-cable="Showmax">
-                <div class="brand-icon-box" style="background: linear-gradient(135deg, #831843, #500724); color:#F43F5E; font-weight:900; font-size:0.65rem;">
-                  Showmax
+              <button type="button" class="brand-select-btn" data-cable="Showmax" title="Showmax">
+                <div class="brand-icon-box" style="background:#831843;">
+                  <svg width="34" height="18" viewBox="0 0 46 22" fill="none">
+                    <polygon points="10,5 10,17 20,11" fill="#F43F5E"/>
+                    <text x="22" y="15" font-family="'Inter', sans-serif" font-weight="900" font-size="8" fill="#FFF">max</text>
+                  </svg>
                 </div>
                 <span class="brand-select-title">Showmax</span>
               </button>
@@ -1649,7 +1734,7 @@
               >
               <button type="button" class="btn-verify-input" id="btn-verify-cable">Verify</button>
             </div>
-            <span class="form-hint text-success" id="cable-verified-status">✓ Smartcard: Babatunde Adeleke (Active)</span>
+            <span class="form-hint text-success" id="cable-verified-status">✓ Smartcard: Customer Verified (Active)</span>
           </div>
 
           <div class="form-group">
@@ -1732,7 +1817,7 @@
           <div class="card-bottom-row">
             <div class="card-holder-col">
               <span class="card-label">CARDHOLDER</span>
-              <span class="card-val" id="card-holder-name">BABATUNDE ADELEKE</span>
+              <span class="card-val" id="card-holder-name">ACCOUNT HOLDER</span>
             </div>
             <div class="card-expiry-col">
               <span class="card-label">EXPIRES</span>
@@ -1888,17 +1973,17 @@
 
           <div class="receipt-row">
             <span class="receipt-key">Sender / Payer</span>
-            <span class="receipt-val" id="receipt-sender">Babatunde Adeleke</span>
+            <span class="receipt-val" id="receipt-sender">Account Holder</span>
           </div>
 
           <div class="receipt-row">
             <span class="receipt-key">Beneficiary / Recipient</span>
-            <span class="receipt-val" id="receipt-beneficiary">Ikeja Electric (04192847291)</span>
+            <span class="receipt-val" id="receipt-beneficiary">Beneficiary Account</span>
           </div>
 
           <div class="receipt-row">
             <span class="receipt-key">Source Account</span>
-            <span class="receipt-val">Providus Bank • 9048291048</span>
+            <span class="receipt-val" id="receipt-source-account">Providus Bank</span>
           </div>
 
           <div class="receipt-row">
