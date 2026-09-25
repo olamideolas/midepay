@@ -320,6 +320,25 @@ function saveAccountToRegistry(user) {
   localStorage.setItem('midepay_user', JSON.stringify(user));
 }
 
+function saveUserTransactions() {
+  const email = state.user?.email;
+  if (!email) return;
+  try {
+    localStorage.setItem(`midepay_tx_${email.toLowerCase()}`, JSON.stringify(state.transactions));
+  } catch (e) {}
+}
+
+function loadUserTransactions() {
+  const email = state.user?.email;
+  if (!email) return [];
+  try {
+    const raw = localStorage.getItem(`midepay_tx_${email.toLowerCase()}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 function findAccount(email, password = null) {
   if (!email) return null;
   const cleanEmail = email.trim().toLowerCase();
@@ -433,6 +452,11 @@ function showView(viewName) {
 function renderBalances() {
   const heroDisplay = document.getElementById('hero-balance-display');
   const dashDisplay = document.getElementById('dash-balance-display');
+
+  if (state.user && state.dashBalance !== undefined && state.dashBalance !== null) {
+    state.user.balance = state.dashBalance;
+    saveAccountToRegistry(state.user);
+  }
 
   if (state.isBalanceHidden) {
     if (heroDisplay) heroDisplay.textContent = '••••••••';
@@ -904,6 +928,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = findAccount(activeSession.email);
     if (user) {
       state.user = user;
+      if (user.balance !== undefined && user.balance !== null) {
+        state.dashBalance = Number(user.balance);
+      }
+      const savedTxs = loadUserTransactions();
+      if (savedTxs && savedTxs.length > 0) {
+        state.transactions = savedTxs;
+      } else if (user.email.toLowerCase() === 'olasunkanmiolamide15@gmail.com') {
+        state.transactions = [...DEFAULT_DEMO_TRANSACTIONS];
+      }
     }
   } else {
     // Check fallback single slot
@@ -915,6 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
           saveAccountToRegistry(parsed);
           if (activeSession && activeSession.loggedIn) {
             state.user = parsed;
+            if (parsed.balance !== undefined) state.dashBalance = Number(parsed.balance);
           }
         }
       } catch (e) {}
@@ -1710,7 +1744,7 @@ document.addEventListener('DOMContentLoaded', () => {
       category: 'Deposit',
       sender: 'Providus Bank Transfer',
       beneficiary: state.user?.fullName || 'Account Holder',
-      narration: 'Instant Demo Wallet Top-Up',
+      narration: 'Instant Wallet Top-Up',
       date: 'Just now',
       type: 'inflow',
       amount: fundAmt,
@@ -1718,6 +1752,7 @@ document.addEventListener('DOMContentLoaded', () => {
       status: 'Successful'
     };
     state.transactions.unshift(newTx);
+    saveUserTransactions();
     renderDashboardTransactions();
 
     // Persist directly to Supabase
@@ -1745,7 +1780,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    showToast(`🎉 Added ${formatNaira(fundAmt)} test credit to your MidePay wallet!`);
+    showToast(`🎉 Credited ${formatNaira(fundAmt)} to your MidePay wallet!`);
   }
 
   // Quick Test Fund button on Screen 1 (Recipient)
@@ -2153,12 +2188,12 @@ document.addEventListener('DOMContentLoaded', () => {
       sendFlowState.amount = amt;
       sendFlowState.narration = (sendNarrationInput?.value || '').trim() || 'Transfer via MidePay';
 
-      // 3. Check Wallet Balance & Auto-Topup if Demo Testing
+      // 3. Check Wallet Balance & Auto-Credit if Needed
       const totalNeeded = amt + sendFlowState.transferFee;
       if (totalNeeded > state.dashBalance) {
         const fundCredit = Math.max(50000, Math.ceil(totalNeeded * 1.5));
         await topUpDemoBalance(fundCredit);
-        showToast(`🎉 Added ${formatNaira(fundCredit)} demo test credit to your wallet!`);
+        showToast(`🎉 Added ${formatNaira(fundCredit)} top-up credit to your wallet!`);
       }
 
       // Everything valid -> Hide error & advance to OPay/PalmPay PIN confirmation
@@ -2323,7 +2358,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!isPinValid) {
         if (pinAuthError && pinAuthErrorText) {
-          pinAuthErrorText.textContent = 'Incorrect PIN. For this demo, please click "⚡ Use PIN: 1234".';
+          pinAuthErrorText.textContent = 'Incorrect PIN. Default PIN is 1234.';
           pinAuthError.classList.remove('hidden');
         }
         clearPinBoxes();
@@ -2362,7 +2397,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ref: txRef,
           title: `Transfer to ${sendFlowState.resolvedName}`,
           category: 'Transfer',
-          sender: state.user?.fullName || 'Demo Account',
+          sender: state.user?.fullName || 'MidePay Member',
           beneficiary: `${sendFlowState.resolvedName} • ${sendFlowState.selectedBank} (${sendFlowState.accountNumber})`,
           narration: sendFlowState.narration || 'Transfer via MidePay',
           date: 'Just now',
@@ -2373,6 +2408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         state.transactions.unshift(newTx);
+        saveUserTransactions();
         sendFlowState.lastTransaction = newTx;
 
         // Persist to Supabase if configured
