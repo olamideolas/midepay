@@ -76,16 +76,17 @@
         <button class="btn btn-primary" id="nav-register-btn">Get started</button>
       </div>
 
-      <!-- Logged-in Header Controls (Visible when in Dashboard) -->
+      <!-- Logged-in Header Controls -->
       <div class="nav-dashboard-actions hidden" id="dashboard-nav-actions">
         <div class="cbn-compliance-header-tag" title="Central Bank of Nigeria Regulatory Standard">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span>CBN Tier 2 Verified</span>
         </div>
-        <div class="user-pill">
+        <div class="user-pill" id="nav-user-pill" style="cursor: pointer;" title="Open Dashboard">
           <span class="user-avatar-circle" id="nav-user-initials">M</span>
           <span class="user-pill-name" id="nav-user-name">User</span>
         </div>
+        <button class="btn btn-primary btn-sm" id="nav-goto-dashboard-btn" style="padding: 0.4rem 0.9rem; font-size: 0.84rem;">Dashboard</button>
         <button class="btn btn-outline-sm" id="nav-logout-btn">Log out</button>
       </div>
 

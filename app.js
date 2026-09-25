@@ -259,9 +259,62 @@ function showToast(message, type = 'success') {
   }, 3500);
 }
 
+// --- Persistent Multi-Account & Session Registry ---
+function getAccountsRegistry() {
+  try {
+    const raw = localStorage.getItem('midepay_accounts_registry');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveAccountToRegistry(user) {
+  if (!user || !user.email) return;
+  const registry = getAccountsRegistry();
+  const existingIdx = registry.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
+  if (existingIdx >= 0) {
+    registry[existingIdx] = { ...registry[existingIdx], ...user };
+  } else {
+    registry.push({ ...user });
+  }
+  localStorage.setItem('midepay_accounts_registry', JSON.stringify(registry));
+  localStorage.setItem('midepay_user', JSON.stringify(user));
+}
+
+function findAccount(email, password = null) {
+  if (!email) return null;
+  const cleanEmail = email.trim().toLowerCase();
+  const registry = getAccountsRegistry();
+  
+  // 1. Check registry
+  let found = registry.find(u => u.email.toLowerCase() === cleanEmail);
+  if (found) {
+    if (!password || found.password === password) return found;
+  }
+
+  // 2. Check legacy single slot
+  try {
+    const single = JSON.parse(localStorage.getItem('midepay_user') || 'null');
+    if (single && single.email && single.email.toLowerCase() === cleanEmail) {
+      if (!password || single.password === password) return single;
+    }
+  } catch (e) {}
+
+  // 3. Check default demo user
+  if (cleanEmail === DEFAULT_DEMO_USER.email.toLowerCase()) {
+    if (!password || password === DEFAULT_DEMO_USER.password) {
+      return { ...DEFAULT_DEMO_USER };
+    }
+  }
+
+  return null;
+}
+
 // Navigation & View Routing Controller
 function showView(viewName) {
   state.currentView = viewName;
+  localStorage.setItem('midepay_active_view', viewName);
 
   const views = {
     landing: document.getElementById('view-landing'),
@@ -283,16 +336,19 @@ function showView(viewName) {
     }
   });
 
-  // Adjust global header based on current view
+  // Adjust global header based on current view and login state
   const landingNavLinks = document.getElementById('landing-nav-links');
   const landingNavActions = document.getElementById('landing-nav-actions');
   const dashboardNavActions = document.getElementById('dashboard-nav-actions');
   const mobileToggle = document.getElementById('mobile-menu-toggle');
+  const gotoDashboardBtn = document.getElementById('nav-goto-dashboard-btn');
+  const isLoggedIn = !!state.user;
 
   if (viewName === 'dashboard') {
     if (landingNavLinks) landingNavLinks.classList.add('hidden');
     if (landingNavActions) landingNavActions.classList.add('hidden');
     if (dashboardNavActions) dashboardNavActions.classList.remove('hidden');
+    if (gotoDashboardBtn) gotoDashboardBtn.classList.add('hidden');
     if (mobileToggle) mobileToggle.classList.add('hidden');
     // Load live Supabase data on dashboard view
     if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user && state.user.id && !state.user.id.startsWith('local-')) {
@@ -304,11 +360,17 @@ function showView(viewName) {
     if (dashboardNavActions) dashboardNavActions.classList.add('hidden');
     if (mobileToggle) mobileToggle.classList.add('hidden');
   } else {
-    // Landing
+    // Landing View
     if (landingNavLinks) landingNavLinks.classList.remove('hidden');
-    if (landingNavActions) landingNavActions.classList.remove('hidden');
-    if (dashboardNavActions) dashboardNavActions.classList.add('hidden');
     if (mobileToggle) mobileToggle.classList.remove('hidden');
+    if (isLoggedIn) {
+      if (landingNavActions) landingNavActions.classList.add('hidden');
+      if (dashboardNavActions) dashboardNavActions.classList.remove('hidden');
+      if (gotoDashboardBtn) gotoDashboardBtn.classList.remove('hidden');
+    } else {
+      if (landingNavActions) landingNavActions.classList.remove('hidden');
+      if (dashboardNavActions) dashboardNavActions.classList.add('hidden');
+    }
   }
 
   // Scroll to top
@@ -783,15 +845,31 @@ initThemeController();
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Initial LocalStorage session check
-  const savedUser = localStorage.getItem('midepay_user');
-  const activeSession = localStorage.getItem('midepay_session');
+  // 1. Initial LocalStorage session check & restoration
+  const activeSessionStr = localStorage.getItem('midepay_session');
+  let activeSession = null;
+  try {
+    activeSession = JSON.parse(activeSessionStr);
+  } catch (e) {}
 
-  if (activeSession && savedUser) {
-    try {
-      state.user = JSON.parse(savedUser);
-    } catch (e) {
-      state.user = null;
+  if (activeSession && activeSession.loggedIn && activeSession.email) {
+    const user = findAccount(activeSession.email);
+    if (user) {
+      state.user = user;
+    }
+  } else {
+    // Check fallback single slot
+    const savedUser = localStorage.getItem('midepay_user');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        if (parsed && parsed.email) {
+          saveAccountToRegistry(parsed);
+          if (activeSession && activeSession.loggedIn) {
+            state.user = parsed;
+          }
+        }
+      } catch (e) {}
     }
   }
 
@@ -801,7 +879,27 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDashboardTransactions();
   syncUserToDashboard();
 
-  // 3. Check for live Supabase session and load live data
+  // 3. Auto-restore active view (if logged in, keep them on dashboard or landing)
+  if (state.user) {
+    const activeView = localStorage.getItem('midepay_active_view') || 'dashboard';
+    if (activeView === 'dashboard') {
+      showView('dashboard');
+    } else {
+      showView('landing');
+    }
+  }
+
+  // 4. Wire header shortcuts
+  const gotoDashBtn = document.getElementById('nav-goto-dashboard-btn');
+  if (gotoDashBtn) {
+    gotoDashBtn.addEventListener('click', () => showView('dashboard'));
+  }
+  const userPill = document.getElementById('nav-user-pill');
+  if (userPill) {
+    userPill.addEventListener('click', () => showView('dashboard'));
+  }
+
+  // 5. Check for live Supabase session and load live data
   if (window.MidePayDB && window.MidePayDB.isConfigured()) {
     window.MidePayDB.getCurrentUser().then(async (supaUser) => {
       if (supaUser) {
@@ -817,7 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
           nuban: userNuban,
           bank: 'Providus Bank'
         };
-        localStorage.setItem('midepay_user', JSON.stringify(state.user));
+        saveAccountToRegistry(state.user);
         localStorage.setItem('midepay_session', JSON.stringify({ email: state.user.email, loggedIn: true }));
         syncUserToDashboard();
         await loadDashboardData();
@@ -1116,9 +1214,10 @@ document.addEventListener('DOMContentLoaded', () => {
         registeredAt: new Date().toISOString()
       };
 
-      // Save user & set active session in localStorage
-      localStorage.setItem('midepay_user', JSON.stringify(newUser));
+      // Save user to persistent accounts registry & set active session in localStorage
+      saveAccountToRegistry(newUser);
       localStorage.setItem('midepay_session', JSON.stringify({ email: newUser.email, loggedIn: true }));
+      localStorage.setItem('midepay_active_view', 'dashboard');
 
       state.user = newUser;
       state.dashBalance = 0.00;
@@ -1154,20 +1253,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginErrorAlert = document.getElementById('login-error-alert');
   const quickFillDemoBtn = document.getElementById('quick-fill-demo-btn');
 
-  // Quick fill helper
+  // Quick fill helper — smartly fills latest registered account or default demo
   if (quickFillDemoBtn) {
     quickFillDemoBtn.addEventListener('click', () => {
       const emailInput = document.getElementById('login-email');
       const passInput = document.getElementById('login-password');
       
+      const registry = getAccountsRegistry();
+      if (registry && registry.length > 0) {
+        const lastUser = registry[registry.length - 1];
+        if (lastUser && lastUser.email && lastUser.password) {
+          emailInput.value = lastUser.email;
+          passInput.value = lastUser.password;
+          showToast(`Filled with your registered account (${lastUser.email})`);
+          return;
+        }
+      }
+
       const saved = localStorage.getItem('midepay_user');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          emailInput.value = parsed.email;
-          passInput.value = parsed.password;
-          showToast('Filled with your registered account credentials');
-          return;
+          if (parsed && parsed.email && parsed.password) {
+            emailInput.value = parsed.email;
+            passInput.value = parsed.password;
+            showToast('Filled with your registered account credentials');
+            return;
+          }
         } catch (e) {}
       }
 
@@ -1192,69 +1304,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
       let matchedUser = null;
 
-      // Check live Supabase authentication first if configured
+      // 1. Check live Supabase authentication first if configured
       if (window.MidePayDB && window.MidePayDB.isConfigured()) {
-        const { user: supaUser, error: supaErr } = await window.MidePayDB.signIn({ email, password });
-        if (supaErr) {
-          showLoginError(supaErr.message || 'Invalid credentials.');
-          return;
-        }
-        if (supaUser) {
-          const profile = await window.MidePayDB.getProfile(supaUser.id);
-          const userName = profile?.full_name || supaUser.user_metadata?.full_name || state.user?.fullName || email.split('@')[0];
-          const userNuban = state.user?.nuban || generateUserNuban(supaUser.email || supaUser.id);
-          matchedUser = {
-            id: supaUser.id,
-            fullName: userName,
-            email: supaUser.email,
-            phone: profile?.phone || '',
-            tag: profile?.tag || state.user?.tag || `@${userName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
-            nuban: userNuban,
-            bank: 'Providus Bank'
-          };
-          state.user = matchedUser;
-          localStorage.setItem('midepay_user', JSON.stringify(matchedUser));
-          localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
-
-          syncUserToDashboard();
-          await loadDashboardData();
-          showView('dashboard');
-          showToast(`Welcome back, ${matchedUser.fullName}!`);
-          return;
+        try {
+          const { user: supaUser, error: supaErr } = await window.MidePayDB.signIn({ email, password });
+          if (!supaErr && supaUser) {
+            const profile = await window.MidePayDB.getProfile(supaUser.id);
+            const userName = profile?.full_name || supaUser.user_metadata?.full_name || email.split('@')[0];
+            const userNuban = generateUserNuban(supaUser.email || supaUser.id);
+            matchedUser = {
+              id: supaUser.id,
+              fullName: userName,
+              email: supaUser.email,
+              phone: profile?.phone || '',
+              tag: profile?.tag || `@${userName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+              nuban: userNuban,
+              bank: 'Providus Bank',
+              password: password
+            };
+            saveAccountToRegistry(matchedUser);
+            localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
+            localStorage.setItem('midepay_active_view', 'dashboard');
+            state.user = matchedUser;
+            syncUserToDashboard();
+            await loadDashboardData();
+            showView('dashboard');
+            showToast(`Welcome back, ${matchedUser.fullName}!`);
+            return;
+          }
+        } catch (supaEx) {
+          console.warn('[MidePay] Supabase signIn note:', supaEx);
         }
       }
 
-      // Check local storage for simulated account
+      // 2. Check local accounts registry & localStorage fallback
       if (!matchedUser) {
-        const stored = localStorage.getItem('midepay_user');
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            if (parsed.email.toLowerCase() === email.toLowerCase() && parsed.password === password) {
-              matchedUser = parsed;
-            }
-          } catch (e) {}
-        }
-      }
-
-      // Check default demo credentials
-      if (!matchedUser && email.toLowerCase() === DEFAULT_DEMO_USER.email.toLowerCase() && password === DEFAULT_DEMO_USER.password) {
-        matchedUser = { ...DEFAULT_DEMO_USER };
+        matchedUser = findAccount(email, password);
       }
 
       if (matchedUser) {
         // Successful login
         state.user = matchedUser;
         if (!matchedUser.nuban) matchedUser.nuban = generateUserNuban(matchedUser.email);
-        localStorage.setItem('midepay_user', JSON.stringify(matchedUser));
+        saveAccountToRegistry(matchedUser);
         localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
+        localStorage.setItem('midepay_active_view', 'dashboard');
         syncUserToDashboard();
         renderBalances();
         renderDashboardTransactions();
         showView('dashboard');
         showToast(`Welcome back, ${matchedUser.fullName}!`);
       } else {
-        showLoginError('Invalid email or password. Use "Use Demo Account" or register a new wallet.');
+        showLoginError('Invalid email or password. Please verify your credentials or click "Use Demo Account".');
       }
     });
   }
@@ -1275,12 +1376,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function handleLogout() {
     localStorage.removeItem('midepay_session');
-    localStorage.removeItem('midepay_user');
+    localStorage.removeItem('midepay_active_view');
+    // NOTE: Keep account in registry so user can log back in anytime!
     state.user = null;
     state.dashBalance = 0.00;
     state.transactions = [];
     if (window.MidePayDB && typeof window.MidePayDB.signOut === 'function') {
-      window.MidePayDB.signOut().catch(console.error);
+      window.MidePayDB.signOut().catch(console.warn);
     }
     syncUserToDashboard();
     renderBalances();
