@@ -63,6 +63,7 @@
         <a href="#how-it-works" class="nav-link">How It Works</a>
         <a href="#security" class="nav-link">Security</a>
         <a href="#faq" class="nav-link">FAQ</a>
+        <a href="liquid-glass-demo.html" class="nav-link" style="color: #34d399; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">💧 Liquid Glass</a>
       </nav>
 
       <!-- Auth Action Buttons -->
@@ -73,6 +74,7 @@
 
       <!-- Logged-in Header Controls (Visible when in Dashboard) -->
       <div class="nav-dashboard-actions hidden" id="dashboard-nav-actions">
+        <a href="liquid-glass-demo.html" class="btn btn-outline-sm" style="color: #34d399; border-color: rgba(16, 185, 129, 0.4); text-decoration: none;">💧 Glass Studio</a>
         <div class="user-pill">
           <span class="user-avatar-circle" id="nav-user-initials">M</span>
           <span class="user-pill-name" id="nav-user-name">User</span>
@@ -96,6 +98,7 @@
         <a href="#how-it-works" class="mobile-nav-link">How It Works</a>
         <a href="#security" class="mobile-nav-link">Security & Trust</a>
         <a href="#faq" class="mobile-nav-link">Frequently Asked Questions</a>
+        <a href="liquid-glass-demo.html" class="mobile-nav-link" style="color: #34d399; font-weight: 600;">💧 Liquid Glass Studio</a>
       </div>
       <div class="mobile-nav-actions">
         <button class="btn btn-ghost w-full" id="mobile-login-btn">Log in</button>
@@ -982,7 +985,7 @@
         <!-- LEFT COLUMN: BALANCE CARD & QUICK ACTIONS -->
         <div class="dash-main-col">
           <!-- Premium Balance Card -->
-          <div class="dash-balance-card">
+          <div class="dash-balance-card liquid-glass" data-liquid-glass="card" data-liquid-theme="emerald">
             <div class="card-glow-bg" aria-hidden="true"></div>
             
             <div class="dash-card-header">
@@ -1053,7 +1056,7 @@
           <div class="dash-quick-section">
             <h3 class="dash-section-title">Quick Actions</h3>
             <div class="dash-action-grid">
-              <button class="dash-action-card" id="qa-transfer">
+              <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-transfer">
                 <div class="qa-icon-wrap emerald">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -1064,7 +1067,7 @@
                 <span class="qa-desc">Instant ₦0 fee</span>
               </button>
 
-              <button class="dash-action-card" id="qa-airtime">
+              <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-airtime">
                 <div class="qa-icon-wrap gold">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
@@ -1075,7 +1078,7 @@
                 <span class="qa-desc">3% Cashback</span>
               </button>
 
-              <button class="dash-action-card" id="qa-bills">
+              <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-bills">
                 <div class="qa-icon-wrap teal">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
@@ -1085,7 +1088,7 @@
                 <span class="qa-desc">IKEDC, DSTV, GOTV</span>
               </button>
 
-              <button class="dash-action-card" id="qa-card">
+              <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-card">
                 <div class="qa-icon-wrap purple">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
@@ -1101,7 +1104,7 @@
 
         <!-- RIGHT COLUMN: RECENT TRANSACTIONS -->
         <div class="dash-side-col">
-          <div class="dash-tx-card">
+          <div class="dash-tx-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian">
             <div class="tx-card-header">
               <h3 class="dash-section-title">Transactions</h3>
               <div class="tx-filter-pills" role="tablist">
@@ -1787,7 +1790,7 @@
 
       <!-- 3D Realistic Debit Card -->
       <div class="virtual-card-container">
-        <div class="debit-card" id="active-virtual-card">
+        <div class="debit-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian" id="active-virtual-card">
           <div class="card-bg-glow"></div>
           <div class="card-top-row">
             <span class="card-brand-text" id="card-brand-title">MidePay Black</span>
@@ -2032,6 +2035,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Liquid Glass v2 Interactive Engine -->
+  <script src="liquid-glass.js"></script>
 
   <!-- Supabase JS Client & MidePay Backend Integration -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

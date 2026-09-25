@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liquid Glass v2 — Apple-Inspired Interactive Glass Effects</title>
+  <meta name="description" content="Next-generation Apple-inspired liquid glass engine for modern web apps. Real-time cursor light tracking, 3D tilt, tactile ripples, and 120 FPS hardware acceleration.">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="liquid-glass.css">
+  
+  <style>
+    :root {
+      --bg: #090d16;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Ambient Dynamic Mesh Background */
+    .ambient-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.55;
+      animation: floatBlob 16s ease-in-out infinite alternate;
+    }
+
+    .blob-1 {
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, #10b981 0%, #0d9488 60%);
+      top: -100px;
+      left: 10%;
+    }
+
+    .blob-2 {
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle, #6366f1 0%, #3b82f6 60%);
+      bottom: 5%;
+      right: 5%;
+      animation-delay: -6s;
+    }
+
+    .blob-3 {
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, #ec4899 0%, #8b5cf6 60%);
+      top: 40%;
+      left: 60%;
+      animation-delay: -11s;
+    }
+
+    @keyframes floatBlob {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(60px, 40px) scale(1.1); }
+      100% { transform: translate(-40px, 80px) scale(0.95); }
+    }
+
+    .page-container {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* Header Nav */
+    .demo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 48px;
+    }
+
+    .demo-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Sora', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      text-decoration: none;
+      color: #fff;
+    }
+
+    .logo-badge {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      font-weight: 600;
+    }
+
+    .nav-pill-bar {
+      display: flex;
+      gap: 8px;
+      padding: 6px;
+    }
+
+    .nav-btn {
+      padding: 8px 18px;
+      border-radius: 9999px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #cbd5e1;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .nav-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Hero */
+    .hero-wrap {
+      text-align: center;
+      max-width: 760px;
+      margin: 0 auto 56px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #a7f3d0;
+    }
+
+    .hero-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 18px;
+      background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-desc {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    /* Interactive Studio Layout */
+    .studio-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .studio-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Showcase Cards */
+    .showcase-area {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .card-preview-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .interactive-card {
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 240px;
+    }
+
+    .card-meta-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .card-chip {
+      width: 44px;
+      height: 32px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
+      box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .card-digits {
+      font-family: 'Sora', monospace;
+      font-size: 1.25rem;
+      letter-spacing: 0.15em;
+      margin-bottom: 16px;
+      color: #f8fafc;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-meta-bottom {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+    }
+
+    /* Dynamic Island Component */
+    .island-container {
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .island-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .island-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(16, 185, 129, 0.25);
+      border-radius: 50%;
+      color: #34d399;
+    }
+
+    /* Controls Panel */
+    .controls-panel {
+      padding: 28px 24px;
+    }
+
+    .controls-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-group {
+      margin-bottom: 20px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+    }
+
+    .control-range {
+      width: 100%;
+      accent-color: #10b981;
+      cursor: pointer;
+    }
+
+    .theme-picker {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .theme-btn {
+      padding: 10px;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      color: #cbd5e1;
+      transition: all 0.2s;
+    }
+
+    .theme-btn.active, .theme-btn:hover {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      color: #fff;
+    }
+
+    /* Code Snippet Box */
+    .code-box {
+      margin-top: 24px;
+      padding: 16px;
+      border-radius: 14px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #a7f3d0;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient Lighting Blobs -->
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <div class="page-container">
+    <!-- Header -->
+    <header class="demo-header">
+      <a href="index.html" class="demo-logo">
+        <span>💧 Liquid Glass v2</span>
+        <span class="logo-badge">Next-Gen</span>
+      </a>
+      
+      <div class="nav-pill-bar liquid-glass" data-liquid-glass="pill" data-liquid-theme="emerald">
+        <a href="index.html" class="nav-btn">Back to MidePay</a>
+        <a href="#showcase" class="nav-btn">Showcase</a>
+        <a href="#controls" class="nav-btn">Studio</a>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <div class="hero-wrap">
+      <div class="hero-badge liquid-glass" data-liquid-glass="pill" data-liquid-theme="emerald">
+        <span>✨ Apple Liquid Glass Experience</span>
+      </div>
+      <h1 class="hero-title">Ultra-Fluid Glass Effects for Modern Web Apps</h1>
+      <p class="hero-desc">
+        A high-performance upgrade over dashersw/liquid-glass-js. Zero freezing lag, hardware-accelerated 120 FPS refraction, dynamic cursor-following specular sheen, 3D tilt, and tactile ripples.
+      </p>
+
+      <!-- Action Button Row -->
+      <div style="display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;">
+        <button class="liquid-glass-btn liquid-glass" data-liquid-glass="pill" data-liquid-theme="emerald" style="padding: 14px 32px; font-size: 1rem;">
+          Tap for Liquid Ripple 🌊
+        </button>
+        <a href="index.html" class="liquid-glass-btn liquid-glass" data-liquid-glass="pill" data-liquid-theme="crystal" style="padding: 14px 28px; text-decoration: none;">
+          Open MidePay App →
+        </a>
+      </div>
+    </div>
+
+    <!-- Interactive Studio Grid -->
+    <div class="studio-grid" id="showcase">
+      <!-- Left: Interactive Components -->
+      <div class="showcase-area">
+        <!-- Dynamic Island Capsule -->
+        <div class="island-container liquid-glass" data-liquid-glass="pill" data-liquid-theme="emerald" id="island-target">
+          <div class="island-left">
+            <div class="island-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div>
+              <div style="font-weight: 700; font-size: 0.95rem;">Incoming Transfer: ₦50,000</div>
+              <div style="font-size: 0.8rem; color: #94a3b8;">From Adeleke Adebayo • MidePay Zero-Fee</div>
+            </div>
+          </div>
+          <button class="liquid-glass-btn liquid-glass" data-liquid-glass="pill" data-liquid-theme="crystal" style="padding: 8px 18px; font-size: 0.82rem;">
+            Accept
+          </button>
+        </div>
+
+        <!-- Glass Cards Row -->
+        <div class="card-preview-row">
+          <!-- Card 1: Obsidian Black -->
+          <div class="interactive-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian">
+            <div class="card-meta-top">
+              <div class="card-chip"></div>
+              <span style="font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em;">MidePay <span style="color:#10b981;">Black</span></span>
+            </div>
+            <div>
+              <div class="card-digits">5399 •••• •••• 8821</div>
+              <div class="card-meta-bottom">
+                <span>CARD HOLDER<br><strong style="color: #fff;">A AND A ENTERPRISES</strong></span>
+                <span>EXPIRES<br><strong style="color: #fff;">09/29</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Emerald Glass -->
+          <div class="interactive-card liquid-glass" data-liquid-glass="card" data-liquid-theme="emerald">
+            <div class="card-meta-top">
+              <div class="card-chip" style="background: linear-gradient(135deg, #10b981, #064e3b);"></div>
+              <span style="font-weight: 700; font-size: 1.1rem; color:#34d399;">Active Vault</span>
+            </div>
+            <div>
+              <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 4px;">Net Liquid Balance</div>
+              <div style="font-family: 'Sora', sans-serif; font-size: 2rem; font-weight: 700; color: #fff; margin-bottom: 12px;">₦1,450,200.00</div>
+              <div class="card-meta-bottom">
+                <span style="color: #34d399;">+14.8% APY Compound Yield</span>
+                <span>Protected</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nested Glass Container -->
+        <div class="liquid-glass" data-liquid-glass="card" data-liquid-theme="emerald" style="padding: 28px;">
+          <h3 style="font-family: 'Sora'; font-size: 1.15rem; margin-bottom: 12px;">Nested Glass Architecture</h3>
+          <p style="font-size: 0.88rem; color: #94a3b8; margin-bottom: 20px;">
+            Liquid Glass v2 elements seamlessly nest inside one another without sampling latency or color degradation.
+          </p>
+
+          <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+            <div class="liquid-glass liquid-glass-nested" data-liquid-glass="rounded" style="padding: 16px 20px; flex: 1; min-width: 140px;">
+              <div style="font-size: 0.78rem; color: #94a3b8;">Daily Inflow</div>
+              <div style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 4px;">₦84,200</div>
+            </div>
+            <div class="liquid-glass liquid-glass-nested" data-liquid-glass="rounded" style="padding: 16px 20px; flex: 1; min-width: 140px;">
+              <div style="font-size: 0.78rem; color: #94a3b8;">Outflow</div>
+              <div style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-top: 4px;">₦12,500</div>
+            </div>
+            <div class="liquid-glass liquid-glass-nested" data-liquid-glass="rounded" style="padding: 16px 20px; flex: 1; min-width: 140px;">
+              <div style="font-size: 0.78rem; color: #94a3b8;">Savings Rate</div>
+              <div style="font-size: 1.25rem; font-weight: 700; color: #34d399; margin-top: 4px;">85.1%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Studio Controls Panel -->
+      <div class="controls-panel liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian" id="controls">
+        <div class="controls-title">
+          <span>🎛️ Live Parameter Studio</span>
+        </div>
+
+        <!-- Theme Switcher -->
+        <div class="control-group">
+          <label class="control-label">Glass Theme Preset</label>
+          <div class="theme-picker">
+            <button class="theme-btn active" data-theme="emerald">Emerald</button>
+            <button class="theme-btn" data-theme="crystal">Crystal</button>
+            <button class="theme-btn" data-theme="obsidian">Obsidian</button>
+            <button class="theme-btn" data-theme="iridescent">Iridescent</button>
+          </div>
+        </div>
+
+        <!-- Blur Slider -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Backdrop Blur</span>
+            <span id="val-blur">24px</span>
+          </div>
+          <input type="range" class="control-range" id="slider-blur" min="4" max="48" value="24">
+        </div>
+
+        <!-- Specular Highlight Slider -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Specular Highlight</span>
+            <span id="val-specular">45%</span>
+          </div>
+          <input type="range" class="control-range" id="slider-specular" min="10" max="90" value="45">
+        </div>
+
+        <!-- Saturation Slider -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Color Saturation</span>
+            <span id="val-sat">180%</span>
+          </div>
+          <input type="range" class="control-range" id="slider-sat" min="100" max="250" value="180">
+        </div>
+
+        <!-- Code Preview -->
+        <div class="code-box">
+          &lt;div class="liquid-glass"&gt;<br>
+          &nbsp;&nbsp;data-liquid-glass="card"<br>
+          &nbsp;&nbsp;data-liquid-theme="emerald"&gt;<br>
+          &lt;/div&gt;
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="liquid-glass.js"></script>
+  <script>
+    // Studio Live Controls Interactivity
+    const root = document.documentElement;
+    const sliderBlur = document.getElementById('slider-blur');
+    const sliderSpecular = document.getElementById('slider-specular');
+    const sliderSat = document.getElementById('slider-sat');
+
+    sliderBlur.addEventListener('input', (e) => {
+      root.style.setProperty('--lg-blur', `${e.target.value}px`);
+      document.getElementById('val-blur').innerText = `${e.target.value}px`;
+    });
+
+    sliderSpecular.addEventListener('input', (e) => {
+      root.style.setProperty('--lg-specular-color', `rgba(255, 255, 255, ${e.target.value / 100})`);
+      document.getElementById('val-specular').innerText = `${e.target.value}%`;
+    });
+
+    sliderSat.addEventListener('input', (e) => {
+      root.style.setProperty('--lg-saturate', `${e.target.value}%`);
+      document.getElementById('val-sat').innerText = `${e.target.value}%`;
+    });
+
+    // Theme selector buttons
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const theme = btn.dataset.theme;
+
+        document.querySelectorAll('[data-liquid-theme]').forEach(el => {
+          el.setAttribute('data-liquid-theme', theme);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
