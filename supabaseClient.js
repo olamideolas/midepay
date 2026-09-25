@@ -224,6 +224,231 @@
     // =========================================================================
 
     /**
+     * Search for registered MidePay recipient by email or phone
+     * Transfers only work between registered MidePay members
+     */
+    async findRecipient(query, currentUserId = null) {
+      if (!query || typeof query !== 'string') return null;
+      const clean = query.trim().toLowerCase();
+      if (!clean) return null;
+
+      // 1. Try Live Supabase Query if configured
+      if (this.isConfigured() && this.client) {
+        try {
+          // Normalize phone (strip spaces/dashes)
+          const cleanPhone = clean.replace(/[\s\-]/g, '');
+
+          // Look up by email (exact or ilike), phone, or tag in profiles
+          let supaQuery = this.client
+            .from('profiles')
+            .select('id, full_name, email, phone, tag, avatar_url');
+
+          if (clean.includes('@') && !clean.startsWith('@')) {
+            supaQuery = supaQuery.eq('email', clean);
+          } else if (clean.startsWith('@')) {
+            supaQuery = supaQuery.ilike('tag', clean);
+          } else if (/^\+?[0-9]{7,15}$/.test(cleanPhone)) {
+            supaQuery = supaQuery.or(`phone.eq.${cleanPhone},phone.eq.${clean}`);
+          } else {
+            supaQuery = supaQuery.or(`email.ilike.%${clean}%,phone.ilike.%${clean}%,tag.ilike.%${clean}%`);
+          }
+
+          if (currentUserId && !currentUserId.startsWith('local-')) {
+            supaQuery = supaQuery.neq('id', currentUserId);
+          }
+
+          const { data, error } = await supaQuery.limit(1);
+
+          if (!error && data && data.length > 0) {
+            return {
+              id: data[0].id,
+              fullName: data[0].full_name,
+              email: data[0].email,
+              phone: data[0].phone || '',
+              tag: data[0].tag || `@${data[0].full_name.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+              avatarUrl: data[0].avatar_url,
+              isRegistered: true,
+              source: 'supabase'
+            };
+          }
+        } catch (e) {
+          console.warn('⚠️ [MidePay] Recipient lookup warning:', e.message);
+        }
+      }
+
+      // 2. Demo Directory Fallback (for instant testability & offline/sandbox preview)
+      const DEMO_RECIPIENTS = [
+        {
+          id: 'demo-user-chinedu-001',
+          fullName: 'Chinedu Eze',
+          email: 'chinedu@midepay.com',
+          phone: '08031234567',
+          tag: '@chinedueze',
+          isRegistered: true,
+          source: 'demo'
+        },
+        {
+          id: 'demo-user-aisha-002',
+          fullName: 'Aisha Abubakar Mohammed',
+          email: 'aisha@midepay.com',
+          phone: '08023456789',
+          tag: '@aishabubakar',
+          isRegistered: true,
+          source: 'demo'
+        },
+        {
+          id: 'demo-user-babatunde-003',
+          fullName: 'Babatunde Adeleke',
+          email: 'babatunde@midepay.com',
+          phone: '08098765432',
+          tag: '@babatundeadel',
+          isRegistered: true,
+          source: 'demo'
+        },
+        {
+          id: 'demo-user-folashade-004',
+          fullName: 'Folashade Bakare',
+          email: 'folashade@midepay.com',
+          phone: '08055667788',
+          tag: '@folashade',
+          isRegistered: true,
+          source: 'demo'
+        },
+        {
+          id: 'demo-user-olamide-005',
+          fullName: 'Olasunkanmi Olamide',
+          email: 'olamide@midepay.com',
+          phone: '08144556677',
+          tag: '@olamide',
+          isRegistered: true,
+          source: 'demo'
+        }
+      ];
+
+      const cleanPhone = clean.replace(/[\s\-]/g, '');
+      const matched = DEMO_RECIPIENTS.find(r => {
+        if (currentUserId && r.id === currentUserId) return false;
+        if (clean.includes('@') && !clean.startsWith('@')) {
+          return r.email.toLowerCase() === clean;
+        }
+        if (clean.startsWith('@')) {
+          return r.tag.toLowerCase() === clean;
+        }
+        if (/^[0-9]{7,15}$/.test(cleanPhone)) {
+          return r.phone.replace(/[\s\-]/g, '') === cleanPhone;
+        }
+        return r.email.toLowerCase().includes(clean) ||
+               r.phone.includes(cleanPhone) ||
+               r.tag.toLowerCase().includes(clean);
+      });
+
+      return matched || null;
+    },
+
+    /**
+     * Save transaction PIN hash to profiles table
+     */
+    async setUserPin(userId, pinHash) {
+      if (!userId || !pinHash) return { success: false, error: 'User ID and PIN hash required' };
+      localStorage.setItem(`midepay_pin_hash_${userId}`, pinHash);
+
+      if (this.isConfigured() && this.client && !userId.startsWith('local-')) {
+        try {
+          const { error } = await this.client
+            .from('profiles')
+            .update({ pin_hash: pinHash, updated_at: new Date().toISOString() })
+            .eq('id', userId);
+
+          if (error) {
+            console.warn('⚠️ [MidePay] Failed to persist pin_hash to Supabase profiles (column may need migration):', error.message);
+          }
+        } catch (e) {
+          console.warn('⚠️ [MidePay] setUserPin network error:', e.message);
+        }
+      }
+      return { success: true };
+    },
+
+    /**
+     * Fetch user transaction PIN hash from profile
+     */
+    async getUserPinHash(userId) {
+      if (!userId) return null;
+      const cached = localStorage.getItem(`midepay_pin_hash_${userId}`);
+      if (cached) return cached;
+
+      if (this.isConfigured() && this.client && !userId.startsWith('local-')) {
+        try {
+          const { data, error } = await this.client
+            .from('profiles')
+            .select('pin_hash')
+            .eq('id', userId)
+            .maybeSingle();
+
+          if (!error && data?.pin_hash) {
+            localStorage.setItem(`midepay_pin_hash_${userId}`, data.pin_hash);
+            return data.pin_hash;
+          }
+        } catch (e) {
+          console.warn('⚠️ [MidePay] getUserPinHash error:', e.message);
+        }
+      }
+      return null;
+    },
+
+    /**
+     * Execute Atomic Transfer Funds via Postgres RPC:
+     * transfer_funds(sender_id, recipient_id, amount, narration)
+     */
+    async transferFunds({ senderId, recipientId, amount, narration }) {
+      if (!senderId) return { success: false, error: 'Sender ID is required' };
+      if (!recipientId) return { success: false, error: 'Recipient is required' };
+      if (senderId === recipientId) return { success: false, error: 'Cannot transfer funds to yourself' };
+      if (!amount || amount <= 0) return { success: false, error: 'Transfer amount must be greater than zero' };
+
+      // 1. Try Live Supabase Postgres RPC if configured
+      if (this.isConfigured() && this.client && !senderId.startsWith('local-') && !recipientId.startsWith('demo-')) {
+        try {
+          const { data, error } = await this.client.rpc('transfer_funds', {
+            sender_id: senderId,
+            recipient_id: recipientId,
+            amount: Number(amount),
+            narration: narration || 'Transfer via MidePay'
+          });
+
+          if (error) {
+            console.warn('⚠️ [MidePay] transfer_funds RPC returned error:', error);
+            // Check for specific database exception messages
+            const msg = error.message || error.details || 'Transfer failed on server';
+            return { success: false, error: msg };
+          }
+
+          return {
+            success: true,
+            data: data,
+            reference: data?.reference || `MP-TRF-${Date.now()}`
+          };
+        } catch (err) {
+          console.error('❌ [MidePay] transfer_funds RPC exception:', err);
+          return { success: false, error: err.message || 'Transfer service connection failed' };
+        }
+      }
+
+      // 2. Demo / Local Simulation Fallback (Atomic Client Update)
+      const reference = 'MP-TRF-' + Date.now().toString().slice(-8);
+      return {
+        success: true,
+        isDemo: true,
+        reference: reference,
+        data: {
+          success: true,
+          reference: reference,
+          amount: Number(amount)
+        }
+      };
+    },
+
+    /**
      * Fetch transactions for user (RLS protected: auth.uid() = user_id)
      */
     async getTransactions(userId, limit = 10) {
@@ -246,12 +471,12 @@
     /**
      * Record a Send Money transfer transaction
      */
-    async recordTransfer({ walletId, userId, amount, recipient, destinationBank, narration }) {
+    async recordTransfer({ walletId, userId, amount, recipient, destinationBank, narration, fee = 10.00, reference = null }) {
       if (!this.isConfigured() || !this.client) {
         return { success: true, isDemo: true };
       }
 
-      const reference = 'MP-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+      const txRef = reference || ('MDP-' + Math.floor(100000000 + Math.random() * 900000000));
 
       // Insert transaction record
       const { data: tx, error: txError } = await this.client
@@ -262,12 +487,12 @@
           type: 'outflow',
           category: 'transfer',
           amount: amount,
-          fee: 0.00,
+          fee: fee,
           status: 'successful',
           counterparty_name: recipient,
           counterparty_bank: destinationBank,
           narration: narration || 'Transfer via MidePay',
-          reference: reference
+          reference: txRef
         })
         .select()
         .single();
@@ -295,49 +520,101 @@
     /**
      * Record a Deposit / Funding transaction
      */
+    /**
+     * Record a Deposit / Funding transaction (increases wallet balance in Supabase directly)
+     */
     async recordDeposit({ walletId, userId, amount }) {
       if (!this.isConfigured() || !this.client) {
         return { success: true, isDemo: true };
       }
 
       const reference = 'DEP-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+      const depositAmount = Number(amount);
 
-      const { data: tx, error: txError } = await this.client
-        .from('transactions')
-        .insert({
-          wallet_id: walletId,
-          user_id: userId,
-          type: 'inflow',
-          category: 'deposit',
-          amount: amount,
-          fee: 0.00,
-          status: 'successful',
-          counterparty_name: 'Providus Bank Transfer',
-          counterparty_bank: 'Providus Bank',
-          narration: 'Wallet top-up deposit',
-          reference: reference
-        })
-        .select()
-        .single();
+      // 1. Resolve target wallet
+      let targetWalletId = walletId;
+      let wallet = null;
 
-      if (txError) return { success: false, error: txError };
-
-      // Increment wallet balance
-      const { data: wallet } = await this.client
-        .from('wallets')
-        .select('balance')
-        .eq('id', walletId)
-        .single();
-
-      if (wallet) {
-        const newBalance = Number(wallet.balance) + Number(amount);
-        await this.client
+      if (targetWalletId) {
+        const { data } = await this.client
           .from('wallets')
-          .update({ balance: newBalance, updated_at: new Date().toISOString() })
-          .eq('id', walletId);
+          .select('*')
+          .eq('id', targetWalletId)
+          .maybeSingle();
+        wallet = data;
       }
 
-      return { success: true, transaction: tx };
+      if (!wallet && userId) {
+        const { data } = await this.client
+          .from('wallets')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+        wallet = data;
+        if (wallet) targetWalletId = wallet.id;
+      }
+
+      // If user has no wallet row yet in Supabase (e.g. freshly created account), auto-create one
+      if (!wallet && userId) {
+        const fakeNuban = '90' + Math.floor(10000000 + Math.random() * 90000000);
+        const { data: newW, error: newWErr } = await this.client
+          .from('wallets')
+          .insert({
+            user_id: userId,
+            currency: 'NGN',
+            balance: depositAmount,
+            ledger_balance: depositAmount,
+            nuban: fakeNuban,
+            bank_name: 'Providus Bank'
+          })
+          .select()
+          .single();
+
+        if (!newWErr && newW) {
+          wallet = newW;
+          targetWalletId = newW.id;
+        }
+      } else if (wallet && targetWalletId) {
+        const newBalance = Number(wallet.balance || 0) + depositAmount;
+        const { data: updatedW } = await this.client
+          .from('wallets')
+          .update({ 
+            balance: newBalance, 
+            ledger_balance: newBalance,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', targetWalletId)
+          .select()
+          .single();
+
+        if (updatedW) wallet = updatedW;
+      }
+
+      // 2. Insert transaction record
+      let tx = null;
+      if (targetWalletId && userId) {
+        const { data: txData } = await this.client
+          .from('transactions')
+          .insert({
+            wallet_id: targetWalletId,
+            user_id: userId,
+            type: 'inflow',
+            category: 'deposit',
+            amount: depositAmount,
+            fee: 0.00,
+            status: 'successful',
+            counterparty_name: 'Instant Top-Up (Demo)',
+            counterparty_bank: 'Providus Bank',
+            counterparty_tag_or_nuban: wallet?.nuban || '9000000000',
+            narration: 'Demo Wallet Funding Top-Up',
+            reference: reference
+          })
+          .select()
+          .maybeSingle();
+        tx = txData;
+      }
+
+      return { success: true, wallet, transaction: tx };
     },
 
     // =========================================================================

@@ -2151,16 +2151,28 @@ select.form-input option {
 
 .modal-box {
   width: 100%;
-  max-width: 460px;
-  background: rgba(14, 26, 22, 0.88);
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(14, 26, 22, 0.94);
   backdrop-filter: blur(28px) saturate(180%) brightness(1.05);
   -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.05);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius-lg);
-  padding: 2.2rem;
+  padding: 2rem;
   box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.18) inset;
   position: relative;
   animation: modalEnter 0.25s ease-out;
+}
+
+.modal-box::-webkit-scrollbar {
+  width: 5px;
+}
+
+.modal-box::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.35);
+  border-radius: 4px;
 }
 
 @keyframes modalEnter {
@@ -3587,5 +3599,613 @@ select.form-input option {
   font-weight: 700;
   font-size: 0.86rem;
   color: #F87171;
+}
+
+/* ==========================================================================
+   SEND MONEY FLOW & PIN AUTHORIZATION COMPONENT
+   ========================================================================== */
+
+.send-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  animation: stepFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.send-step.hidden {
+  display: none !important;
+}
+
+@keyframes stepFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.modal-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modal-back-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modal-back-btn:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--primary-emerald);
+  color: var(--primary-emerald);
+}
+
+/* Search Recipient Box */
+.recipient-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.recipient-search-icon {
+  position: absolute;
+  left: 1rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.recipient-search-input {
+  padding-left: 2.75rem !important;
+  padding-right: 2.5rem !important;
+}
+
+.recipient-search-spinner {
+  position: absolute;
+  right: 1rem;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--primary-emerald);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Quick Recipient Suggestions */
+.recipient-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
+.recipient-chip-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.recipient-chip-btn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  padding: 0.2rem 0.55rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.recipient-chip-btn:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: var(--primary-emerald);
+  color: var(--text-primary);
+}
+
+/* Verified Recipient Card */
+.verified-recipient-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 78, 59, 0.2) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1rem;
+  animation: stepFadeIn 0.2s ease-out;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.1);
+}
+
+.recipient-card-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.recipient-avatar-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10B981, #047857);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #FFFFFF;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+  flex-shrink: 0;
+}
+
+.recipient-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.recipient-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.recipient-card-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.badge-verified-member {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+  background: rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #34D399;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.recipient-card-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.recipient-card-tag {
+  color: var(--primary-emerald);
+  font-weight: 600;
+}
+
+.btn-change-recipient {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-change-recipient:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-primary);
+}
+
+/* Error Banners */
+.flow-alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  animation: shakeAlert 0.3s ease-out;
+}
+
+@keyframes shakeAlert {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.flow-alert-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #FCA5A5;
+}
+
+.flow-alert-warning {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #FCD34D;
+}
+
+.flow-alert-lockout {
+  background: rgba(220, 38, 38, 0.16);
+  border: 1px solid rgba(220, 38, 38, 0.5);
+  color: #FEB2B2;
+}
+
+/* PIN Setup & Confirmation Containers */
+.pin-security-hero {
+  text-align: center;
+  padding: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pin-shield-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-emerald);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.pin-hero-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pin-hero-desc {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+/* Transfer Summary Pill for PIN Confirmation */
+.pin-transfer-summary {
+  background: #091310;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.summary-sending-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.summary-amount-display {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--primary-emerald);
+  letter-spacing: -0.02em;
+}
+
+.summary-recipient-display {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* PIN 4-Digit Input Boxes */
+.pin-boxes-container {
+  display: flex;
+  justify-content: center;
+  gap: 0.85rem;
+  margin: 0.5rem 0;
+}
+
+.pin-digit-input {
+  width: 52px;
+  height: 58px;
+  background: rgba(16, 28, 25, 0.95);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--primary-emerald);
+  transition: all var(--transition-fast);
+  -webkit-text-security: disc;
+  outline: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pin-digit-input:focus {
+  border-color: var(--primary-emerald);
+  background: rgba(16, 185, 129, 0.08);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25), 0 4px 16px rgba(16, 185, 129, 0.2);
+  transform: translateY(-2px);
+}
+
+.pin-digit-input.has-value {
+  border-color: rgba(16, 185, 129, 0.6);
+}
+
+.pin-attempts-indicator {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #F87171;
+  font-weight: 600;
+}
+
+/* Success Screen */
+.send-success-hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem 0;
+}
+
+.success-badge-large {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 78, 59, 0.4));
+  border: 2px solid var(--primary-emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #34D399;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.35);
+  animation: successPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes successPop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.success-amount-text {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+}
+
+.success-recipient-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.success-recipient-badge strong {
+  color: var(--primary-emerald);
+}
+
+.success-receipt-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.success-receipt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+
+.success-receipt-label {
+  color: var(--text-muted);
+}
+
+.success-receipt-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.success-buttons-group {
+  display: flex;
+  gap: 0.8rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+/* ==========================================================================
+   TRANSFER REVIEW SCREEN & BUTTON STATES
+   ========================================================================== */
+.review-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.review-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.review-item-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.review-label {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.review-val {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: right;
+}
+
+.review-val.highlight {
+  color: var(--primary-emerald);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.review-recipient-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(6, 78, 59, 0.25));
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.review-recipient-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10B981, #047857);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #FFFFFF;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+  flex-shrink: 0;
+}
+
+.review-recipient-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.review-recipient-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.review-recipient-bank {
+  font-size: 0.8rem;
+  color: #A7F3D0;
+}
+
+.review-actions-group {
+  display: flex;
+  gap: 0.85rem;
+  margin-top: 0.6rem;
+}
+
+.btn-send-continue:disabled,
+#btn-recipient-next:disabled,
+#btn-amount-continue:disabled,
+.btn:disabled {
+  opacity: 0.38 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  filter: grayscale(0.7) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#btn-recipient-next,
+#btn-amount-continue {
+  background: var(--primary-emerald);
+  color: #04100C;
+  font-weight: 700;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
+  transition: all var(--transition-fast);
+}
+
+#btn-recipient-next:not(:disabled):hover,
+#btn-amount-continue:not(:disabled):hover {
+  background: #15803d;
+  color: #FFFFFF;
+  box-shadow: 0 6px 22px rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+}
+
+.form-actions-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.account-resolved-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #34D399;
+  margin-top: 0.5rem;
+  animation: stepFadeIn 0.25s ease-out;
+}
+
+.badge-resolved-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary-emerald);
+  color: #04100C;
+  font-size: 0.72rem;
+  font-weight: 900;
+  flex-shrink: 0;
 }
 

@@ -1,7 +1,6 @@
 /**
  * Liquid Glass v2 — Apple-Inspired Glass Effects Engine
- * High-performance, zero-latency dynamic glass with live cursor tracking,
- * 3D optical tilt, tactile liquid ripples, and Web Component support.
+ * Polished for high performance, zero layout disruption, and seamless interactivity.
  */
 
 (function (global) {
@@ -34,11 +33,12 @@
       if (!el || this.elements.has(el)) return el;
 
       const config = {
-        tilt: options.tilt ?? el.dataset.tilt !== 'false',
+        // Tilt is opt-in to avoid disrupting interactive forms or buttons
+        tilt: options.tilt ?? el.dataset.tilt === 'true',
         ripple: options.ripple ?? el.dataset.ripple !== 'false',
-        maxTilt: options.maxTilt ?? 8,
+        maxTilt: options.maxTilt ?? 4,
         theme: options.theme || el.dataset.liquidTheme || null,
-        variant: options.variant || el.dataset.liquidGlass || 'rounded',
+        variant: options.variant || el.dataset.liquidGlass || null,
       };
 
       if (!el.classList.contains('liquid-glass')) {
@@ -49,12 +49,12 @@
         el.classList.add(`lg-theme-${config.theme}`);
       }
 
-      if (config.variant) {
+      if (config.variant && config.variant !== 'true') {
         el.classList.add(`liquid-glass-${config.variant}`);
       }
 
       if (config.tilt && !this.isReducedMotion) {
-        el.classList.add('tilt-enabled');
+        el.classList.add('tilt-active');
       }
 
       let rafId = null;
@@ -63,7 +63,7 @@
       let currentX = 0;
       let currentY = 0;
 
-      // Pointer movement for specular sheen and 3D tilt
+      // Pointer movement for specular sheen
       const handlePointerMove = (e) => {
         const rect = el.getBoundingClientRect();
         const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : rect.left + rect.width / 2);
@@ -79,7 +79,6 @@
         el.style.setProperty('--lg-mouse-y', `${pctY.toFixed(1)}%`);
 
         if (config.tilt && !this.isReducedMotion) {
-          // Normalize from -1 to 1
           const normX = (relX / rect.width - 0.5) * 2;
           const normY = (relY / rect.height - 0.5) * 2;
 
@@ -93,10 +92,10 @@
       };
 
       const updateTilt = () => {
-        currentX += (targetX - currentX) * 0.15;
-        currentY += (targetY - currentY) * 0.15;
+        currentX += (targetX - currentX) * 0.12;
+        currentY += (targetY - currentY) * 0.12;
 
-        el.style.transform = `perspective(800px) rotateX(${currentX.toFixed(2)}deg) rotateY(${currentY.toFixed(2)}deg) translateY(-2px)`;
+        el.style.transform = `perspective(1000px) rotateX(${currentX.toFixed(2)}deg) rotateY(${currentY.toFixed(2)}deg)`;
 
         if (Math.abs(targetX - currentX) > 0.05 || Math.abs(targetY - currentY) > 0.05) {
           rafId = requestAnimationFrame(updateTilt);
@@ -113,10 +112,10 @@
           targetX = 0;
           targetY = 0;
           const resetTilt = () => {
-            currentX += (0 - currentX) * 0.2;
-            currentY += (0 - currentY) * 0.2;
+            currentX += (0 - currentX) * 0.15;
+            currentY += (0 - currentY) * 0.15;
             if (Math.abs(currentX) > 0.05 || Math.abs(currentY) > 0.05) {
-              el.style.transform = `perspective(800px) rotateX(${currentX.toFixed(2)}deg) rotateY(${currentY.toFixed(2)}deg)`;
+              el.style.transform = `perspective(1000px) rotateX(${currentX.toFixed(2)}deg) rotateY(${currentY.toFixed(2)}deg)`;
               requestAnimationFrame(resetTilt);
             } else {
               el.style.transform = '';
@@ -129,6 +128,14 @@
       // Click / Touch liquid wave ripple
       const handlePointerDown = (e) => {
         if (!config.ripple || this.isReducedMotion) return;
+
+        // Don't trigger ripple if clicking interactive child elements (inputs, selects, buttons)
+        if (e.target !== el && (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('a'))) {
+          // If the element itself is a button, let it ripple
+          if (el.tagName.toLowerCase() !== 'button') {
+            return;
+          }
+        }
 
         const rect = el.getBoundingClientRect();
         const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : rect.left + rect.width / 2);
@@ -145,7 +152,7 @@
           if (ripple.parentNode === el) {
             el.removeChild(ripple);
           }
-        }, 800);
+        }, 700);
       };
 
       el.addEventListener('mousemove', handlePointerMove, { passive: true });
@@ -155,14 +162,6 @@
 
       this.elements.add(el);
       return el;
-    }
-
-    /**
-     * Create a new glass element programmatically
-     */
-    create(tag = 'div', options = {}) {
-      const el = document.createElement(tag);
-      return this.attach(el, options);
     }
 
     /**
@@ -180,7 +179,6 @@
         scan();
       }
 
-      // Mutation observer to dynamically hydrate new DOM nodes
       if (typeof MutationObserver !== 'undefined') {
         const observer = new MutationObserver((mutations) => {
           for (const mutation of mutations) {
@@ -215,7 +213,7 @@
         global.LiquidGlass.attach(this, {
           variant: this.getAttribute('variant') || 'card',
           theme: this.getAttribute('theme') || null,
-          tilt: this.getAttribute('tilt') !== 'false',
+          tilt: this.getAttribute('tilt') === 'true',
           ripple: this.getAttribute('ripple') !== 'false',
         });
       }

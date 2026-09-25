@@ -1,18 +1,25 @@
 /* ==========================================================================
-   Liquid Glass v2 — Modern Apple-Inspired Glass Effects Library
-   Enhanced with dynamic specular reflections, chromatic dispersion,
-   tactile liquid ripples, and 60/120 FPS hardware acceleration.
+   Liquid Glass v2 — Modern Apple-Inspired Glass Effects Engine
+   Polished to Apple VisionOS / macOS Sonoma Standards
+   - Zero layout disruption
+   - Crisp, high-contrast typography (never washed out)
+   - Pixel-perfect refractive rim lighting via multi-stop box-shadow
+   - Smooth, non-intrusive specular sheen behind content
    ========================================================================== */
 
 :root {
   --lg-blur: 24px;
   --lg-saturate: 180%;
-  --lg-brightness: 1.08;
-  --lg-tint-color: rgba(255, 255, 255, 0.08);
-  --lg-tint-border: rgba(255, 255, 255, 0.18);
-  --lg-specular-color: rgba(255, 255, 255, 0.45);
-  --lg-specular-size: 260px;
-  --lg-refract-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--lg-tint-border) inset;
+  --lg-brightness: 1.05;
+  --lg-tint-color: rgba(14, 28, 23, 0.75);
+  --lg-tint-border: rgba(255, 255, 255, 0.12);
+  --lg-specular-color: rgba(52, 211, 153, 0.22);
+  --lg-specular-size: 320px;
+  --lg-refract-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.35),
+    0 20px 45px -10px rgba(0, 0, 0, 0.65),
+    0 0 25px -4px rgba(16, 185, 129, 0.18);
   --lg-glow: rgba(16, 185, 129, 0.25);
   --lg-spring-timing: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -32,19 +39,24 @@ liquid-glass {
   box-shadow: var(--lg-refract-shadow);
   border: 1px solid var(--lg-tint-border);
   overflow: hidden;
-  isolation: isolate;
-  transform-style: preserve-3d;
-  will-change: transform, box-shadow;
-  transition: transform 0.22s var(--lg-spring-timing),
-              box-shadow 0.25s ease,
+  will-change: box-shadow, border-color;
+  transition: box-shadow 0.25s ease,
               border-color 0.2s ease,
               background 0.2s ease;
+}
+
+/* Ensure all child elements sit safely ABOVE specular backgrounds */
+.liquid-glass > *,
+[data-liquid-glass] > *,
+liquid-glass > * {
+  position: relative;
+  z-index: 2;
 }
 
 /* Shape Variations */
 .liquid-glass-rounded,
 [data-liquid-glass="rounded"] {
-  border-radius: 20px;
+  border-radius: 18px;
 }
 
 .liquid-glass-pill,
@@ -63,28 +75,24 @@ liquid-glass {
   border-radius: 24px;
 }
 
-/* Interactive Cursor Specular Sheen (Dynamic Glare) */
+/* Interactive Cursor Specular Sheen (Subtle Caustic Reflection) */
 .liquid-glass::before,
 [data-liquid-glass]::before,
 liquid-glass::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  z-index: 1;
+  z-index: 1; /* Behind child elements (z-index: 2) */
   opacity: 0;
   background: radial-gradient(
     var(--lg-specular-size) circle at var(--lg-mouse-x, 50%) var(--lg-mouse-y, 50%),
     var(--lg-specular-color) 0%,
-    rgba(255, 255, 255, 0.12) 35%,
+    rgba(255, 255, 255, 0.05) 40%,
     transparent 70%
   );
   transition: opacity 0.3s ease;
-  mix-blend-mode: overlay;
 }
 
 .liquid-glass:hover::before,
@@ -93,98 +101,54 @@ liquid-glass:hover::before {
   opacity: 1;
 }
 
-/* Outer Refractive Rim Highlight */
-.liquid-glass::after,
-[data-liquid-glass]::after,
-liquid-glass::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.35) 0%,
-    rgba(255, 255, 255, 0.05) 45%,
-    rgba(255, 255, 255, 0) 60%,
-    rgba(255, 255, 255, 0.22) 100%
-  );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  z-index: 2;
-  opacity: 0.85;
+/* Hover Subtle Lift */
+.liquid-glass:hover,
+[data-liquid-glass]:hover,
+liquid-glass:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4),
+    0 25px 55px -10px rgba(0, 0, 0, 0.75),
+    0 0 32px -4px var(--lg-glow);
 }
 
-/* Hover Lift & 3D Tilt */
-.liquid-glass.tilt-enabled:hover,
-[data-liquid-glass].tilt-enabled:hover,
-liquid-glass.tilt-enabled:hover {
-  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6),
-              0 0 24px -4px var(--lg-glow),
-              0 0 0 1px rgba(255, 255, 255, 0.24) inset;
+/* Only enable 3D tilt when explicitly requested via .tilt-active */
+.liquid-glass.tilt-active {
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.22s var(--lg-spring-timing);
 }
 
-/* Click/Touch Wave Ripple */
+/* Click/Touch Organic Wave Ripple */
 .liquid-ripple {
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(0);
-  animation: liquid-ripple-burst 0.75s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
-  z-index: 3;
+  animation: liquid-ripple-burst 0.65s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+  z-index: 1; /* Below content */
   background: radial-gradient(
     circle,
-    rgba(255, 255, 255, 0.45) 0%,
-    rgba(255, 255, 255, 0.15) 40%,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(16, 185, 129, 0.15) 45%,
     transparent 70%
   );
-  mix-blend-mode: screen;
 }
 
 @keyframes liquid-ripple-burst {
   0% {
     width: 0px;
     height: 0px;
-    opacity: 0.9;
+    opacity: 0.85;
     transform: translate(-50%, -50%) scale(0);
   }
   100% {
-    width: 320px;
-    height: 320px;
+    width: 380px;
+    height: 380px;
     opacity: 0;
-    transform: translate(-50%, -50%) scale(2.2);
+    transform: translate(-50%, -50%) scale(2);
   }
-}
-
-/* Chromatic Edge Dispersion (Simulating Optical Refraction) */
-.liquid-glass-chromatic {
-  position: relative;
-}
-
-.liquid-glass-chromatic::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from 180deg at 50% 50%,
-    rgba(255, 0, 80, 0.15) 0deg,
-    rgba(0, 255, 180, 0.18) 120deg,
-    rgba(0, 150, 255, 0.16) 240deg,
-    rgba(255, 0, 80, 0.15) 360deg
-  );
-  filter: blur(4px);
-  opacity: 0.4;
-  pointer-events: none;
-  z-index: -1;
-  transition: opacity 0.3s ease;
-}
-
-.liquid-glass-chromatic:hover::after {
-  opacity: 0.85;
 }
 
 /* Theme Presets */
@@ -192,71 +156,61 @@ liquid-glass.tilt-enabled:hover {
 /* 1. Emerald Fintech (MidePay Brand) */
 .lg-theme-emerald,
 [data-liquid-theme="emerald"] {
-  --lg-tint-color: rgba(14, 30, 24, 0.72);
-  --lg-tint-border: rgba(16, 185, 129, 0.28);
-  --lg-specular-color: rgba(52, 211, 153, 0.35);
-  --lg-glow: rgba(16, 185, 129, 0.35);
-  --lg-refract-shadow: 0 20px 45px -8px rgba(0, 15, 10, 0.55),
-                       0 0 0 1px rgba(16, 185, 129, 0.22) inset;
+  --lg-tint-color: rgba(14, 28, 23, 0.78);
+  --lg-tint-border: rgba(16, 185, 129, 0.25);
+  --lg-specular-color: rgba(52, 211, 153, 0.22);
+  --lg-glow: rgba(16, 185, 129, 0.3);
+  --lg-refract-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.35),
+    0 20px 45px -10px rgba(0, 15, 10, 0.65),
+    0 0 25px -4px rgba(16, 185, 129, 0.2);
 }
 
 /* 2. Crystal Frost (Apple Classic) */
 .lg-theme-crystal,
 [data-liquid-theme="crystal"] {
-  --lg-tint-color: rgba(255, 255, 255, 0.12);
-  --lg-tint-border: rgba(255, 255, 255, 0.35);
-  --lg-specular-color: rgba(255, 255, 255, 0.7);
-  --lg-glow: rgba(255, 255, 255, 0.2);
+  --lg-tint-color: rgba(255, 255, 255, 0.08);
+  --lg-tint-border: rgba(255, 255, 255, 0.25);
+  --lg-specular-color: rgba(255, 255, 255, 0.35);
+  --lg-glow: rgba(255, 255, 255, 0.15);
+  --lg-refract-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.35),
+    0 20px 45px -10px rgba(0, 0, 0, 0.5);
 }
 
 /* 3. Obsidian Dark (Sleek Stealth) */
 .lg-theme-obsidian,
 [data-liquid-theme="obsidian"] {
-  --lg-tint-color: rgba(12, 14, 18, 0.82);
-  --lg-tint-border: rgba(255, 255, 255, 0.12);
-  --lg-specular-color: rgba(255, 255, 255, 0.3);
-  --lg-glow: rgba(0, 0, 0, 0.7);
+  --lg-tint-color: rgba(12, 16, 14, 0.85);
+  --lg-tint-border: rgba(255, 255, 255, 0.1);
+  --lg-specular-color: rgba(255, 255, 255, 0.15);
+  --lg-glow: rgba(0, 0, 0, 0.6);
+  --lg-refract-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.5),
+    0 22px 50px -10px rgba(0, 0, 0, 0.75);
 }
 
 /* 4. Iridescent Prism */
 .lg-theme-iridescent,
 [data-liquid-theme="iridescent"] {
-  --lg-tint-color: rgba(25, 20, 38, 0.68);
-  --lg-tint-border: rgba(192, 132, 252, 0.35);
-  --lg-specular-color: rgba(244, 114, 182, 0.5);
-  --lg-glow: rgba(168, 85, 247, 0.35);
+  --lg-tint-color: rgba(22, 18, 32, 0.75);
+  --lg-tint-border: rgba(192, 132, 252, 0.25);
+  --lg-specular-color: rgba(244, 114, 182, 0.28);
+  --lg-glow: rgba(168, 85, 247, 0.25);
 }
 
 /* Liquid Glass Button Variant */
 .liquid-glass-btn,
 button[data-liquid-glass] {
-  padding: 12px 24px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #fff;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   user-select: none;
 }
 
 .liquid-glass-btn:active,
 button[data-liquid-glass]:active {
-  transform: scale(0.97) translateY(1px);
-}
-
-/* Nested Glass (Container with child glass elements) */
-.liquid-glass-nested {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(16px) saturate(160%);
-}
-
-.liquid-glass-nested:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22);
+  transform: scale(0.98) translateY(1px);
 }
 
 /* Accessibility: Reduced Motion */
