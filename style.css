@@ -2583,7 +2583,7 @@ select.form-input option {
 
 @media (max-width: 768px) {
   :root {
-    --header-height: 68px;
+    --header-height: 64px;
   }
 
   .nav-menu {
@@ -2598,16 +2598,77 @@ select.form-input option {
     display: flex;
   }
 
+  .nav-dashboard-actions {
+    gap: 0.5rem;
+  }
+
+  .cbn-compliance-header-tag {
+    display: none;
+  }
+
+  #nav-goto-dashboard-btn {
+    display: none;
+  }
+
+  .user-pill-name {
+    display: none;
+  }
+
+  .user-pill {
+    padding: 0.2rem;
+    border: none;
+    background: transparent;
+  }
+
+  #nav-logout-btn {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.78rem;
+  }
+
+  .hero-section {
+    padding-top: 2rem;
+    padding-bottom: 3.5rem;
+  }
+
   .hero-title {
-    font-size: 2.1rem;
+    font-size: 1.95rem;
+    line-height: 1.25;
+  }
+
+  .hero-description {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin-bottom: 1.8rem;
+  }
+
+  .hero-cta-group {
+    flex-direction: column;
+    width: 100%;
+    max-width: 340px;
+    margin: 0 auto;
+    gap: 0.75rem;
+  }
+
+  .hero-cta-group .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .hero-stats {
-    gap: 1.2rem;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+
+  .stat-item {
+    min-width: 90px;
   }
 
   .stat-number {
-    font-size: 1.35rem;
+    font-size: 1.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
   }
 
   .input-group-row {
@@ -2619,16 +2680,171 @@ select.form-input option {
     gap: 2rem;
   }
 
+  .dashboard-container {
+    padding-top: 1.2rem;
+    padding-bottom: 4rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .dash-greeting {
+    font-size: 1.45rem;
+  }
+
+  .dashboard-header-bar {
+    margin-bottom: 1.2rem;
+    gap: 0.6rem;
+  }
+
+  .dash-balance-card {
+    padding: 1.4rem 1.1rem;
+    border-radius: 18px;
+    margin-bottom: 1.25rem;
+  }
+
+  .dash-balance-amount {
+    font-size: clamp(1.65rem, 6.5vw, 2.25rem);
+  }
+
+  .dash-balance-value-row {
+    margin-bottom: 1.2rem;
+  }
+
   .dash-account-details {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 0.9rem 0;
+    margin-bottom: 1.2rem;
   }
 
   .dash-card-buttons {
     flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .dash-card-buttons .btn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 0.92rem;
+  }
+
+  .dash-quick-section {
+    margin-top: 1.25rem;
+  }
+
+  .dash-section-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.85rem;
   }
 
   .dash-action-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+
+  .dash-action-card {
+    padding: 0.95rem 0.8rem;
+    border-radius: 12px;
+    gap: 0.25rem;
+  }
+
+  .qa-icon-wrap {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 0.25rem;
+  }
+
+  .qa-title {
+    font-size: 0.88rem;
+  }
+
+  .qa-desc {
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  .dash-tx-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .tx-filter-pills {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+  }
+
+  .dash-tx-item {
+    padding: 0.85rem 0.75rem;
+  }
+
+  .dash-tx-title {
+    font-size: 0.88rem;
+  }
+
+  .dash-tx-meta {
+    font-size: 0.74rem;
+  }
+
+  .dash-tx-val {
+    font-size: 0.92rem;
+  }
+
+  .dash-tx-status {
+    font-size: 0.68rem;
+  }
+
+  .auth-page-wrapper {
+    padding: 1.5rem 0.8rem;
+    min-height: calc(100vh - var(--header-height));
+  }
+
+  .auth-card {
+    padding: 1.6rem 1.2rem;
+    border-radius: 16px;
+  }
+
+  .auth-title {
+    font-size: 1.45rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 0.4rem;
+    align-items: flex-end;
+  }
+
+  .modal-box {
+    padding: 1.35rem 1.05rem;
+    border-radius: 20px 20px 0 0;
+    max-height: 92vh;
+    max-width: 100%;
+  }
+
+  .modal-title {
+    font-size: 1.2rem;
+  }
+
+  .dash-balance-amount {
+    font-size: 1.7rem;
+  }
+
+  .dash-action-grid {
+    gap: 0.5rem;
+  }
+
+  .dash-action-card {
+    padding: 0.8rem 0.65rem;
+  }
+
+  .qa-title {
+    font-size: 0.84rem;
+  }
+
+  .qa-desc {
+    display: none;
   }
 }
 
