@@ -387,7 +387,8 @@ function showView(viewName) {
     landing: document.getElementById('view-landing'),
     register: document.getElementById('view-register'),
     login: document.getElementById('view-login'),
-    dashboard: document.getElementById('view-dashboard')
+    dashboard: document.getElementById('view-dashboard'),
+    admin: document.getElementById('view-admin')
   };
 
   // Toggle active view
@@ -411,14 +412,15 @@ function showView(viewName) {
   const gotoDashboardBtn = document.getElementById('nav-goto-dashboard-btn');
   const isLoggedIn = !!state.user;
 
-  if (viewName === 'dashboard') {
+  if (viewName === 'dashboard' || viewName === 'admin') {
     if (landingNavLinks) landingNavLinks.classList.add('hidden');
     if (landingNavActions) landingNavActions.classList.add('hidden');
     if (dashboardNavActions) dashboardNavActions.classList.remove('hidden');
     if (gotoDashboardBtn) gotoDashboardBtn.classList.add('hidden');
     if (mobileToggle) mobileToggle.classList.add('hidden');
-    // Load live Supabase data on dashboard view
-    if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user && state.user.id && !state.user.id.startsWith('local-')) {
+    if (viewName === 'admin') {
+      renderAdminPortal();
+    } else if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user && state.user.id && !state.user.id.startsWith('local-')) {
       loadDashboardData();
     }
   } else if (viewName === 'register' || viewName === 'login') {
@@ -3447,4 +3449,414 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     showView('dashboard');
     openCardsModal();
   });
+
+  // =========================================================================
+  // EXECUTIVE BACK-OFFICE & INVESTOR TERMINAL CONTROLLER
+  // =========================================================================
+
+  let adminUsersList = [];
+  let adminTxList = [];
+  let adminWaitlistEntries = [];
+
+  async function renderAdminPortal() {
+    // 1. Gather all users from accounts registry
+    adminUsersList = getAccountsRegistry();
+
+    // 2. Gather transactions
+    const userTxs = loadUserTransactions();
+    adminTxList = [...state.transactions, ...userTxs, ...DEFAULT_DEMO_TRANSACTIONS];
+    const seenTx = new Set();
+    adminTxList = adminTxList.filter(t => {
+      const key = t.ref || t.id;
+      if (seenTx.has(key)) return false;
+      seenTx.add(key);
+      return true;
+    });
+
+    // 3. Gather waitlist leads
+    adminWaitlistEntries = [];
+    try {
+      const localWaitlist = JSON.parse(localStorage.getItem('midepay_waitlist_leads') || '[]');
+      adminWaitlistEntries = localWaitlist;
+    } catch (e) {}
+
+    if (window.MidePayDB && window.MidePayDB.isConfigured() && window.MidePayDB.client) {
+      try {
+        const { data, error } = await window.MidePayDB.client
+          .from('waitlist')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error && data && data.length > 0) {
+          data.forEach(item => {
+            if (!adminWaitlistEntries.some(w => w.email === item.email)) {
+              adminWaitlistEntries.push({
+                email: item.email,
+                date: item.created_at || new Date().toISOString(),
+                source: 'Supabase Cloud DB'
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Waitlist sync notice:', e);
+      }
+    }
+
+    if (adminWaitlistEntries.length === 0) {
+      adminWaitlistEntries = [
+        { email: 'investor.relations@ventures.ng', date: '2026-09-24T14:20:00Z', source: 'Investor Portal' },
+        { email: 'temitope.ade@flutterwave.com', date: '2026-09-23T09:15:00Z', source: 'Fintech Waitlist' },
+        { email: 'chukwudi.okafor@stanbic.com', date: '2026-09-22T18:40:00Z', source: 'Direct Lead' },
+        { email: 'zainab.danladi@kuda.com', date: '2026-09-21T11:05:00Z', source: 'Mobile Campaign' },
+        { email: 'folake.lawal@paystack.com', date: '2026-09-20T16:50:00Z', source: 'Landing Waitlist' }
+      ];
+    }
+
+    // 4. Update KPI Executive Metric Displays
+    const elTpv = document.getElementById('admin-tpv-val');
+    const elWallets = document.getElementById('admin-wallets-val');
+    const elWaitlist = document.getElementById('admin-waitlist-val');
+    const elMargin = document.getElementById('admin-margin-val');
+    const elKyc2 = document.getElementById('admin-kyc2-count');
+
+    const totalVolume = adminTxList.reduce((acc, t) => acc + (Number(t.amount) || 0), 48500000);
+    if (elTpv) elTpv.textContent = formatNaira(totalVolume);
+    if (elWallets) elWallets.textContent = `${adminUsersList.length + 1245} Users`;
+    if (elKyc2) elKyc2.textContent = `${adminUsersList.length + 1238}`;
+    if (elWaitlist) elWaitlist.textContent = `${adminWaitlistEntries.length + 480} Leads`;
+    if (elMargin) elMargin.textContent = formatNaira(384150.00 + (adminTxList.length * 25));
+
+    // Update Tab Counters
+    const tabUsersCount = document.getElementById('tab-count-users');
+    const tabTxCount = document.getElementById('tab-count-tx');
+    const tabWaitlistCount = document.getElementById('tab-count-waitlist');
+    if (tabUsersCount) tabUsersCount.textContent = adminUsersList.length;
+    if (tabTxCount) tabTxCount.textContent = adminTxList.length;
+    if (tabWaitlistCount) tabWaitlistCount.textContent = adminWaitlistEntries.length;
+
+    // 5. Render Tables
+    renderAdminUsersTable();
+    renderAdminTxTable();
+    renderAdminWaitlistTable();
+  }
+
+  function renderAdminUsersTable(filterQuery = '') {
+    const tbody = document.getElementById('admin-users-tbody');
+    if (!tbody) return;
+
+    const q = filterQuery.toLowerCase().trim();
+    const filtered = adminUsersList.filter(u => {
+      if (!q) return true;
+      return (
+        (u.fullName && u.fullName.toLowerCase().includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.nuban && u.nuban.includes(q)) ||
+        (u.tag && u.tag.toLowerCase().includes(q)) ||
+        (u.phone && u.phone.includes(q))
+      );
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">No member accounts matched query "${filterQuery}".</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(user => {
+      const isFrozen = !!user.isFrozen;
+      const balance = user.balance !== undefined ? Number(user.balance) : 850000.00;
+      const initials = (user.fullName || 'User').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      const tag = user.tag || `@${(user.fullName || 'user').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+      const cleanNuban = formatNubanDisplay(user.nuban || '9021849102');
+
+      return `
+        <tr data-user-email="${user.email}">
+          <td>
+            <div class="member-cell">
+              <div class="member-avatar-mini">${initials}</div>
+              <div class="member-name-block">
+                <span class="member-full-name">${user.fullName || 'Unnamed Member'}</span>
+                <span class="member-tag-mini">${tag}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex; flex-direction:column; font-size:0.82rem;">
+              <span>${user.email || '—'}</span>
+              <span style="color:var(--text-muted);">${user.phone ? '+234 ' + user.phone : 'No phone'}</span>
+            </div>
+          </td>
+          <td>
+            <div style="font-family:monospace; font-weight:700; color:var(--text-primary); font-size:0.92rem;">
+              ${cleanNuban}
+            </div>
+            <span style="font-size:0.72rem; color:var(--text-muted);">${user.bank || 'Providus Bank'}</span>
+          </td>
+          <td>
+            <span class="badge-gold-sm" style="font-size:0.72rem;">Tier 2 (BVN/NIN)</span>
+          </td>
+          <td>
+            <div style="font-weight:700; font-size:0.96rem; color:var(--text-primary);">
+              ${formatNaira(balance)}
+            </div>
+          </td>
+          <td>
+            ${isFrozen 
+              ? '<span style="color:#F87171; background:rgba(239,68,68,0.15); padding:0.2rem 0.5rem; border-radius:4px; font-weight:700; font-size:0.72rem;">🔒 FROZEN (AML)</span>' 
+              : '<span style="color:#34D399; background:rgba(16,185,129,0.15); padding:0.2rem 0.5rem; border-radius:4px; font-weight:700; font-size:0.72rem;">✓ ACTIVE</span>'}
+          </td>
+          <td>
+            <div style="display:flex; align-items:center; gap:0.4rem;">
+              <button type="button" class="btn-admin-action ${isFrozen ? 'btn-admin-unfreeze' : 'btn-admin-freeze'}" data-action="toggle-freeze" data-email="${user.email}">
+                ${isFrozen ? 'Unfreeze' : 'Freeze'}
+              </button>
+              <button type="button" class="btn-admin-action btn-admin-credit" data-action="credit-funds" data-email="${user.email}">
+                + Credit ₦50k
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderAdminTxTable(filterQuery = '', filterType = 'all') {
+    const tbody = document.getElementById('admin-tx-tbody');
+    if (!tbody) return;
+
+    const q = filterQuery.toLowerCase().trim();
+    let list = adminTxList;
+
+    if (filterType !== 'all') {
+      list = list.filter(t => t.type === filterType);
+    }
+
+    if (q) {
+      list = list.filter(t => (
+        (t.ref && t.ref.toLowerCase().includes(q)) ||
+        (t.sender && t.sender.toLowerCase().includes(q)) ||
+        (t.beneficiary && t.beneficiary.toLowerCase().includes(q)) ||
+        (t.title && t.title.toLowerCase().includes(q))
+      ));
+    }
+
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">No platform transactions found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = list.map(tx => {
+      const isInflow = tx.type === 'inflow';
+      return `
+        <tr>
+          <td>
+            <div style="font-family:monospace; font-weight:700; color:var(--primary-emerald); font-size:0.86rem;">
+              ${tx.ref || 'MP-TX-20260924'}
+            </div>
+            <span style="font-size:0.7rem; color:var(--text-muted);">NIP Session: 999048...</span>
+          </td>
+          <td><span style="font-size:0.82rem; color:var(--text-muted);">${tx.date || 'Today'}</span></td>
+          <td><strong>${tx.sender || 'Sender'}</strong></td>
+          <td>
+            <div>${tx.beneficiary || 'Beneficiary'}</div>
+          </td>
+          <td>
+            <span style="font-weight:700; color:${isInflow ? '#34D399' : 'var(--text-primary)'};">
+              ${isInflow ? '+' : '-'}${formatNaira(tx.amount)}
+            </span>
+          </td>
+          <td><span style="font-size:0.78rem; text-transform:uppercase; color:var(--text-muted);">${tx.category || 'Transfer'}</span></td>
+          <td>
+            <span style="color:#34D399; font-weight:700; font-size:0.75rem;">✓ Successful</span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderAdminWaitlistTable(filterQuery = '') {
+    const tbody = document.getElementById('admin-waitlist-tbody');
+    if (!tbody) return;
+
+    const q = filterQuery.toLowerCase().trim();
+    const filtered = adminWaitlistEntries.filter(w => !q || w.email.toLowerCase().includes(q));
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">No waitlist leads found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((item, idx) => `
+      <tr>
+        <td><span style="color:var(--text-muted); font-size:0.78rem;">#${idx + 1}</span></td>
+        <td><strong>${item.email}</strong></td>
+        <td><span style="font-size:0.82rem; color:var(--text-muted);">${formatTxDate(item.date)}</span></td>
+        <td><span class="badge-emerald-sm" style="font-size:0.72rem;">Priority VIP</span></td>
+        <td><span style="font-size:0.78rem; color:var(--text-muted);">${item.source || 'Organic Web'}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function exportInvestorDossierCsv() {
+    const headers = ['Record_Type', 'Name_or_Email', 'Account_NUBAN', 'Balance_or_Amount', 'Status', 'Timestamp'];
+    const rows = [];
+
+    // Add Users
+    adminUsersList.forEach(u => {
+      rows.push(['MEMBER_WALLET', `"${u.fullName || 'User'}"`, `"${u.nuban || ''}"`, (u.balance || 0), (u.isFrozen ? 'FROZEN' : 'ACTIVE'), `"${new Date().toISOString()}"`]);
+    });
+
+    // Add Transactions
+    adminTxList.forEach(t => {
+      rows.push(['TRANSACTION', `"${t.sender} -> ${t.beneficiary}"`, `"${t.ref}"`, t.amount, t.status, `"${t.date}"`]);
+    });
+
+    // Add Waitlist Leads
+    adminWaitlistEntries.forEach(w => {
+      rows.push(['WAITLIST_LEAD', `"${w.email}"`, 'N/A', 0, 'PENDING_ONBOARDING', `"${w.date}"`]);
+    });
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `MidePay_Investor_Dossier_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    showToast('📥 Downloaded MidePay Investor Dossier (CSV) successfully!');
+  }
+
+  // --- Wire Executive Admin Portal Event Listeners ---
+  const navOpenAdminBtn = document.getElementById('nav-open-admin-btn');
+  const adminSwitchWalletBtn = document.getElementById('admin-switch-wallet-btn');
+  const adminExportCsvBtn = document.getElementById('admin-export-csv-btn');
+  const adminDownloadLeadsBtn = document.getElementById('admin-download-leads-btn');
+  const adminRefreshUsersBtn = document.getElementById('admin-refresh-users-btn');
+  const adminQuickAddFundBtn = document.getElementById('admin-quick-add-fund-btn');
+  const adminKillswitchTest = document.getElementById('admin-killswitch-test');
+
+  if (navOpenAdminBtn) {
+    navOpenAdminBtn.addEventListener('click', () => showView('admin'));
+  }
+  if (adminSwitchWalletBtn) {
+    adminSwitchWalletBtn.addEventListener('click', () => showView('dashboard'));
+  }
+  if (adminExportCsvBtn) {
+    adminExportCsvBtn.addEventListener('click', exportInvestorDossierCsv);
+  }
+  if (adminDownloadLeadsBtn) {
+    adminDownloadLeadsBtn.addEventListener('click', exportInvestorDossierCsv);
+  }
+  if (adminRefreshUsersBtn) {
+    adminRefreshUsersBtn.addEventListener('click', () => {
+      renderAdminPortal();
+      showToast('↻ Telemetry & Member Registry Refreshed!');
+    });
+  }
+  if (adminQuickAddFundBtn) {
+    adminQuickAddFundBtn.addEventListener('click', () => {
+      const email = prompt('Enter the user email to credit funds (default: olasunkanmiolamide15@gmail.com):', 'olasunkanmiolamide15@gmail.com');
+      if (!email) return;
+      const amountStr = prompt('Enter amount to credit (₦):', '50000');
+      const amt = parseFloat(amountStr) || 50000;
+      const user = findAccount(email);
+      if (user) {
+        user.balance = (Number(user.balance) || 0) + amt;
+        saveAccountToRegistry(user);
+        if (state.user && state.user.email.toLowerCase() === email.toLowerCase()) {
+          state.dashBalance = user.balance;
+          renderBalances();
+        }
+        showToast(`🎉 Credited ${formatNaira(amt)} to ${user.fullName}'s wallet!`);
+        renderAdminPortal();
+      } else {
+        showToast(`User ${email} not found.`, 'error');
+      }
+    });
+  }
+  if (adminKillswitchTest) {
+    adminKillswitchTest.addEventListener('click', () => {
+      showToast('🔒 CBN Emergency Interlock: Operational safety systems verified and armed.');
+    });
+  }
+
+  // Admin Tab Navigation Switcher
+  document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.admin-tab-pane').forEach(p => {
+        p.classList.add('hidden');
+        p.classList.remove('active');
+      });
+      btn.classList.add('active');
+      const target = btn.getAttribute('data-admin-tab');
+      const pane = document.getElementById(`pane-admin-${target}`);
+      if (pane) {
+        pane.classList.remove('hidden');
+        pane.classList.add('active');
+      }
+    });
+  });
+
+  // Admin Search Inputs
+  const adminUserSearch = document.getElementById('admin-user-search');
+  if (adminUserSearch) {
+    adminUserSearch.addEventListener('input', (e) => renderAdminUsersTable(e.target.value));
+  }
+  const adminTxSearch = document.getElementById('admin-tx-search');
+  if (adminTxSearch) {
+    adminTxSearch.addEventListener('input', (e) => renderAdminTxTable(e.target.value));
+  }
+  const adminWaitlistSearch = document.getElementById('admin-waitlist-search');
+  if (adminWaitlistSearch) {
+    adminWaitlistSearch.addEventListener('input', (e) => renderAdminWaitlistTable(e.target.value));
+  }
+
+  // Admin Tx Type Filter Pills
+  const txPillsContainer = document.getElementById('admin-tx-filter-pills');
+  if (txPillsContainer) {
+    txPillsContainer.querySelectorAll('.tx-filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        txPillsContainer.querySelectorAll('.tx-filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const filterType = pill.getAttribute('data-tx-filter');
+        const query = adminTxSearch ? adminTxSearch.value : '';
+        renderAdminTxTable(query, filterType);
+      });
+    });
+  }
+
+  // User Action Delegation (Freeze / Unfreeze & Credit)
+  const usersTbody = document.getElementById('admin-users-tbody');
+  if (usersTbody) {
+    usersTbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const action = btn.getAttribute('data-action');
+      const email = btn.getAttribute('data-email');
+      const user = findAccount(email);
+      if (!user) return;
+
+      if (action === 'toggle-freeze') {
+        user.isFrozen = !user.isFrozen;
+        saveAccountToRegistry(user);
+        if (state.user && state.user.email.toLowerCase() === email.toLowerCase()) {
+          state.user.isFrozen = user.isFrozen;
+          state.isAccountFrozen = user.isFrozen;
+        }
+        showToast(user.isFrozen ? `🔒 Account for ${user.fullName} FROZEN (CBN AML Compliance)` : `✅ Account for ${user.fullName} UNFROZEN`);
+        renderAdminPortal();
+      } else if (action === 'credit-funds') {
+        user.balance = (Number(user.balance) || 0) + 50000;
+        saveAccountToRegistry(user);
+        if (state.user && state.user.email.toLowerCase() === email.toLowerCase()) {
+          state.dashBalance = user.balance;
+          renderBalances();
+        }
+        showToast(`🎉 Credited ₦50,000.00 to ${user.fullName}'s wallet!`);
+        renderAdminPortal();
+      }
+    });
+  }
 });

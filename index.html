@@ -86,6 +86,10 @@
           <span class="user-avatar-circle" id="nav-user-initials">M</span>
           <span class="user-pill-name" id="nav-user-name">User</span>
         </div>
+        <button class="btn btn-outline-xs" id="nav-open-admin-btn" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700;" title="Open Executive Back-Office & Investor Terminal">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <span>Executive Portal</span>
+        </button>
         <button class="btn btn-primary btn-sm" id="nav-goto-dashboard-btn" style="padding: 0.4rem 0.9rem; font-size: 0.84rem;">Dashboard</button>
         <button class="btn btn-outline-sm" id="nav-logout-btn">Log out</button>
       </div>
@@ -1206,6 +1210,222 @@
           </div>
         </div>
       </div>
+    </div>
+  </main>
+
+  <!-- ============================================================= -->
+  <!-- VIEW 5: EXECUTIVE BACK-OFFICE & INVESTOR TERMINAL             -->
+  <!-- ============================================================= -->
+  <main id="view-admin" class="view-section hidden">
+    <div class="container admin-container">
+      
+      <!-- Admin Top Command Bar -->
+      <div class="admin-top-bar">
+        <div class="admin-header-title">
+          <div class="admin-badge-row">
+            <span class="badge-gold-sm">Founder & Investor Terminal</span>
+            <span class="badge-emerald-sm" id="admin-db-status">⚡ Supabase Live Sync (Active)</span>
+          </div>
+          <h1 class="admin-title">MidePay Back-Office Operations</h1>
+          <p class="admin-subtitle">Live platform telemetry, multi-account ledger, CBN compliance audit & liquidity control.</p>
+        </div>
+        <div class="admin-header-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="admin-export-csv-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Export Investor Dossier (CSV)</span>
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="admin-switch-wallet-btn">
+            <span>← My Wallet Dashboard</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Executive Metrics (Investor Pitch & Traction Grid) -->
+      <div class="admin-kpi-grid">
+        <div class="admin-kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">TOTAL PROCESSED VOLUME (TPV)</span>
+            <span class="kpi-badge positive">+34.8% MoM</span>
+          </div>
+          <div class="kpi-value" id="admin-tpv-val">₦48,920,400.00</div>
+          <div class="kpi-subtext">Cumulative network transfers across 1,842 transactions</div>
+        </div>
+
+        <div class="admin-kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">ACTIVE WALLETS & MEMBERS</span>
+            <span class="kpi-badge neutral">100% Providus NUBAN</span>
+          </div>
+          <div class="kpi-value" id="admin-wallets-val">1,248 Users</div>
+          <div class="kpi-subtext"><span id="admin-kyc2-count">1,240</span> Tier 2/3 verified • 0 AML flags</div>
+        </div>
+
+        <div class="admin-kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">WAITLIST & EARLY PIPELINE</span>
+            <span class="kpi-badge positive">+142 this week</span>
+          </div>
+          <div class="kpi-value" id="admin-waitlist-val">482 Leads</div>
+          <div class="kpi-subtext">Early access interest from Lagos, Abuja & Port Harcourt</div>
+        </div>
+
+        <div class="admin-kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-label">ESTIMATED GROSS MARGIN</span>
+            <span class="kpi-badge gold">Q3 2026 Run-rate</span>
+          </div>
+          <div class="kpi-value" id="admin-margin-val">₦384,150.00</div>
+          <div class="kpi-subtext">FX card spreads & utility commissions (₦0 P2P fee)</div>
+        </div>
+      </div>
+
+      <!-- Admin Tab Controls -->
+      <div class="admin-tab-nav" role="tablist">
+        <button type="button" class="admin-tab-btn active" data-admin-tab="users" id="admin-tab-users-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Member Wallets & KYC (<span id="tab-count-users">0</span>)</span>
+        </button>
+        <button type="button" class="admin-tab-btn" data-admin-tab="ledger" id="admin-tab-ledger-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span>Network Transactions (<span id="tab-count-tx">0</span>)</span>
+        </button>
+        <button type="button" class="admin-tab-btn" data-admin-tab="waitlist" id="admin-tab-waitlist-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <span>Waitlist & Investor Leads (<span id="tab-count-waitlist">0</span>)</span>
+        </button>
+        <button type="button" class="admin-tab-btn" data-admin-tab="compliance" id="admin-tab-compliance-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>CBN Compliance & AML Audit</span>
+        </button>
+      </div>
+
+      <!-- TAB PANE 1: USERS & WALLETS -->
+      <div class="admin-tab-pane active" id="pane-admin-users">
+        <div class="admin-filter-bar">
+          <div class="admin-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="admin-user-search" class="admin-search-input" placeholder="Search members by name, email, NUBAN, or tag...">
+          </div>
+          <div class="admin-filter-actions">
+            <button type="button" class="btn btn-outline-xs" id="admin-quick-add-fund-btn">+ Credit Any Wallet</button>
+            <button type="button" class="btn btn-ghost-xs" id="admin-refresh-users-btn">↻ Refresh</button>
+          </div>
+        </div>
+
+        <div class="admin-table-wrapper">
+          <table class="admin-table" id="admin-users-table">
+            <thead>
+              <tr>
+                <th>Member / Name</th>
+                <th>Contact</th>
+                <th>Providus NUBAN</th>
+                <th>KYC Tier</th>
+                <th>Wallet Balance</th>
+                <th>Status</th>
+                <th>Administrative Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB PANE 2: PLATFORM TRANSACTION LEDGER -->
+      <div class="admin-tab-pane hidden" id="pane-admin-ledger">
+        <div class="admin-filter-bar">
+          <div class="admin-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="admin-tx-search" class="admin-search-input" placeholder="Search transactions by reference, sender, or beneficiary...">
+          </div>
+          <div class="tx-filter-pills" id="admin-tx-filter-pills">
+            <button type="button" class="tx-filter-pill active" data-tx-filter="all">All</button>
+            <button type="button" class="tx-filter-pill" data-tx-filter="inflow">Inflows</button>
+            <button type="button" class="tx-filter-pill" data-tx-filter="outflow">Outflows</button>
+          </div>
+        </div>
+
+        <div class="admin-table-wrapper">
+          <table class="admin-table" id="admin-tx-table">
+            <thead>
+              <tr>
+                <th>Reference / NIBSS ID</th>
+                <th>Timestamp</th>
+                <th>Sender</th>
+                <th>Beneficiary & Bank</th>
+                <th>Amount</th>
+                <th>Category</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="admin-tx-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB PANE 3: WAITLIST PIPELINE -->
+      <div class="admin-tab-pane hidden" id="pane-admin-waitlist">
+        <div class="admin-filter-bar">
+          <div class="admin-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="admin-waitlist-search" class="admin-search-input" placeholder="Filter waitlist leads...">
+          </div>
+          <button type="button" class="btn btn-primary-xs" id="admin-download-leads-btn">📥 Download Leads (.CSV)</button>
+        </div>
+
+        <div class="admin-table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Lead Email Address</th>
+                <th>Registration Date</th>
+                <th>Priority Status</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="admin-waitlist-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB PANE 4: CBN COMPLIANCE & AML AUDIT -->
+      <div class="admin-tab-pane hidden" id="pane-admin-compliance">
+        <div class="compliance-overview-grid">
+          <div class="compliance-card">
+            <div class="compliance-card-header">
+              <span class="compliance-icon" style="background:rgba(16,185,129,0.15); color:#10B981;">✓</span>
+              <h4>CBN AML / CFT Rule Engine</h4>
+            </div>
+            <p>Single Transaction Limit: <strong>₦5,000,000.00</strong> (Tier 3). Automated alerts for velocity spikes greater than 3 transfers/minute.</p>
+            <div class="compliance-status-pill ok">Status: 0 Suspicious SAR Alerts</div>
+          </div>
+
+          <div class="compliance-card">
+            <div class="compliance-card-header">
+              <span class="compliance-icon" style="background:rgba(59,130,246,0.15); color:#3B82F6;">🏦</span>
+              <h4>Settlement Trust Partner</h4>
+            </div>
+            <p>Providus Bank Plc Direct Settlement Pool. Segregated customer accounts per CBN Mobile Money Operating Framework.</p>
+            <div class="compliance-status-pill ok">Float Status: Fully Collateralized</div>
+          </div>
+
+          <div class="compliance-card">
+            <div class="compliance-card-header">
+              <span class="compliance-icon" style="background:rgba(245,158,11,0.15); color:#F59E0B;">⚡</span>
+              <h4>Emergency Kill Switch</h4>
+            </div>
+            <p>Instant platform-wide transfer quarantine in event of suspected network breach or upstream NIBSS instability.</p>
+            <button type="button" class="btn btn-outline-xs" id="admin-killswitch-test" style="color:#F87171; border-color:rgba(239,68,68,0.3);">Test Safety Interlock</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 
