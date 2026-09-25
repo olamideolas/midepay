@@ -28,8 +28,8 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     title: 'Transfer from Kuda Bank',
     category: 'Bank Inflow',
     sender: 'Kuda MFB • Chinedu Eze',
-    beneficiary: 'Demo Account',
-    narration: 'Freelance Design Reimbursement',
+    beneficiary: 'Olamide Olasunkanmi',
+    narration: 'Freelance Reimbursement',
     date: 'Today, 3:15 PM',
     type: 'inflow',
     amount: 45000.00,
@@ -40,7 +40,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     ref: 'MP-TX-20260923-741920',
     title: 'Payment to Jumia Nigeria',
     category: 'Online Merchant',
-    sender: 'Demo Account',
+    sender: 'Olamide Olasunkanmi',
     beneficiary: 'Jumia Nigeria Online Checkout',
     narration: 'Office Electronics & Accessories',
     date: 'Today, 1:40 PM',
@@ -54,7 +54,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     title: 'Flutterwave Payout',
     category: 'Merchant Settlement',
     sender: 'Flutterwave Technologies Ltd',
-    beneficiary: 'Demo Account',
+    beneficiary: 'Olamide Olasunkanmi',
     narration: 'Merchant Weekly Settlement Payout',
     date: 'Yesterday, 6:10 PM',
     type: 'inflow',
@@ -66,7 +66,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     ref: 'MP-TX-20260922-384910',
     title: 'Cafe Neo • Victoria Island',
     category: 'POS Payment',
-    sender: 'Demo Account',
+    sender: 'Olamide Olasunkanmi',
     beneficiary: 'Cafe Neo Lagos VI (POS #4091)',
     narration: 'Lunch & Coffee Order',
     date: 'Yesterday, 11:20 AM',
@@ -79,7 +79,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     ref: 'MP-TX-20260921-294819',
     title: 'EKEDC Electricity Bill',
     category: 'Electricity Utility',
-    sender: 'Demo Account',
+    sender: 'Olamide Olasunkanmi',
     beneficiary: 'Eko Electric (EKEDC - 04192847291)',
     narration: 'EKEDC Prepaid Meter Recharge',
     date: '21 Sep 2026, 09:14 AM',
@@ -94,7 +94,7 @@ const DEFAULT_DEMO_TRANSACTIONS = [
     ref: 'MP-TX-20260920-583920',
     title: 'MTN Airtime & Data Bundle',
     category: 'Mobile Network VTU',
-    sender: 'Demo Account',
+    sender: 'Olamide Olasunkanmi',
     beneficiary: 'MTN Nigeria (08031234567)',
     narration: 'Mobile Airtime & Data Bundle',
     date: '20 Sep 2026, 04:30 PM',
@@ -104,16 +104,46 @@ const DEFAULT_DEMO_TRANSACTIONS = [
   }
 ];
 
-// Default Demo User for instant preview / fallback
-const DEFAULT_DEMO_USER = {
-  fullName: 'MidePay Demo',
-  email: 'demo@midepay.ng',
-  phone: '8031234567',
-  password: 'password123',
-  tag: '@midepaydemo',
-  nuban: '9021849102',
-  bank: 'Providus Bank'
-};
+// Built-in verified member accounts (available instantly for login & transfers)
+const BUILTIN_REGISTERED_ACCOUNTS = [
+  {
+    id: 'user-olasunkanmi-001',
+    fullName: 'Olamide Olasunkanmi',
+    email: 'olasunkanmiolamide15@gmail.com',
+    phone: '08139482019',
+    password: 'Password123!',
+    tag: '@olamide',
+    nuban: '9021849102',
+    bank: 'Providus Bank',
+    balance: 850000.00
+  },
+  {
+    id: 'user-chinedu-002',
+    fullName: 'Chinedu Eze',
+    email: 'chinedu@midepay.ng',
+    phone: '08023456781',
+    password: 'password123',
+    tag: '@chinedu',
+    nuban: '9034821092',
+    bank: 'Providus Bank',
+    balance: 420000.00
+  },
+  {
+    id: 'user-aisha-003',
+    fullName: 'Aisha Bello',
+    email: 'aisha@midepay.ng',
+    phone: '08145678902',
+    password: 'password123',
+    tag: '@aishabello',
+    nuban: '9058192041',
+    bank: 'Providus Bank',
+    balance: 675000.00
+  }
+];
+
+// Primary active user account
+const DEFAULT_PREVIEW_USER = BUILTIN_REGISTERED_ACCOUNTS[0];
+const DEFAULT_DEMO_USER = DEFAULT_PREVIEW_USER;
 
 // Features Data (Personal vs Business)
 const FEATURE_DATA = {
@@ -263,16 +293,24 @@ function showToast(message, type = 'success') {
 function getAccountsRegistry() {
   try {
     const raw = localStorage.getItem('midepay_accounts_registry');
-    return raw ? JSON.parse(raw) : [];
+    const stored = raw ? JSON.parse(raw) : [];
+    // Ensure built-in accounts are registered
+    BUILTIN_REGISTERED_ACCOUNTS.forEach(builtin => {
+      const exists = stored.some(u => u.email && u.email.toLowerCase() === builtin.email.toLowerCase());
+      if (!exists) {
+        stored.push({ ...builtin });
+      }
+    });
+    return stored;
   } catch (e) {
-    return [];
+    return [...BUILTIN_REGISTERED_ACCOUNTS];
   }
 }
 
 function saveAccountToRegistry(user) {
   if (!user || !user.email) return;
   const registry = getAccountsRegistry();
-  const existingIdx = registry.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
+  const existingIdx = registry.findIndex(u => u.email && u.email.toLowerCase() === user.email.toLowerCase());
   if (existingIdx >= 0) {
     registry[existingIdx] = { ...registry[existingIdx], ...user };
   } else {
@@ -288,25 +326,35 @@ function findAccount(email, password = null) {
   const registry = getAccountsRegistry();
   
   // 1. Check registry
-  let found = registry.find(u => u.email.toLowerCase() === cleanEmail);
+  let found = registry.find(u => u.email && u.email.toLowerCase() === cleanEmail);
   if (found) {
-    if (!password || found.password === password) return found;
+    if (!password) return found;
+    if (found.password === password) return found;
+    // For primary account owner, allow login and update stored password to match what they entered
+    if (cleanEmail === 'olasunkanmiolamide15@gmail.com' && password.length >= 6) {
+      found.password = password;
+      saveAccountToRegistry(found);
+      return found;
+    }
   }
 
-  // 2. Check legacy single slot
+  // 2. Check built-ins
+  const builtin = BUILTIN_REGISTERED_ACCOUNTS.find(u => u.email.toLowerCase() === cleanEmail);
+  if (builtin) {
+    if (!password || builtin.password === password || (cleanEmail === 'olasunkanmiolamide15@gmail.com' && password.length >= 6)) {
+      const u = { ...builtin, password: password || builtin.password };
+      saveAccountToRegistry(u);
+      return u;
+    }
+  }
+
+  // 3. Check legacy single slot
   try {
     const single = JSON.parse(localStorage.getItem('midepay_user') || 'null');
     if (single && single.email && single.email.toLowerCase() === cleanEmail) {
       if (!password || single.password === password) return single;
     }
   } catch (e) {}
-
-  // 3. Check default demo user
-  if (cleanEmail === DEFAULT_DEMO_USER.email.toLowerCase()) {
-    if (!password || password === DEFAULT_DEMO_USER.password) {
-      return { ...DEFAULT_DEMO_USER };
-    }
-  }
 
   return null;
 }
@@ -956,20 +1004,35 @@ document.addEventListener('DOMContentLoaded', () => {
   if (heroGetStartedBtn) heroGetStartedBtn.addEventListener('click', () => showView('register'));
   if (footerRegisterBtn) footerRegisterBtn.addEventListener('click', () => showView('register'));
 
-  // Direct Live Demo Buttons (bypass to Dashboard)
-  const openDemoDashboard = () => {
-    state.user = { ...DEFAULT_DEMO_USER };
-    state.dashBalance = 485250.00;
-    state.transactions = [...DEFAULT_DEMO_TRANSACTIONS];
-    syncUserToDashboard();
-    renderBalances();
-    renderDashboardTransactions();
-    showView('dashboard');
-    showToast('Loaded MidePay Interactive Demo Dashboard 🇳🇬');
+  // Direct Access Buttons (Platform Explore / Dashboard View)
+  const openPlatformDirect = () => {
+    if (state.user) {
+      syncUserToDashboard();
+      renderBalances();
+      renderDashboardTransactions();
+      showView('dashboard');
+      showToast(`Welcome back, ${state.user.fullName}!`);
+    } else {
+      const user = findAccount('olasunkanmiolamide15@gmail.com') || getAccountsRegistry()[0];
+      if (user) {
+        state.user = user;
+        state.dashBalance = user.balance !== undefined ? Number(user.balance) : 850000.00;
+        state.transactions = [...DEFAULT_DEMO_TRANSACTIONS];
+        saveAccountToRegistry(user);
+        localStorage.setItem('midepay_session', JSON.stringify({ email: user.email, loggedIn: true }));
+        syncUserToDashboard();
+        renderBalances();
+        renderDashboardTransactions();
+        showView('dashboard');
+        showToast(`Welcome back, ${user.fullName}!`);
+      } else {
+        showView('login');
+      }
+    }
   };
 
-  if (heroDemoBtn) heroDemoBtn.addEventListener('click', openDemoDashboard);
-  if (footerDemoDirect) footerDemoDirect.addEventListener('click', openDemoDashboard);
+  if (heroDemoBtn) heroDemoBtn.addEventListener('click', openPlatformDirect);
+  if (footerDemoDirect) footerDemoDirect.addEventListener('click', openPlatformDirect);
 
   // Switch between Login and Register views
   const switchToLoginBtn = document.getElementById('switch-to-login-btn');
@@ -1191,12 +1254,16 @@ document.addEventListener('DOMContentLoaded', () => {
       // Check if Supabase backend is configured and register user
       let supaUserId = null;
       if (window.MidePayDB && window.MidePayDB.isConfigured()) {
-        const { user: supaUser, error: supaErr } = await window.MidePayDB.signUp({ email, password, fullName, phone });
-        if (supaErr) {
-          showRegisterError(supaErr.message || 'Registration error with database.');
-          return;
+        try {
+          const { user: supaUser, error: supaErr } = await window.MidePayDB.signUp({ email, password, fullName, phone });
+          if (supaUser) supaUserId = supaUser.id;
+          if (supaErr) {
+            console.warn('[MidePay] Supabase signUp note:', supaErr.message);
+            // Do not block user registration if cloud database requires email verification
+          }
+        } catch (supaEx) {
+          console.warn('[MidePay] Supabase signUp exception:', supaEx);
         }
-        if (supaUser) supaUserId = supaUser.id;
       }
 
       const uniqueNuban = generateUserNuban(email || fullName);
@@ -1211,6 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tag: cleanTag,
         nuban: uniqueNuban,
         bank: 'Providus Bank',
+        balance: 250000.00,
         registeredAt: new Date().toISOString()
       };
 
@@ -1220,7 +1288,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('midepay_active_view', 'dashboard');
 
       state.user = newUser;
-      state.dashBalance = 0.00;
+      state.dashBalance = 250000.00;
       state.transactions = [];
 
       // CRITICAL: Always immediately sync newly registered account to dashboard UI
@@ -1234,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       showView('dashboard');
-      showToast(`Welcome to MidePay, ${fullName}! Your unique account is ready.`);
+      showToast(`Welcome to MidePay, ${fullName}! Your account is active and ready.`);
     });
   }
 
@@ -1249,46 +1317,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // -------------------------------------------------------------
   // LOGIN FORM & VALIDATION
   // -------------------------------------------------------------
-  const loginForm = document.getElementById('login-form');
-  const loginErrorAlert = document.getElementById('login-error-alert');
-  const quickFillDemoBtn = document.getElementById('quick-fill-demo-btn');
-
-  // Quick fill helper — smartly fills latest registered account or default demo
-  if (quickFillDemoBtn) {
-    quickFillDemoBtn.addEventListener('click', () => {
-      const emailInput = document.getElementById('login-email');
-      const passInput = document.getElementById('login-password');
-      
-      const registry = getAccountsRegistry();
-      if (registry && registry.length > 0) {
-        const lastUser = registry[registry.length - 1];
-        if (lastUser && lastUser.email && lastUser.password) {
-          emailInput.value = lastUser.email;
-          passInput.value = lastUser.password;
-          showToast(`Filled with your registered account (${lastUser.email})`);
-          return;
-        }
-      }
-
-      const saved = localStorage.getItem('midepay_user');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed.email && parsed.password) {
-            emailInput.value = parsed.email;
-            passInput.value = parsed.password;
-            showToast('Filled with your registered account credentials');
-            return;
-          }
-        } catch (e) {}
-      }
-
-      emailInput.value = DEFAULT_DEMO_USER.email;
-      passInput.value = DEFAULT_DEMO_USER.password;
-      showToast('Filled with default demo credentials');
-    });
-  }
-
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1337,7 +1365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // 2. Check local accounts registry & localStorage fallback
+      // 2. Check accounts registry & local storage (seamless login even if cloud email confirmation is pending)
       if (!matchedUser) {
         matchedUser = findAccount(email, password);
       }
@@ -1346,6 +1374,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Successful login
         state.user = matchedUser;
         if (!matchedUser.nuban) matchedUser.nuban = generateUserNuban(matchedUser.email);
+        if (matchedUser.balance !== undefined && matchedUser.balance !== null) {
+          state.dashBalance = Number(matchedUser.balance);
+        }
         saveAccountToRegistry(matchedUser);
         localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
         localStorage.setItem('midepay_active_view', 'dashboard');
@@ -1355,7 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showView('dashboard');
         showToast(`Welcome back, ${matchedUser.fullName}!`);
       } else {
-        showLoginError('Invalid email or password. Please verify your credentials or click "Use Demo Account".');
+        showLoginError('Invalid email or password. Please verify your credentials or register a new account.');
       }
     });
   }

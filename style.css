@@ -1912,6 +1912,24 @@ select.form-input option {
   color: #FDE68A;
 }
 
+.dashboard-demo-banner.dashboard-secure-banner {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.dashboard-demo-banner.dashboard-secure-banner .banner-text {
+  color: #A7F3D0;
+}
+
+[data-theme="light"] .dashboard-demo-banner.dashboard-secure-banner {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="light"] .dashboard-demo-banner.dashboard-secure-banner .banner-text {
+  color: #065F46;
+}
+
 .dashboard-header-bar {
   display: flex;
   align-items: center;

@@ -276,7 +276,38 @@
         }
       }
 
-      // 2. Demo Directory Fallback (for instant testability & offline/sandbox preview)
+      // 2. Check locally registered accounts registry (ensures all newly signed up users are immediately reachable)
+      try {
+        const localRegistry = JSON.parse(localStorage.getItem('midepay_accounts_registry') || '[]');
+        const cleanPhone = clean.replace(/[\s\-]/g, '');
+        const localMatch = localRegistry.find(r => {
+          if (currentUserId && (r.id === currentUserId || r.email === currentUserId)) return false;
+          if (clean.includes('@') && !clean.startsWith('@')) {
+            return r.email && r.email.toLowerCase() === clean;
+          }
+          if (clean.startsWith('@')) {
+            return r.tag && r.tag.toLowerCase() === clean;
+          }
+          if (cleanPhone.length >= 7) {
+            const p = (r.phone || '').replace(/[\s\-]/g, '');
+            return p.endsWith(cleanPhone.slice(-8)) || cleanPhone.endsWith(p.slice(-8));
+          }
+          return false;
+        });
+        if (localMatch) {
+          return {
+            id: localMatch.id || 'reg-' + localMatch.email,
+            fullName: localMatch.fullName,
+            email: localMatch.email,
+            phone: localMatch.phone,
+            tag: localMatch.tag || `@${localMatch.fullName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+            isRegistered: true,
+            source: 'registry'
+          };
+        }
+      } catch (e) {}
+
+      // 3. Known Members Fallback Directory
       const DEMO_RECIPIENTS = [
         {
           id: 'demo-user-chinedu-001',
@@ -603,10 +634,10 @@
             amount: depositAmount,
             fee: 0.00,
             status: 'successful',
-            counterparty_name: 'Instant Top-Up (Demo)',
+            counterparty_name: 'Instant Top-Up',
             counterparty_bank: 'Providus Bank',
             counterparty_tag_or_nuban: wallet?.nuban || '9000000000',
-            narration: 'Demo Wallet Funding Top-Up',
+            narration: 'Wallet Funding Deposit',
             reference: reference
           })
           .select()

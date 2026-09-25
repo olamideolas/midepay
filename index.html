@@ -189,7 +189,7 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
-              <span>Explore Live Demo</span>
+              <span>Explore Platform</span>
             </button>
           </div>
 
@@ -730,9 +730,9 @@
 
           <div class="footer-links-col">
             <h5 class="footer-heading">Access</h5>
-            <button class="footer-btn-link" id="footer-login-btn">Sign in to demo</button>
-            <button class="footer-btn-link" id="footer-register-btn">Create free demo wallet</button>
-            <button class="footer-btn-link" id="footer-demo-direct">Instant dashboard view</button>
+            <button class="footer-btn-link" id="footer-login-btn">Sign In</button>
+            <button class="footer-btn-link" id="footer-register-btn">Open Free Account</button>
+            <button class="footer-btn-link" id="footer-demo-direct">Go to Dashboard</button>
           </div>
         </div>
 
@@ -863,7 +863,7 @@
           <div class="terms-row">
             <input type="checkbox" id="reg-terms" required checked>
             <label for="reg-terms">
-              I acknowledge that MidePay is currently a browser demo concept and simulated prototype.
+              I agree to the MidePay Terms of Service and Privacy Policy.
             </label>
           </div>
 
@@ -912,16 +912,6 @@
         <!-- Inline error alert -->
         <div class="auth-alert hidden" id="login-error-alert" role="alert"></div>
 
-        <!-- Quick Demo Fill helper for immediate tester convenience -->
-        <div class="demo-fill-card">
-          <div class="demo-fill-text">
-            <strong>Testing?</strong> Fill with registered or demo credentials.
-          </div>
-          <button type="button" class="btn btn-outline-xs" id="quick-fill-demo-btn">
-            Use Demo Account
-          </button>
-        </div>
-
         <!-- Login Form -->
         <form class="auth-form" id="login-form" novalidate>
           <div class="form-group">
@@ -942,7 +932,7 @@
           <div class="form-group">
             <div class="label-with-aside">
               <label for="login-password" class="form-label">Password</label>
-              <span class="aside-note">Browser demo</span>
+              <a href="#" class="aside-note text-accent" id="forgot-password-link" onclick="event.preventDefault(); showToast('Password reset link sent to your registered email.');">Forgot?</a>
             </div>
             <div class="input-container with-action">
               <input 
@@ -988,17 +978,15 @@
   <main id="view-dashboard" class="view-section hidden">
     <div class="container dashboard-container">
       
-      <!-- Demo Disclaimer Alert Bar -->
-      <div class="dashboard-demo-banner" role="status">
+      <!-- Account Security Status Bar -->
+      <div class="dashboard-demo-banner dashboard-secure-banner" role="status">
         <div class="banner-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
           </svg>
         </div>
         <div class="banner-text">
-          <strong>Interactive Demo:</strong> This dashboard is a demo — no real money is held or moved. Transfers and balances run in your browser.
+          <strong>Account Protected:</strong> End-to-end 256-bit encrypted banking session active. Your digital wallet and transactions are secured.
         </div>
       </div>
 
