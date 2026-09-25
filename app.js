@@ -1400,12 +1400,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // =========================================================================
-  // SEND MONEY FLOW CONTROLLER (OPAY 2-SCREEN TRANSFER FLOW)
+  // SEND MONEY FLOW CONTROLLER (OPAY & PALMPAY UNIFIED INSTANT TRANSFER)
   // =========================================================================
 
   // Sample Nigerian Beneficiaries mapped by account or bank
   const SAMPLE_NIGERIAN_BENEFICIARIES = [
     { nuban: '0123456789', name: 'ADELEKE BABATUNDE CHUKWUEMEKA' },
+    { nuban: '9048291048', name: 'ADELEKE BABATUNDE' },
     { nuban: '1234567890', name: 'CHINWE BLESSING OKONKWO' },
     { nuban: '2039485716', name: 'IBRAHIM DANLAMI MUSA' },
     { nuban: '8147291039', name: 'OLUWASEUN DAVID ADEYEMI' },
@@ -1440,107 +1441,60 @@ document.addEventListener('DOMContentLoaded', () => {
     accountNumber: '',
     resolvedName: '',
     isAccountResolved: false,
-    amount: 0,
-    transferFee: 10.00, // ₦10 standard flat transfer fee
+    amount: 5000,
+    transferFee: 0.00, // Zero fee switch like OPay/PalmPay
     narration: '',
-    currentStep: 'recipient', // 'recipient' | 'amount' | 'review' | 'pin-setup' | 'pin-confirm' | 'success'
-    lastTransaction: null,
-    lockoutInterval: null
+    currentStep: 'form', // 'form' | 'pin-confirm' | 'success'
+    lastTransaction: null
   };
 
-  // Step Containers
-  const stepRecipient = document.getElementById('send-step-recipient');
-  const stepAmount = document.getElementById('send-step-amount');
-  const stepReview = document.getElementById('send-step-review');
-  const stepPinSetup = document.getElementById('send-step-pin-setup');
+  // Step Containers (Unified 3-Screen OPay / PalmPay flow)
+  const stepForm = document.getElementById('send-step-form');
   const stepPinConfirm = document.getElementById('send-step-pin-confirm');
   const stepSuccess = document.getElementById('send-step-success');
 
-  // Modal Close Buttons
+  // Modal Close & Back Navigation Buttons
   const closeSendBtn = document.getElementById('close-send-modal-btn');
-  const closeAmountBtn = document.getElementById('close-amount-modal-btn');
-  const closeReviewBtn = document.getElementById('close-review-modal-btn');
-  const closePinSetupBtn = document.getElementById('close-pin-setup-modal-btn');
-  const closePinConfirmBtn = document.getElementById('close-pin-confirm-modal-btn');
+  const closePinModalBtn = document.getElementById('close-pin-modal-btn');
+  const btnBackFromPin = document.getElementById('btn-back-from-pin');
 
-  // Back Navigation Buttons
-  const backFromAmountBtn = document.getElementById('btn-back-from-amount');
-  const backFromReviewBtn = document.getElementById('btn-back-from-review');
-  const backFromPinSetup = document.getElementById('btn-back-from-pin-setup');
-  const backFromPinConfirm = document.getElementById('btn-back-from-pin-confirm');
-
-  // Screen 1: Recipient Elements
-  const sendRecipientForm = document.getElementById('send-recipient-form');
+  // Screen 1: Transfer Form Elements
+  const mainTransferForm = document.getElementById('main-transfer-form');
+  const transferModalBalance = document.getElementById('transfer-modal-balance');
   const bankQuickBtns = document.querySelectorAll('#popular-banks-grid .bank-quick-btn');
   const sendDestination = document.getElementById('send-destination');
   const sendRecipient = document.getElementById('send-recipient');
   const accountResolvedBox = document.getElementById('account-resolved-box');
   const accountResolvedText = document.getElementById('account-resolved-text');
   const recipientVerifyHint = document.getElementById('recipient-verify-hint');
-  const btnRecipientNext = document.getElementById('btn-recipient-next');
-  const transferModalBalance = document.getElementById('transfer-modal-balance');
-
-  // Screen 2: Amount Elements
-  const sendAmountForm = document.getElementById('send-amount-form');
-  const amountRecipientAvatar = document.getElementById('amount-recipient-avatar');
-  const amountRecipientName = document.getElementById('amount-recipient-name');
-  const amountRecipientBank = document.getElementById('amount-recipient-bank');
-  const amountStepBalance = document.getElementById('amount-step-balance');
   const sendAmountInput = document.getElementById('send-amount');
+  const amountBalanceHint = document.getElementById('amount-balance-hint');
+  const quickAmountBtns = document.querySelectorAll('#send-step-form .amount-tag-btn[data-amt]');
   const sendNarrationInput = document.getElementById('send-narration');
-  const btnAmountContinue = document.getElementById('btn-amount-continue');
-  const insufficientBalanceAlert = document.getElementById('insufficient-balance-alert');
-  const insufficientBalanceText = document.getElementById('insufficient-balance-text');
+  const sendFeeDisplay = document.getElementById('send-fee-display');
+  const sendFormError = document.getElementById('send-form-error');
+  const sendFormErrorText = document.getElementById('send-form-error-text');
+  const btnSubmitTransfer = document.getElementById('btn-submit-transfer');
 
-  // Screen 3: Review Elements
-  const reviewRecipientAvatar = document.getElementById('review-recipient-avatar');
-  const reviewRecipientName = document.getElementById('review-recipient-name');
-  const reviewRecipientBank = document.getElementById('review-recipient-bank');
-  const reviewAmount = document.getElementById('review-amount');
-  const reviewBankVal = document.getElementById('review-bank-val');
-  const reviewAccountVal = document.getElementById('review-account-val');
-  const reviewFeeVal = document.getElementById('review-fee-val');
-  const reviewNarrationVal = document.getElementById('review-narration-val');
-  const reviewTotalVal = document.getElementById('review-total-val');
-  const btnReviewEdit = document.getElementById('btn-review-edit');
-  const btnReviewConfirm = document.getElementById('btn-review-confirm');
-
-  // Screen 4A: PIN Setup Elements
-  const pinSetupForm = document.getElementById('pin-setup-form');
-  const setupPinBoxes = [
-    document.getElementById('setup-pin-1'),
-    document.getElementById('setup-pin-2'),
-    document.getElementById('setup-pin-3'),
-    document.getElementById('setup-pin-4')
-  ];
-  const confirmPinBoxes = [
-    document.getElementById('confirm-pin-1'),
-    document.getElementById('confirm-pin-2'),
-    document.getElementById('confirm-pin-3'),
-    document.getElementById('confirm-pin-4')
-  ];
-  const pinSetupError = document.getElementById('pin-setup-error');
-  const pinSetupErrorText = document.getElementById('pin-setup-error-text');
-  const btnSavePin = document.getElementById('btn-save-pin');
-
-  // Screen 4B: PIN Confirm Elements
+  // Screen 2: OPay/PalmPay PIN & Authorization Elements
   const pinAuthForm = document.getElementById('pin-auth-form');
+  const pinRecipientAvatar = document.getElementById('pin-recipient-avatar');
+  const pinRecipientName = document.getElementById('pin-recipient-name');
+  const pinRecipientBank = document.getElementById('pin-recipient-bank');
+  const pinSummaryAmount = document.getElementById('pin-summary-amount');
+  const btnFillDemoPin = document.getElementById('btn-fill-demo-pin');
   const authPinBoxes = [
     document.getElementById('auth-pin-1'),
     document.getElementById('auth-pin-2'),
     document.getElementById('auth-pin-3'),
     document.getElementById('auth-pin-4')
   ];
-  const authSummaryAmount = document.getElementById('auth-summary-amount');
-  const authSummaryRecipient = document.getElementById('auth-summary-recipient');
   const pinAuthError = document.getElementById('pin-auth-error');
   const pinAuthErrorText = document.getElementById('pin-auth-error-text');
-  const pinLockoutBanner = document.getElementById('pin-lockout-banner');
-  const pinLockoutText = document.getElementById('pin-lockout-text');
-  const btnAuthorizeTransfer = document.getElementById('btn-authorize-transfer');
-  const btnAuthorizeText = document.getElementById('btn-authorize-text');
+  const btnAuthorizePay = document.getElementById('btn-authorize-pay');
+  const btnAuthorizePayText = document.getElementById('btn-authorize-pay-text');
 
-  // Screen 5: Success Elements
+  // Screen 3: Success Screen Elements
   const successTransferAmount = document.getElementById('success-transfer-amount');
   const successRecipientName = document.getElementById('success-recipient-name');
   const successRecipientDetail = document.getElementById('success-recipient-detail');
@@ -1551,404 +1505,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTransferDone = document.getElementById('btn-transfer-done');
 
   // -------------------------------------------------------------
-  // CRYPTOGRAPHIC PIN HASHING (bcryptjs + WebCrypto PBKDF2 Fallback)
-  // -------------------------------------------------------------
-  async function hashPin(pin) {
-    const bcrypt = window.dcodeIO?.bcrypt || window.bcrypt;
-    if (bcrypt && bcrypt.hashSync) {
-      try {
-        return bcrypt.hashSync(pin, 10);
-      } catch (e) {
-        console.warn('bcrypt.hashSync error, using web crypto fallback:', e);
-      }
-    }
-
-    if (window.crypto && window.crypto.subtle) {
-      const enc = new TextEncoder();
-      const salt = window.crypto.getRandomValues(new Uint8Array(16));
-      const keyMaterial = await window.crypto.subtle.importKey(
-        'raw', enc.encode(pin), { name: 'PBKDF2' }, false, ['deriveBits', 'deriveKey']
-      );
-      const derived = await window.crypto.subtle.deriveBits(
-        { name: 'PBKDF2', salt, iterations: 10000, hash: 'SHA-256' },
-        keyMaterial, 256
-      );
-      const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
-      const hashHex = Array.from(new Uint8Array(derived)).map(b => b.toString(16).padStart(2, '0')).join('');
-      return `pbkdf2:${saltHex}:${hashHex}`;
-    }
-
-    return `hash-${btoa(pin)}-${Date.now()}`;
-  }
-
-  async function verifyPin(pin, storedHash) {
-    if (!storedHash) return false;
-
-    if (storedHash.startsWith('$2')) {
-      const bcrypt = window.dcodeIO?.bcrypt || window.bcrypt;
-      if (bcrypt && bcrypt.compareSync) {
-        try {
-          return bcrypt.compareSync(pin, storedHash);
-        } catch (e) {
-          console.warn('bcrypt.compareSync failed:', e);
-        }
-      }
-    }
-
-    if (storedHash.startsWith('pbkdf2:') && window.crypto && window.crypto.subtle) {
-      const parts = storedHash.split(':');
-      if (parts.length === 3) {
-        const saltHex = parts[1];
-        const originalHash = parts[2];
-        const salt = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-        const enc = new TextEncoder();
-        const keyMaterial = await window.crypto.subtle.importKey(
-          'raw', enc.encode(pin), { name: 'PBKDF2' }, false, ['deriveBits', 'deriveKey']
-        );
-        const derived = await window.crypto.subtle.deriveBits(
-          { name: 'PBKDF2', salt, iterations: 10000, hash: 'SHA-256' },
-          keyMaterial, 256
-        );
-        const hashHex = Array.from(new Uint8Array(derived)).map(b => b.toString(16).padStart(2, '0')).join('');
-        return hashHex === originalHash;
-      }
-    }
-
-    if (storedHash === pin || storedHash.startsWith(`hash-${btoa(pin)}`)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  // -------------------------------------------------------------
-  // PIN LOCKOUT & ATTEMPTS MANAGER (Max 5 attempts, 5-minute lock)
-  // -------------------------------------------------------------
-  const MAX_PIN_ATTEMPTS = 5;
-  const PIN_LOCKOUT_MS = 5 * 60 * 1000; // 5 minutes
-
-  function getPinAttempts(userId) {
-    const key = `midepay_pin_attempts_${userId || 'guest'}`;
-    return parseInt(localStorage.getItem(key) || '0', 10);
-  }
-
-  function incrementPinAttempts(userId) {
-    const key = `midepay_pin_attempts_${userId || 'guest'}`;
-    const next = getPinAttempts(userId) + 1;
-    localStorage.setItem(key, next.toString());
-    if (next >= MAX_PIN_ATTEMPTS) {
-      const lockKey = `midepay_pin_lockout_${userId || 'guest'}`;
-      localStorage.setItem(lockKey, (Date.now() + PIN_LOCKOUT_MS).toString());
-    }
-    return next;
-  }
-
-  function resetPinAttempts(userId) {
-    localStorage.removeItem(`midepay_pin_attempts_${userId || 'guest'}`);
-    localStorage.removeItem(`midepay_pin_lockout_${userId || 'guest'}`);
-    if (sendFlowState.lockoutInterval) {
-      clearInterval(sendFlowState.lockoutInterval);
-      sendFlowState.lockoutInterval = null;
-    }
-  }
-
-  function getRemainingLockoutMs(userId) {
-    const lockKey = `midepay_pin_lockout_${userId || 'guest'}`;
-    const lockUntil = parseInt(localStorage.getItem(lockKey) || '0', 10);
-    if (!lockUntil) return 0;
-    const remaining = lockUntil - Date.now();
-    if (remaining <= 0) {
-      resetPinAttempts(userId);
-      return 0;
-    }
-    return remaining;
-  }
-
-  function updateLockoutUI(userId) {
-    const remainingMs = getRemainingLockoutMs(userId);
-    if (remainingMs > 0) {
-      pinLockoutBanner?.classList.remove('hidden');
-      pinAuthError?.classList.add('hidden');
-      if (btnAuthorizeTransfer) btnAuthorizeTransfer.disabled = true;
-      authPinBoxes.forEach(box => { if (box) box.disabled = true; });
-
-      const totalSec = Math.ceil(remainingMs / 1000);
-      const min = Math.floor(totalSec / 60);
-      const sec = totalSec % 60;
-      if (pinLockoutText) {
-        pinLockoutText.textContent = `Too many incorrect attempts. Transfers locked for security. Please try again in ${min}m ${sec < 10 ? '0' : ''}${sec}s.`;
-      }
-      return true;
-    } else {
-      pinLockoutBanner?.classList.add('hidden');
-      if (btnAuthorizeTransfer) btnAuthorizeTransfer.disabled = false;
-      authPinBoxes.forEach(box => { if (box) box.disabled = false; });
-      return false;
-    }
-  }
-
-  function startLockoutTimer(userId) {
-    if (sendFlowState.lockoutInterval) clearInterval(sendFlowState.lockoutInterval);
-    updateLockoutUI(userId);
-    sendFlowState.lockoutInterval = setInterval(() => {
-      const isLocked = updateLockoutUI(userId);
-      if (!isLocked) {
-        clearInterval(sendFlowState.lockoutInterval);
-        sendFlowState.lockoutInterval = null;
-        pinLockoutBanner?.classList.add('hidden');
-        showToast('🔓 PIN lockout expired. You may now enter your transaction PIN.');
-        authPinBoxes[0]?.focus();
-      }
-    }, 1000);
-  }
-
-  // -------------------------------------------------------------
-  // PIN BOX DIGIT INPUT CONTROLLER
-  // -------------------------------------------------------------
-  function setupPinDigitBoxes(boxes, onComplete) {
-    boxes.forEach((box, idx) => {
-      if (!box) return;
-
-      box.addEventListener('input', () => {
-        const val = box.value.replace(/[^0-9]/g, '');
-        box.value = val ? val[val.length - 1] : '';
-
-        if (box.value) {
-          box.classList.add('has-value');
-          if (idx < boxes.length - 1) {
-            boxes[idx + 1].focus();
-          }
-        } else {
-          box.classList.remove('has-value');
-        }
-
-        const pin = boxes.map(b => b?.value || '').join('');
-        if (pin.length === boxes.length && onComplete) {
-          onComplete(pin);
-        }
-      });
-
-      box.addEventListener('keydown', (e) => {
-        if (e.key === 'Backspace' && !box.value && idx > 0) {
-          boxes[idx - 1].focus();
-          boxes[idx - 1].value = '';
-          boxes[idx - 1].classList.remove('has-value');
-        }
-      });
-
-      box.addEventListener('paste', (e) => {
-        e.preventDefault();
-        const pasteData = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '');
-        if (!pasteData) return;
-        for (let i = 0; i < boxes.length; i++) {
-          if (pasteData[i]) {
-            boxes[i].value = pasteData[i];
-            boxes[i].classList.add('has-value');
-          }
-        }
-        const lastIdx = Math.min(pasteData.length, boxes.length) - 1;
-        if (lastIdx >= 0) boxes[lastIdx].focus();
-
-        const pin = boxes.map(b => b?.value || '').join('');
-        if (pin.length === boxes.length && onComplete) {
-          onComplete(pin);
-        }
-      });
-    });
-  }
-
-  function clearPinBoxes(boxes) {
-    boxes.forEach(b => {
-      if (b) {
-        b.value = '';
-        b.classList.remove('has-value');
-      }
-    });
-  }
-
-  function getPinValue(boxes) {
-    return boxes.map(b => b?.value || '').join('');
-  }
-
-  // Initialize PIN inputs
-  setupPinDigitBoxes(setupPinBoxes, () => confirmPinBoxes[0]?.focus());
-  setupPinDigitBoxes(confirmPinBoxes);
-  setupPinDigitBoxes(authPinBoxes);
-
-  // -------------------------------------------------------------
-  // VALIDATION & AMOUNT CONTINUE BUTTON STATE (SCREEN 2)
-  // -------------------------------------------------------------
-  function validateAmountInputs() {
-    const amt = parseFloat(sendAmountInput?.value) || 0;
-    sendFlowState.amount = amt;
-    sendFlowState.narration = sendNarrationInput?.value.trim() || 'Transfer via MidePay';
-
-    const totalNeeded = amt + sendFlowState.transferFee;
-
-    // Check balance
-    if (amt > 0 && totalNeeded > state.dashBalance) {
-      if (insufficientBalanceAlert) {
-        insufficientBalanceAlert.classList.remove('hidden');
-        if (insufficientBalanceText) {
-          insufficientBalanceText.innerHTML = `<strong>Insufficient balance:</strong> Available balance is ${formatNaira(state.dashBalance)}. Total needed (inc. ₦10 fee) is ${formatNaira(totalNeeded)}. Click "+ Add ₦50k Test Credit" on Screen 1 to fund wallet.`;
-        }
-      }
-      if (btnAmountContinue) btnAmountContinue.disabled = true;
-      return false;
-    } else {
-      insufficientBalanceAlert?.classList.add('hidden');
-    }
-
-    // Continue button: enabled once amount > 0 (as specified: "enabled once amount > 0")
-    const canContinue = amt > 0;
-    if (btnAmountContinue) {
-      btnAmountContinue.disabled = !canContinue;
-    }
-    return canContinue;
-  }
-
-  // -------------------------------------------------------------
-  // POPULATE CONFIRMED RECIPIENT ON SCREEN 2 (AMOUNT)
-  // -------------------------------------------------------------
-  function populateAmountScreen() {
-    const name = sendFlowState.resolvedName || 'RECIPIENT BENEFICIARY';
-    const bank = sendFlowState.selectedBank || 'OPay Digital Services';
-    const acc = sendFlowState.accountNumber || '0123456789';
-
-    const initials = name
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(w => w[0])
-      .join('')
-      .toUpperCase() || 'NB';
-
-    if (amountRecipientAvatar) amountRecipientAvatar.textContent = initials;
-    if (amountRecipientName) amountRecipientName.textContent = name;
-    if (amountRecipientBank) amountRecipientBank.textContent = `${bank} • ${acc}`;
-    if (amountStepBalance) amountStepBalance.textContent = formatNaira(state.dashBalance);
-
-    validateAmountInputs();
-  }
-
-  // -------------------------------------------------------------
-  // POPULATE REVIEW SCREEN (SCREEN 3)
-  // -------------------------------------------------------------
-  function populateReviewScreen() {
-    const name = sendFlowState.resolvedName || 'RECIPIENT BENEFICIARY';
-    const bank = sendFlowState.selectedBank || 'OPay Digital Services';
-    const acc = sendFlowState.accountNumber || '0123456789';
-    const amt = sendFlowState.amount || 0;
-    const fee = sendFlowState.transferFee || 10.00;
-    const total = amt + fee;
-
-    const initials = name
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(w => w[0])
-      .join('')
-      .toUpperCase() || 'NB';
-
-    if (reviewRecipientAvatar) reviewRecipientAvatar.textContent = initials;
-    if (reviewRecipientName) reviewRecipientName.textContent = name;
-    if (reviewRecipientBank) reviewRecipientBank.textContent = `${bank} • ${acc}`;
-
-    if (reviewAmount) reviewAmount.textContent = formatNaira(amt);
-    if (reviewBankVal) reviewBankVal.textContent = bank;
-    if (reviewAccountVal) reviewAccountVal.textContent = acc;
-    if (reviewFeeVal) reviewFeeVal.textContent = formatNaira(fee);
-    if (reviewNarrationVal) reviewNarrationVal.textContent = sendFlowState.narration || 'Transfer via MidePay';
-    if (reviewTotalVal) reviewTotalVal.textContent = formatNaira(total);
-  }
-
-  // -------------------------------------------------------------
-  // STEP NAVIGATION & TRANSITIONS
+  // STEP TRANSITIONS & VISIBILITY CONTROLLER
   // -------------------------------------------------------------
   function showSendStep(stepName) {
+    // Support aliases: 'recipient' -> 'form', 'amount' -> 'form', 'review' -> 'pin-confirm'
+    if (stepName === 'recipient' || stepName === 'amount') stepName = 'form';
+    if (stepName === 'review') stepName = 'pin-confirm';
+
     sendFlowState.currentStep = stepName;
 
-    // Hide all step containers
-    [stepRecipient, stepAmount, stepReview, stepPinSetup, stepPinConfirm, stepSuccess].forEach(s => {
+    // Hide all steps
+    [stepForm, stepPinConfirm, stepSuccess].forEach(s => {
       if (s) s.classList.add('hidden');
     });
 
-    if (stepName === 'recipient') {
-      stepRecipient?.classList.remove('hidden');
-      if (transferModalBalance) {
-        transferModalBalance.textContent = formatNaira(state.dashBalance);
-      }
-      if (btnRecipientNext) {
-        btnRecipientNext.disabled = !sendFlowState.isAccountResolved;
-      }
-    } else if (stepName === 'amount') {
-      populateAmountScreen();
-      stepAmount?.classList.remove('hidden');
-      setTimeout(() => sendAmountInput?.focus(), 50);
-    } else if (stepName === 'review') {
-      populateReviewScreen();
-      stepReview?.classList.remove('hidden');
-    } else if (stepName === 'pin-setup') {
-      stepPinSetup?.classList.remove('hidden');
-      pinSetupError?.classList.add('hidden');
-      clearPinBoxes(setupPinBoxes);
-      clearPinBoxes(confirmPinBoxes);
-      setTimeout(() => setupPinBoxes[0]?.focus(), 60);
+    if (stepName === 'form') {
+      stepForm?.classList.remove('hidden');
+      if (transferModalBalance) transferModalBalance.textContent = formatNaira(state.dashBalance);
+      if (amountBalanceHint) amountBalanceHint.textContent = `Wallet Balance: ${formatNaira(state.dashBalance)}`;
+      if (sendFormError) sendFormError.classList.add('hidden');
     } else if (stepName === 'pin-confirm') {
       stepPinConfirm?.classList.remove('hidden');
-      pinAuthError?.classList.add('hidden');
-      clearPinBoxes(authPinBoxes);
-
-      if (authSummaryAmount) {
-        authSummaryAmount.textContent = formatNaira(sendFlowState.amount);
-      }
-      if (authSummaryRecipient) {
-        authSummaryRecipient.textContent = `To: ${sendFlowState.resolvedName} • ${sendFlowState.selectedBank}`;
-      }
-      if (btnAuthorizeText) {
-        btnAuthorizeText.textContent = `Authorize & Pay ${formatNaira(sendFlowState.amount + sendFlowState.transferFee)}`;
-      }
-
-      const isLocked = updateLockoutUI(state.user?.id);
-      if (isLocked) {
-        startLockoutTimer(state.user?.id);
-      } else {
-        setTimeout(() => authPinBoxes[0]?.focus(), 60);
-      }
+      populatePinScreen();
+      clearPinBoxes();
+      if (pinAuthError) pinAuthError.classList.add('hidden');
+      setTimeout(() => authPinBoxes[0]?.focus(), 60);
     } else if (stepName === 'success') {
       stepSuccess?.classList.remove('hidden');
     }
   }
 
-  // Close buttons across all modal screens
-  [closeSendBtn, closeAmountBtn, closeReviewBtn, closePinSetupBtn, closePinConfirmBtn].forEach(btn => {
-    if (btn) {
-      btn.addEventListener('click', () => {
-        modalSend?.classList.add('hidden');
-      });
-    }
-  });
-
-  // Back buttons
-  if (backFromAmountBtn) {
-    backFromAmountBtn.addEventListener('click', () => showSendStep('recipient'));
-  }
-  if (backFromReviewBtn) {
-    backFromReviewBtn.addEventListener('click', () => showSendStep('amount'));
-  }
-  if (btnReviewEdit) {
-    btnReviewEdit.addEventListener('click', () => showSendStep('amount'));
-  }
-  if (backFromPinSetup) {
-    backFromPinSetup.addEventListener('click', () => showSendStep('review'));
-  }
-  if (backFromPinConfirm) {
-    backFromPinConfirm.addEventListener('click', () => showSendStep('review'));
-  }
-
-  // -------------------------------------------------------------
-  // SCREEN 1: BANK SELECTION & REAL-TIME NUBAN ACCOUNT RESOLUTION
-  // -------------------------------------------------------------
   function getSelectedBankName() {
     if (sendDestination) {
       const opt = sendDestination.options[sendDestination.selectedIndex];
@@ -1957,7 +1543,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'OPay Digital Services';
   }
 
-  // Popular Nigerian Banks quick buttons
+  // -------------------------------------------------------------
+  // BANK SELECTION GRID & DROPDOWN SYNC
+  // -------------------------------------------------------------
   bankQuickBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       bankQuickBtns.forEach(b => b.classList.remove('active'));
@@ -1981,6 +1569,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // -------------------------------------------------------------
+  // REAL-TIME NUBAN ACCOUNT RESOLUTION (OPay / PalmPay Style)
+  // -------------------------------------------------------------
   let resolveDebounceTimer = null;
   function triggerAccountResolution() {
     clearTimeout(resolveDebounceTimer);
@@ -1997,7 +1588,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (accountResolvedText) {
           accountResolvedText.innerHTML = `
             <span class="recipient-search-spinner" style="position:static; width:13px; height:13px; display:inline-block; vertical-align:middle; margin-right:6px;"></span>
-            <span>Resolving ${cleanDigits} with NIP switch...</span>
+            <span>Verifying beneficiary on NIP switch...</span>
           `;
         }
       }
@@ -2014,12 +1605,8 @@ document.addEventListener('DOMContentLoaded', () => {
           recipientVerifyHint.textContent = `✓ Account verified on Nigerian Inter-Bank Settlement System (NIBSS).`;
           recipientVerifyHint.classList.add('text-success');
         }
-
-        // Enable "Next" button on Screen 1 once account is resolved
-        if (btnRecipientNext) {
-          btnRecipientNext.disabled = false;
-        }
-      }, 300);
+        if (sendFormError) sendFormError.classList.add('hidden');
+      }, 250);
       return;
     }
 
@@ -2031,7 +1618,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (accountResolvedText) {
           accountResolvedText.innerHTML = `
             <span class="recipient-search-spinner" style="position:static; width:13px; height:13px; display:inline-block; vertical-align:middle; margin-right:6px;"></span>
-            <span>Looking up MidePay Tag...</span>
+            <span>Looking up MideTag...</span>
           `;
         }
       }
@@ -2055,260 +1642,329 @@ document.addEventListener('DOMContentLoaded', () => {
             accountResolvedText.innerHTML = `<strong>${sendFlowState.resolvedName}</strong>`;
           }
         }
-
-        // Enable "Next" button
-        if (btnRecipientNext) {
-          btnRecipientNext.disabled = false;
-        }
-      }, 350);
+        if (sendFormError) sendFormError.classList.add('hidden');
+      }, 300);
       return;
     }
 
-    // Not resolved
+    // Incomplete
     sendFlowState.isAccountResolved = false;
     sendFlowState.resolvedName = '';
     sendFlowState.accountNumber = rawVal;
     if (accountResolvedBox) accountResolvedBox.classList.add('hidden');
     if (recipientVerifyHint) {
-      recipientVerifyHint.textContent = 'Enter 10-digit NUBAN to verify account name instantly.';
+      recipientVerifyHint.textContent = 'Enter 10-digit NUBAN to verify account name automatically.';
       recipientVerifyHint.classList.remove('text-success');
-    }
-    if (btnRecipientNext) {
-      btnRecipientNext.disabled = true;
     }
   }
 
   if (sendRecipient) {
     sendRecipient.addEventListener('input', triggerAccountResolution);
-  }
 
-  // SCREEN 1 "NEXT" BUTTON ACTION -> ADVANCE TO SCREEN 2 (AMOUNT)
-  if (btnRecipientNext) {
-    btnRecipientNext.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (!sendFlowState.isAccountResolved) {
-        showToast('Please enter a valid 10-digit NUBAN account number to verify recipient.', 'error');
-        sendRecipient?.focus();
-        return;
-      }
-      sendFlowState.selectedBank = getSelectedBankName();
-      showSendStep('amount');
-    });
-  }
-
-  if (sendRecipientForm) {
-    sendRecipientForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      if (btnRecipientNext && !btnRecipientNext.disabled) {
-        btnRecipientNext.click();
+    // FIX FOR LAPTOP USERS: Pressing Enter never auto-sends; it resolves account and focuses amount
+    sendRecipient.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        triggerAccountResolution();
+        sendAmountInput?.focus();
       }
     });
   }
 
   // -------------------------------------------------------------
-  // SCREEN 2: AMOUNT INPUT & "CONTINUE" BUTTON ACTION
+  // AMOUNT CHIPS & KEYBOARD CONTROLS (PREVENTS LAPTOP AUTO-SEND)
   // -------------------------------------------------------------
-  if (sendAmountInput) {
-    sendAmountInput.addEventListener('input', validateAmountInputs);
-  }
-
-  document.querySelectorAll('#send-step-amount .amount-tag-btn[data-amt]').forEach(tagBtn => {
+  quickAmountBtns.forEach(tagBtn => {
     tagBtn.addEventListener('click', () => {
+      quickAmountBtns.forEach(b => b.classList.remove('active'));
+      tagBtn.classList.add('active');
       const amt = tagBtn.getAttribute('data-amt');
-      if (sendAmountInput) {
+      if (sendAmountInput && amt) {
         sendAmountInput.value = amt;
-        validateAmountInputs();
+        sendFlowState.amount = parseFloat(amt) || 0;
       }
     });
   });
 
-  if (sendNarrationInput) {
-    sendNarrationInput.addEventListener('input', () => {
-      sendFlowState.narration = sendNarrationInput.value.trim();
+  if (sendAmountInput) {
+    sendAmountInput.addEventListener('input', () => {
+      const val = parseFloat(sendAmountInput.value) || 0;
+      sendFlowState.amount = val;
+      quickAmountBtns.forEach(b => {
+        b.classList.toggle('active', parseFloat(b.getAttribute('data-amt')) === val);
+      });
+      if (sendFormError) sendFormError.classList.add('hidden');
+    });
+
+    // FIX FOR LAPTOP USERS: Pressing Enter moves focus to Narration instead of submitting form!
+    sendAmountInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendNarrationInput?.focus();
+      }
     });
   }
 
-  if (btnAmountContinue) {
-    btnAmountContinue.addEventListener('click', async (e) => {
+  if (sendNarrationInput) {
+    sendNarrationInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendNarrationInput.blur();
+      }
+    });
+  }
+
+  // Prevent default HTML form submission across all inputs
+  if (mainTransferForm) {
+    mainTransferForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      // Only proceed via deliberate click or explicit programmatic trigger
+    });
+  }
+
+  // -------------------------------------------------------------
+  // THE BIG GREEN "SEND MONEY" BUTTON ACTION
+  // -------------------------------------------------------------
+  if (btnSubmitTransfer) {
+    btnSubmitTransfer.addEventListener('click', async (e) => {
+      e.preventDefault();
+
+      sendFlowState.selectedBank = getSelectedBankName();
+      const rawRecipient = (sendRecipient?.value || '').trim();
+      const cleanDigits = rawRecipient.replace(/[^0-9]/g, '');
+
+      // 1. Validate Recipient
+      if (!rawRecipient) {
+        showTransferFormError('Please enter the recipient account number (10-digit NUBAN) or MideTag.');
+        sendRecipient?.focus();
+        return;
+      }
+
+      if (cleanDigits.length !== 10 && !rawRecipient.startsWith('@')) {
+        showTransferFormError('Recipient account must be a valid 10-digit NUBAN or @username.');
+        sendRecipient?.focus();
+        return;
+      }
+
+      // If account hasn't finished resolving, resolve now
+      if (!sendFlowState.isAccountResolved || !sendFlowState.resolvedName) {
+        const resolvedName = cleanDigits.length === 10 
+          ? resolveNubanBeneficiary(cleanDigits) 
+          : `${rawRecipient.replace(/^@/, '').toUpperCase()} (MidePay Verified)`;
+        sendFlowState.isAccountResolved = true;
+        sendFlowState.resolvedName = resolvedName;
+        sendFlowState.accountNumber = cleanDigits || rawRecipient;
+      }
+
+      // 2. Validate Amount
       const amt = parseFloat(sendAmountInput?.value) || 0;
-      if (amt <= 0) {
-        showToast('Please enter an amount to transfer.', 'error');
+      if (amt < 50) {
+        showTransferFormError('Please enter a valid transfer amount (minimum ₦50.00).');
         sendAmountInput?.focus();
         return;
       }
+      sendFlowState.amount = amt;
+      sendFlowState.narration = (sendNarrationInput?.value || '').trim() || 'Transfer via MidePay';
 
+      // 3. Check Wallet Balance & Auto-Topup if Demo Testing
       const totalNeeded = amt + sendFlowState.transferFee;
       if (totalNeeded > state.dashBalance) {
-        // Auto-credit demo balance in Supabase and locally so testing is never blocked
         const fundCredit = Math.max(50000, Math.ceil(totalNeeded * 1.5));
         await topUpDemoBalance(fundCredit);
-        showToast(`🎉 Auto-credited ${formatNaira(fundCredit)} demo funds to your wallet!`);
+        showToast(`🎉 Added ${formatNaira(fundCredit)} demo test credit to your wallet!`);
       }
 
-      sendFlowState.amount = amt;
-      sendFlowState.narration = sendNarrationInput?.value.trim() || 'Transfer via MidePay';
-      showSendStep('review');
+      // Everything valid -> Hide error & advance to OPay/PalmPay PIN confirmation
+      if (sendFormError) sendFormError.classList.add('hidden');
+      showSendStep('pin-confirm');
     });
   }
 
-  if (sendAmountForm) {
-    sendAmountForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      if (btnAmountContinue && !btnAmountContinue.disabled) {
-        btnAmountContinue.click();
+  function showTransferFormError(msg) {
+    if (sendFormError && sendFormErrorText) {
+      sendFormErrorText.textContent = msg;
+      sendFormError.classList.remove('hidden');
+      sendFormError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      showToast(msg, 'error');
+    }
+  }
+
+  // -------------------------------------------------------------
+  // SCREEN 2: OPAY / PALMPAY CONFIRMATION & 4-DIGIT PIN LOGIC
+  // -------------------------------------------------------------
+  function populatePinScreen() {
+    const name = sendFlowState.resolvedName || 'ADELEKE BABATUNDE';
+    const bank = sendFlowState.selectedBank || 'OPay Digital Services';
+    const acc = sendFlowState.accountNumber || '9048291048';
+    const amt = sendFlowState.amount || 5000;
+
+    const initials = name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(w => w[0])
+      .join('')
+      .toUpperCase() || 'AB';
+
+    if (pinRecipientAvatar) pinRecipientAvatar.textContent = initials;
+    if (pinRecipientName) pinRecipientName.textContent = name;
+    if (pinRecipientBank) pinRecipientBank.textContent = `${bank} • ${acc}`;
+    if (pinSummaryAmount) pinSummaryAmount.textContent = formatNaira(amt);
+    if (btnAuthorizePayText) btnAuthorizePayText.textContent = `Pay ${formatNaira(amt)}`;
+  }
+
+  function clearPinBoxes() {
+    authPinBoxes.forEach(b => {
+      if (b) {
+        b.value = '';
+        b.classList.remove('has-value');
       }
     });
   }
 
-  // -------------------------------------------------------------
-  // SCREEN 3: "CONFIRM & PROCEED" -> CHECK PIN STATUS
-  // -------------------------------------------------------------
-  if (btnReviewConfirm) {
-    btnReviewConfirm.addEventListener('click', async () => {
-      const currentUserId = state.user?.id || 'demo-user-active';
+  function getEnteredPin() {
+    return authPinBoxes.map(b => b?.value || '').join('');
+  }
 
-      let pinHash = state.user?.pinHash;
-      if (!pinHash && window.MidePayDB) {
-        pinHash = await window.MidePayDB.getUserPinHash(currentUserId);
-        if (pinHash && state.user) state.user.pinHash = pinHash;
-      }
+  // Setup PIN boxes jump logic
+  authPinBoxes.forEach((box, idx) => {
+    if (!box) return;
 
-      if (!pinHash) {
-        showSendStep('pin-setup');
+    box.addEventListener('input', () => {
+      const val = box.value.replace(/[^0-9]/g, '');
+      box.value = val ? val[val.length - 1] : '';
+
+      if (box.value) {
+        box.classList.add('has-value');
+        if (idx < authPinBoxes.length - 1) {
+          authPinBoxes[idx + 1].focus();
+        }
       } else {
-        showSendStep('pin-confirm');
+        box.classList.remove('has-value');
       }
+
+      if (pinAuthError) pinAuthError.classList.add('hidden');
+    });
+
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !box.value && idx > 0) {
+        authPinBoxes[idx - 1].focus();
+        authPinBoxes[idx - 1].value = '';
+        authPinBoxes[idx - 1].classList.remove('has-value');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (getEnteredPin().length === 4) {
+          btnAuthorizePay?.click();
+        }
+      }
+    });
+
+    box.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const pasteData = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '');
+      if (!pasteData) return;
+      for (let i = 0; i < authPinBoxes.length; i++) {
+        if (pasteData[i]) {
+          authPinBoxes[i].value = pasteData[i];
+          authPinBoxes[i].classList.add('has-value');
+        }
+      }
+      const lastIdx = Math.min(pasteData.length, authPinBoxes.length) - 1;
+      if (lastIdx >= 0) authPinBoxes[lastIdx].focus();
+    });
+  });
+
+  // "⚡ Use PIN: 1234" Quick Fill Helper
+  if (btnFillDemoPin) {
+    btnFillDemoPin.addEventListener('click', () => {
+      ['1', '2', '3', '4'].forEach((digit, i) => {
+        if (authPinBoxes[i]) {
+          authPinBoxes[i].value = digit;
+          authPinBoxes[i].classList.add('has-value');
+        }
+      });
+      if (pinAuthError) pinAuthError.classList.add('hidden');
+      authPinBoxes[3]?.focus();
+    });
+  }
+
+  // Back button from PIN sheet back to Transfer Form
+  if (btnBackFromPin) {
+    btnBackFromPin.addEventListener('click', () => {
+      showSendStep('form');
+    });
+  }
+
+  // Close button on PIN sheet
+  if (closePinModalBtn) {
+    closePinModalBtn.addEventListener('click', () => {
+      modalSend?.classList.add('hidden');
+    });
+  }
+
+  // Close button on Screen 1
+  if (closeSendBtn) {
+    closeSendBtn.addEventListener('click', () => {
+      modalSend?.classList.add('hidden');
     });
   }
 
   // -------------------------------------------------------------
-  // SCREEN 4A: SAVE FIRST-TIME PIN & ADVANCE TO CONFIRMATION
+  // BIG "PAY ₦..." BUTTON -> INSTANT EXECUTION & RECEIPT
   // -------------------------------------------------------------
-  if (pinSetupForm) {
-    pinSetupForm.addEventListener('submit', async (e) => {
+  if (btnAuthorizePay) {
+    btnAuthorizePay.addEventListener('click', async (e) => {
       e.preventDefault();
 
-      const pin = getPinValue(setupPinBoxes);
-      const confirmPin = getPinValue(confirmPinBoxes);
-
-      if (pin.length !== 4) {
-        pinSetupError?.classList.remove('hidden');
-        if (pinSetupErrorText) pinSetupErrorText.textContent = 'Please enter all 4 digits for your security PIN.';
-        setupPinBoxes[0]?.focus();
-        return;
-      }
-
-      if (confirmPin.length !== 4) {
-        pinSetupError?.classList.remove('hidden');
-        if (pinSetupErrorText) pinSetupErrorText.textContent = 'Please confirm all 4 digits of your security PIN.';
-        confirmPinBoxes[0]?.focus();
-        return;
-      }
-
-      if (pin !== confirmPin) {
-        pinSetupError?.classList.remove('hidden');
-        if (pinSetupErrorText) pinSetupErrorText.textContent = 'PINs do not match. Please verify and re-enter both.';
-        clearPinBoxes(confirmPinBoxes);
-        confirmPinBoxes[0]?.focus();
-        return;
-      }
-
-      pinSetupError?.classList.add('hidden');
-
-      if (btnSavePin) {
-        btnSavePin.disabled = true;
-        btnSavePin.innerHTML = '<span>Encrypting & Securing PIN...</span>';
-      }
-
-      try {
-        const hashed = await hashPin(pin);
-        const currentUserId = state.user?.id || 'demo-user-active';
-        await window.MidePayDB.setUserPin(currentUserId, hashed);
-
-        if (state.user) {
-          state.user.pinHash = hashed;
-          localStorage.setItem('midepay_user', JSON.stringify(state.user));
-        }
-
-        showToast('🎉 Transaction PIN created securely!');
-        showSendStep('pin-confirm');
-      } catch (err) {
-        console.error('PIN setup error:', err);
-        showToast('Failed to save security PIN. Please try again.', 'error');
-      } finally {
-        if (btnSavePin) {
-          btnSavePin.disabled = false;
-          btnSavePin.innerHTML = '<span>Save PIN & Authorize Transfer</span>';
-        }
-      }
-    });
-  }
-
-  // -------------------------------------------------------------
-  // SCREEN 4B: AUTHORIZE TRANSFER WITH PIN -> EXECUTE & LOG IN SUPABASE
-  // -------------------------------------------------------------
-  if (pinAuthForm) {
-    pinAuthForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const currentUserId = state.user?.id || 'demo-user-active';
-
-      if (getRemainingLockoutMs(currentUserId) > 0) {
-        startLockoutTimer(currentUserId);
-        return;
-      }
-
-      const enteredPin = getPinValue(authPinBoxes);
+      const enteredPin = getEnteredPin();
       if (enteredPin.length !== 4) {
-        pinAuthError?.classList.remove('hidden');
-        if (pinAuthErrorText) pinAuthErrorText.textContent = 'Please enter your 4-digit transaction PIN.';
+        if (pinAuthError && pinAuthErrorText) {
+          pinAuthErrorText.textContent = 'Please enter your 4-digit security PIN (or click ⚡ Use PIN: 1234).';
+          pinAuthError.classList.remove('hidden');
+        }
         authPinBoxes[0]?.focus();
         return;
       }
 
-      const storedHash = state.user?.pinHash || await window.MidePayDB.getUserPinHash(currentUserId);
-      const isPinValid = await verifyPin(enteredPin, storedHash);
+      // Demo accepts 1234 or configured user PIN
+      const storedPinHash = state.user?.pinHash;
+      let isPinValid = (enteredPin === '1234');
+      if (!isPinValid && storedPinHash) {
+        isPinValid = (storedPinHash === enteredPin || storedPinHash.includes(enteredPin));
+      }
 
       if (!isPinValid) {
-        const attempts = incrementPinAttempts(currentUserId);
-        clearPinBoxes(authPinBoxes);
-
-        if (attempts >= MAX_PIN_ATTEMPTS) {
-          startLockoutTimer(currentUserId);
-          showToast('🔒 Account locked: 5 incorrect PIN attempts. Locked for 5 minutes.', 'error');
-        } else {
-          const remaining = MAX_PIN_ATTEMPTS - attempts;
-          pinAuthError?.classList.remove('hidden');
-          if (pinAuthErrorText) {
-            pinAuthErrorText.textContent = `❌ Incorrect PIN. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before account lockout.`;
-          }
-          authPinBoxes[0]?.focus();
+        if (pinAuthError && pinAuthErrorText) {
+          pinAuthErrorText.textContent = 'Incorrect PIN. For this demo, please click "⚡ Use PIN: 1234".';
+          pinAuthError.classList.remove('hidden');
         }
+        clearPinBoxes();
+        authPinBoxes[0]?.focus();
         return;
       }
 
-      resetPinAttempts(currentUserId);
-      pinAuthError?.classList.add('hidden');
-
-      if (btnAuthorizeTransfer) {
-        btnAuthorizeTransfer.disabled = true;
-        btnAuthorizeTransfer.innerHTML = `
+      // Valid PIN -> Execute Transfer!
+      if (pinAuthError) pinAuthError.classList.add('hidden');
+      btnAuthorizePay.disabled = true;
+      if (btnAuthorizePayText) {
+        btnAuthorizePayText.innerHTML = `
           <div class="recipient-search-spinner" style="position:static; width:16px; height:16px; margin-right:8px; display:inline-block; vertical-align:middle;"></div>
-          <span>Routing NIP Settlement Switch...</span>
+          <span>Processing Instant Transfer...</span>
         `;
       }
 
       try {
         const totalDebit = sendFlowState.amount + sendFlowState.transferFee;
 
-        // Deduct from sender balance locally
+        // Deduct sender balance locally
         state.dashBalance = Math.max(0, state.dashBalance - totalDebit);
 
-        // Generate realistic transaction reference
+        // Generate Nigerian fintech reference
         const refDigits = Math.floor(100000000 + Math.random() * 900000000);
         const txRef = `MDP-${refDigits}`;
-        const txTimestamp = new Date().toLocaleString('en-NG', {
+        const now = new Date();
+        const txTimestamp = now.toLocaleString('en-NG', {
           dateStyle: 'medium',
           timeStyle: 'short'
         });
@@ -2319,7 +1975,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ref: txRef,
           title: `Transfer to ${sendFlowState.resolvedName}`,
           category: 'Transfer',
-          sender: state.user?.fullName || 'Account Holder',
+          sender: state.user?.fullName || 'Demo Account',
           beneficiary: `${sendFlowState.resolvedName} • ${sendFlowState.selectedBank} (${sendFlowState.accountNumber})`,
           narration: sendFlowState.narration || 'Transfer via MidePay',
           date: 'Just now',
@@ -2332,7 +1988,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.transactions.unshift(newTx);
         sendFlowState.lastTransaction = newTx;
 
-        // Persist to Supabase in background
+        // Persist to Supabase if configured
         if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user?.id) {
           window.MidePayDB.recordTransfer({
             walletId: state.user.walletId,
@@ -2349,7 +2005,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBalances();
         renderDashboardTransactions();
 
-        // Populate Success Screen
+        // Populate Screen 3: Success Screen
         if (successTransferAmount) successTransferAmount.textContent = formatNaira(sendFlowState.amount);
         if (successRecipientName) successRecipientName.textContent = sendFlowState.resolvedName;
         if (successRecipientDetail) {
@@ -2367,32 +2023,29 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Transfer execution error:', err);
         showToast(`Transfer failed: ${err.message || 'Unknown network error'}`, 'error');
       } finally {
-        if (btnAuthorizeTransfer) {
-          btnAuthorizeTransfer.disabled = false;
-          btnAuthorizeTransfer.innerHTML = `<span>Authorize & Pay</span>`;
+        btnAuthorizePay.disabled = false;
+        if (btnAuthorizePayText) {
+          btnAuthorizePayText.textContent = `Pay ${formatNaira(sendFlowState.amount)}`;
         }
       }
     });
   }
 
   // -------------------------------------------------------------
-  // SCREEN 5: SUCCESS ACTIONS ("DONE" & "SHARE RECEIPT")
+  // SCREEN 3: SUCCESS ACTIONS ("DONE" & "VIEW RECEIPT")
   // -------------------------------------------------------------
   if (btnTransferDone) {
     btnTransferDone.addEventListener('click', () => {
       modalSend?.classList.add('hidden');
       if (sendRecipient) sendRecipient.value = '';
-      if (sendAmountInput) sendAmountInput.value = '';
+      if (sendAmountInput) sendAmountInput.value = '5000';
       if (sendNarrationInput) sendNarrationInput.value = '';
       sendFlowState.isAccountResolved = false;
       sendFlowState.resolvedName = '';
       sendFlowState.accountNumber = '';
-      sendFlowState.amount = 0;
       if (accountResolvedBox) accountResolvedBox.classList.add('hidden');
-      if (btnRecipientNext) btnRecipientNext.disabled = true;
-      if (btnAmountContinue) btnAmountContinue.disabled = true;
 
-      showSendStep('recipient');
+      showSendStep('form');
       showView('dashboard');
       renderBalances();
       renderDashboardTransactions();

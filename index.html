@@ -1130,23 +1130,26 @@
   </main>
 
   <!-- ============================================================= -->
-  <!-- MODAL 1: SEND MONEY (INTERACTIVE SIMULATION)                  -->
+  <!-- MODAL 1: SEND MONEY (OPAY & PALMPAY STYLE INSTANT TRANSFER)   -->
   <!-- ============================================================= -->
   <div class="modal-overlay hidden" id="modal-send-money" role="dialog" aria-modal="true" aria-labelledby="send-modal-title">
     <div class="modal-box">
       
-      <!-- SCREEN 1: RECIPIENT SCREEN (BANK SELECTOR & NUBAN / TAG RESOLUTION) -->
-      <div class="send-step" id="send-step-recipient">
+      <!-- SCREEN 1: UNIFIED OPAY & PALMPAY STYLE TRANSFER FORM -->
+      <div class="send-step" id="send-step-form">
         <div class="modal-header">
-          <h3 class="modal-title" id="send-modal-title">Send to Bank Account</h3>
+          <div class="modal-title-with-badge">
+            <h3 class="modal-title" id="send-modal-title">Send Money</h3>
+            <span class="badge-emerald-sm">Zero Fee Transfer</span>
+          </div>
           <button class="modal-close-btn" id="close-send-modal-btn" aria-label="Close modal">✕</button>
         </div>
 
-        <form class="modal-form" id="send-recipient-form">
+        <form class="modal-form" id="main-transfer-form" onsubmit="return false;">
           <!-- Balance Alert / Test Top-up Bar -->
           <div class="transfer-balance-alert" id="transfer-balance-notice">
-            <span>Available: <strong id="transfer-modal-balance">₦0.00</strong></span>
-            <button type="button" class="btn-demo-fund" id="btn-quick-fund-transfer">+ Add ₦50k Test Credit</button>
+            <span>Available Balance: <strong id="transfer-modal-balance">₦0.00</strong></span>
+            <button type="button" class="btn-demo-fund" id="btn-quick-fund-transfer" title="Top Up Demo Balance">+ Add ₦50k Funds</button>
           </div>
 
           <!-- Popular Nigerian Banks Quick Select -->
@@ -1253,9 +1256,9 @@
             </div>
           </div>
 
-          <!-- Destination Bank Selector -->
+          <!-- Destination Bank Selector Dropdown -->
           <div class="form-group">
-            <label for="send-destination" class="form-label">All Nigerian Banks or MideTag</label>
+            <label for="send-destination" class="form-label">Destination Bank or MideTag</label>
             <select id="send-destination" class="form-input form-select" required>
               <option value="OPay" selected>OPay Digital Services</option>
               <option value="PalmPay">PalmPay</option>
@@ -1293,71 +1296,30 @@
 
           <!-- Recipient Account Number or MideTag -->
           <div class="form-group">
-            <label for="send-recipient" class="form-label">10-Digit NUBAN Account Number or @MideTag</label>
+            <label for="send-recipient" class="form-label">Recipient Account Number (10-Digit NUBAN)</label>
             <input 
               type="text" 
               id="send-recipient" 
               class="form-input" 
-              placeholder="e.g. 0123456789 or @chidi" 
+              placeholder="e.g. 9048291048 or @username" 
               maxlength="20"
               autocomplete="off"
               required
             >
-            <!-- Real-time Account Resolution Box -->
+            <!-- Real-time Account Resolution Box (OPay / PalmPay Style) -->
             <div class="account-resolved-box hidden" id="account-resolved-box">
               <span class="badge-resolved-check">✓</span>
-              <span id="account-resolved-text">Resolving account...</span>
+              <span id="account-resolved-text">Resolving beneficiary...</span>
             </div>
-            <span class="form-hint" id="recipient-verify-hint">Enter 10-digit NUBAN to verify account name instantly.</span>
+            <span class="form-hint" id="recipient-verify-hint">Enter 10-digit NUBAN to verify account name automatically.</span>
           </div>
 
-          <!-- Screen 1 Primary Action: "Next" Button -->
-          <div class="form-actions-bottom" style="margin-top: 1.25rem;">
-            <button type="button" class="btn btn-primary w-full btn-lg" id="btn-recipient-next" disabled>
-              <span>Next</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- SCREEN 2: AMOUNT SCREEN (OPay Style) -->
-      <div class="send-step hidden" id="send-step-amount">
-        <div class="modal-header modal-header-nav">
-          <div class="modal-nav-left">
-            <button type="button" class="modal-back-btn" id="btn-back-from-amount" aria-label="Back to Recipient">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-            </button>
-            <h3 class="modal-title">Enter Amount</h3>
-          </div>
-          <button class="modal-close-btn" id="close-amount-modal-btn" aria-label="Close modal">✕</button>
-        </div>
-
-        <!-- Confirmed Recipient Banner at the Top -->
-        <div class="review-recipient-banner" style="margin-bottom: 1.25rem;">
-          <div class="review-recipient-avatar" id="amount-recipient-avatar">AB</div>
-          <div class="review-recipient-info">
-            <div class="review-recipient-name" id="amount-recipient-name">ADELEKE BABATUNDE CHUKWUEMEKA</div>
-            <div class="review-recipient-bank" id="amount-recipient-bank">OPay Digital Services • 0123456789</div>
-          </div>
-        </div>
-
-        <form class="modal-form" id="send-amount-form">
-          <!-- Balance indicator with Instant Fund action -->
-          <div class="transfer-balance-alert" style="margin-bottom: 1rem;">
-            <span>Available Balance: <strong id="amount-step-balance">₦0.00</strong></span>
-            <button type="button" class="btn-demo-fund" id="btn-amount-quick-fund" title="Add Demo Funds">+ Add ₦50k Funds</button>
-          </div>
-
-          <!-- Transfer Amount -->
+          <!-- Transfer Amount Field (With Quick Amount Chips) -->
           <div class="form-group">
-            <label for="send-amount" class="form-label">Transfer Amount (NGN)</label>
+            <div class="label-with-aside">
+              <label for="send-amount" class="form-label">Transfer Amount (NGN)</label>
+              <span class="aside-note" id="amount-balance-hint">Wallet Balance: ₦0.00</span>
+            </div>
             <div class="currency-input-wrap">
               <span class="currency-symbol">₦</span>
               <input 
@@ -1365,215 +1327,97 @@
                 id="send-amount" 
                 class="form-input currency-field" 
                 placeholder="5000" 
-                min="100" 
+                min="50" 
                 step="any"
                 required
               >
             </div>
             <div class="quick-amount-tags">
+              <button type="button" class="amount-tag-btn" data-amt="1000">₦1,000</button>
               <button type="button" class="amount-tag-btn" data-amt="2000">₦2,000</button>
-              <button type="button" class="amount-tag-btn" data-amt="5000">₦5,000</button>
+              <button type="button" class="amount-tag-btn active" data-amt="5000">₦5,000</button>
               <button type="button" class="amount-tag-btn" data-amt="10000">₦10,000</button>
-              <button type="button" class="amount-tag-btn" data-amt="25000">₦25,000</button>
+              <button type="button" class="amount-tag-btn" data-amt="20000">₦20,000</button>
               <button type="button" class="amount-tag-btn" data-amt="50000">₦50,000</button>
-            </div>
-
-            <!-- Insufficient Balance Alert with Instant Top-Up Button -->
-            <div class="flow-alert-banner flow-alert-warning hidden" id="insufficient-balance-alert">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <div style="flex: 1;">
-                <span id="insufficient-balance-text">Insufficient balance. Your available balance is ₦0.00.</span>
-                <div style="margin-top: 0.5rem;">
-                  <button type="button" class="btn-demo-fund" id="btn-insufficient-fund-now" style="font-size: 0.78rem; padding: 0.35rem 0.85rem;">+ Top Up ₦50,000 Demo Funds Now</button>
-                </div>
-              </div>
             </div>
           </div>
 
-          <!-- Narration / Note -->
+          <!-- Narration / Remark -->
           <div class="form-group">
-            <label for="send-narration" class="form-label">Narration / Purpose (Optional)</label>
+            <label for="send-narration" class="form-label">Narration / Remark (Optional)</label>
             <input 
               type="text" 
               id="send-narration" 
               class="form-input" 
-              placeholder="e.g. Lunch split, Invoice payout, Gift" 
-              maxlength="40"
+              placeholder="e.g. For food, project split, invoice" 
+              maxlength="50"
             >
           </div>
 
+          <!-- Fee Summary Banner -->
           <div class="fee-summary-row">
             <span>Transfer Fee</span>
-            <span class="text-accent font-bold" id="send-fee-display">₦10.00 (Standard Flat Transfer Fee)</span>
+            <span class="text-accent font-bold" id="send-fee-display">₦0.00 (Zero Surcharge Demo)</span>
           </div>
 
-          <!-- Screen 2 Primary Action: "Continue" Button -->
-          <div class="form-actions-bottom" style="margin-top: 1.25rem;">
-            <button type="button" class="btn btn-primary w-full btn-lg" id="btn-amount-continue" disabled>
-              <span>Continue</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- STEP 2: REVIEW SCREEN (OPay / Kuda / PalmPay Style) -->
-      <div class="send-step hidden" id="send-step-review">
-        <div class="modal-header modal-header-nav">
-          <div class="modal-nav-left">
-            <button type="button" class="modal-back-btn" id="btn-back-from-review" aria-label="Back">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-            </button>
-            <h3 class="modal-title">Review Transfer</h3>
-          </div>
-          <button class="modal-close-btn" id="close-review-modal-btn" aria-label="Close modal">✕</button>
-        </div>
-
-        <div class="review-recipient-banner">
-          <div class="review-recipient-avatar" id="review-recipient-avatar">AB</div>
-          <div class="review-recipient-info">
-            <div class="review-recipient-name" id="review-recipient-name">ADELEKE BABATUNDE CHUKWUEMEKA</div>
-            <div class="review-recipient-bank" id="review-recipient-bank">OPay Digital Services • 0123456789</div>
-          </div>
-        </div>
-
-        <div class="review-card">
-          <div class="review-item-row">
-            <span class="review-label">Transfer Amount</span>
-            <span class="review-val" id="review-amount">₦5,000.00</span>
-          </div>
-          <div class="review-item-row">
-            <span class="review-label">Destination Bank</span>
-            <span class="review-val" id="review-bank-val">OPay Digital Services</span>
-          </div>
-          <div class="review-item-row">
-            <span class="review-label">Account Number</span>
-            <span class="review-val" id="review-account-val">0123456789</span>
-          </div>
-          <div class="review-item-row">
-            <span class="review-label">Transfer Fee</span>
-            <span class="review-val" id="review-fee-val">₦10.00</span>
-          </div>
-          <div class="review-item-row">
-            <span class="review-label">Narration</span>
-            <span class="review-val" id="review-narration-val">Transfer via MidePay</span>
-          </div>
-          <div class="review-item-row" style="margin-top: 0.35rem; padding-top: 0.65rem; border-top: 1px dashed rgba(255,255,255,0.12);">
-            <span class="review-label" style="font-weight: 700; color: #FFF;">Total to Debit</span>
-            <span class="review-val highlight" id="review-total-val">₦5,010.00</span>
-          </div>
-        </div>
-
-        <div class="review-actions-group">
-          <button type="button" class="btn btn-outline flex-1 btn-lg" id="btn-review-edit">
-            <span>Edit</span>
-          </button>
-          <button type="button" class="btn btn-primary flex-2 btn-lg" id="btn-review-confirm">
-            <span>Confirm & Proceed</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 19 12 12 19"></polyline>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- STEP 3A: TRANSACTION PIN SETUP (FIRST TIME ONLY) -->
-      <div class="send-step hidden" id="send-step-pin-setup">
-        <div class="modal-header modal-header-nav">
-          <div class="modal-nav-left">
-            <button type="button" class="modal-back-btn" id="btn-back-from-pin-setup" aria-label="Back">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-            </button>
-            <h3 class="modal-title">Create Transaction PIN</h3>
-          </div>
-          <button class="modal-close-btn" id="close-pin-setup-modal-btn" aria-label="Close modal">✕</button>
-        </div>
-
-        <div class="pin-security-hero">
-          <div class="pin-shield-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            </svg>
-          </div>
-          <h4 class="pin-hero-title">Set a 4-Digit Security PIN</h4>
-          <p class="pin-hero-desc">You do not have a transaction PIN set yet. Create a 4-digit PIN to securely authorize this transfer and all future transactions.</p>
-        </div>
-
-        <form class="modal-form" id="pin-setup-form">
-          <div class="form-group">
-            <label class="form-label text-center block">Enter 4-Digit PIN</label>
-            <div class="pin-boxes-container" id="pin-create-boxes">
-              <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="setup-pin-1" data-index="1" autocomplete="off" required>
-              <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="setup-pin-2" data-index="2" autocomplete="off" required>
-              <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="setup-pin-3" data-index="3" autocomplete="off" required>
-              <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="setup-pin-4" data-index="4" autocomplete="off" required>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label text-center block">Confirm 4-Digit PIN</label>
-            <div class="pin-boxes-container" id="pin-confirm-boxes">
-              <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="confirm-pin-1" data-index="1" autocomplete="off" required>
-              <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="confirm-pin-2" data-index="2" autocomplete="off" required>
-              <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="confirm-pin-3" data-index="3" autocomplete="off" required>
-              <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="confirm-pin-4" data-index="4" autocomplete="off" required>
-            </div>
-          </div>
-
-          <div class="flow-alert-banner flow-alert-error hidden" id="pin-setup-error">
+          <!-- Validation Error Banner -->
+          <div class="flow-alert-banner flow-alert-error hidden" id="send-form-error">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="12" y1="8" x2="12" y2="12"></line>
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            <span id="pin-setup-error-text">PINs do not match. Please verify both entries.</span>
+            <span id="send-form-error-text">Please complete required fields.</span>
           </div>
 
-          <button type="submit" class="btn btn-primary w-full btn-lg" id="btn-save-pin">
-            <span>Save PIN & Authorize Transfer</span>
-          </button>
+          <!-- THE CLEAR, PROMINENT "SEND MONEY" BUTTON -->
+          <div class="form-actions-bottom" style="margin-top: 1.25rem;">
+            <button type="button" class="btn btn-primary w-full btn-lg" id="btn-submit-transfer">
+              <span>Send Money</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
         </form>
       </div>
 
-      <!-- STEP 3B: PIN CONFIRMATION ON EVERY SEND -->
+      <!-- SCREEN 2: OPAY / PALMPAY STYLE CONFIRMATION & PIN SHEET -->
       <div class="send-step hidden" id="send-step-pin-confirm">
         <div class="modal-header modal-header-nav">
           <div class="modal-nav-left">
-            <button type="button" class="modal-back-btn" id="btn-back-from-pin-confirm" aria-label="Back">
+            <button type="button" class="modal-back-btn" id="btn-back-from-pin" aria-label="Back to Transfer Form">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="19" y1="12" x2="5" y2="12"></line>
                 <polyline points="12 19 5 12 12 5"></polyline>
               </svg>
             </button>
-            <h3 class="modal-title">Authorize Transfer</h3>
+            <h3 class="modal-title">Confirm Payment</h3>
           </div>
-          <button class="modal-close-btn" id="close-pin-confirm-modal-btn" aria-label="Close modal">✕</button>
+          <button class="modal-close-btn" id="close-pin-modal-btn" aria-label="Close modal">✕</button>
         </div>
 
-        <!-- Transfer Summary Pill -->
+        <div class="review-recipient-banner" style="margin-bottom: 1rem;">
+          <div class="review-recipient-avatar" id="pin-recipient-avatar">AB</div>
+          <div class="review-recipient-info">
+            <div class="review-recipient-name" id="pin-recipient-name">ADELEKE BABATUNDE</div>
+            <div class="review-recipient-bank" id="pin-recipient-bank">OPay • 9048291048</div>
+          </div>
+        </div>
+
         <div class="pin-transfer-summary">
-          <span class="summary-sending-label">Sending Amount</span>
-          <span class="summary-amount-display" id="auth-summary-amount">₦0.00</span>
-          <span class="summary-recipient-display" id="auth-summary-recipient">To Recipient</span>
+          <span class="summary-sending-label">Total to Pay</span>
+          <span class="summary-amount-display" id="pin-summary-amount">₦5,000.00</span>
+          <span class="summary-fee-text" style="font-size:0.8rem; color:#A7F3D0;">Fee: ₦0.00 • MidePay Zero-Fee Switch</span>
         </div>
 
-        <form class="modal-form" id="pin-auth-form">
+        <form class="modal-form" id="pin-auth-form" onsubmit="return false;" style="margin-top:1rem;">
           <div class="form-group">
-            <label class="form-label text-center block">Enter 4-Digit Transaction PIN</label>
+            <div class="label-with-aside">
+              <label class="form-label">Enter 4-Digit Security PIN</label>
+              <button type="button" class="btn-quick-fill-pin" id="btn-fill-demo-pin" style="background:none; border:none; color:#34D399; font-size:0.78rem; font-weight:600; cursor:pointer;">⚡ Use PIN: 1234</button>
+            </div>
             <div class="pin-boxes-container" id="pin-auth-boxes">
               <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="auth-pin-1" data-index="1" autocomplete="off" required>
               <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="auth-pin-2" data-index="2" autocomplete="off" required>
@@ -1582,35 +1426,26 @@
             </div>
           </div>
 
-          <!-- PIN Mismatch / Attempt Error -->
+          <!-- PIN Error Alert -->
           <div class="flow-alert-banner flow-alert-error hidden" id="pin-auth-error">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="12" y1="8" x2="12" y2="12"></line>
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            <span id="pin-auth-error-text">Incorrect PIN. 4 attempts remaining before account lockout.</span>
+            <span id="pin-auth-error-text">Incorrect PIN. Please enter your 4-digit PIN.</span>
           </div>
 
-          <!-- Account Lockout Banner (5 failed attempts) -->
-          <div class="flow-alert-banner flow-alert-lockout hidden" id="pin-lockout-banner">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-            <div>
-              <strong>🔒 PIN Locked Out:</strong>
-              <div id="pin-lockout-text">Too many incorrect attempts. Transfers locked for 5 minutes.</div>
-            </div>
+          <!-- Big Pay Button -->
+          <div class="form-actions-bottom" style="margin-top: 1.25rem;">
+            <button type="button" class="btn btn-primary w-full btn-lg" id="btn-authorize-pay">
+              <span id="btn-authorize-pay-text">Pay ₦5,000.00</span>
+            </button>
           </div>
-
-          <button type="submit" class="btn btn-primary w-full btn-lg" id="btn-authorize-transfer">
-            <span id="btn-authorize-text">Authorize & Pay</span>
-          </button>
         </form>
       </div>
 
-      <!-- STEP 4: SUCCESS CONFIRMATION SCREEN -->
+      <!-- SCREEN 3: OPAY / PALMPAY STYLE SUCCESS CONFIRMATION SCREEN -->
       <div class="send-step hidden" id="send-step-success">
         <div class="send-success-hero">
           <div class="success-badge-large">
@@ -1620,17 +1455,17 @@
           </div>
           <h3 class="modal-title">Transfer Successful</h3>
           <p class="text-secondary" style="font-size:0.88rem;">Your funds have been delivered instantly.</p>
-          <div class="success-amount-text" id="success-transfer-amount">₦0.00</div>
+          <div class="success-amount-text" id="success-transfer-amount">₦5,000.00</div>
           <div class="success-recipient-badge">
             <span>Sent to</span>
-            <strong id="success-recipient-name">Recipient Name</strong>
+            <strong id="success-recipient-name">ADELEKE BABATUNDE</strong>
           </div>
         </div>
 
         <div class="success-receipt-card">
           <div class="success-receipt-row">
             <span class="success-receipt-label">Recipient Account</span>
-            <span class="success-receipt-value" id="success-recipient-detail">OPay • 0123456789</span>
+            <span class="success-receipt-value" id="success-recipient-detail">OPay • 9048291048</span>
           </div>
           <div class="success-receipt-row">
             <span class="success-receipt-label">Transaction Reference</span>
@@ -1638,7 +1473,7 @@
           </div>
           <div class="success-receipt-row">
             <span class="success-receipt-label">Transfer Fee</span>
-            <span class="success-receipt-value text-accent font-bold" id="success-tx-fee">₦10.00</span>
+            <span class="success-receipt-value text-accent font-bold" id="success-tx-fee">₦0.00</span>
           </div>
           <div class="success-receipt-row">
             <span class="success-receipt-label">Payment Channel</span>
@@ -1659,7 +1494,7 @@
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
             </svg>
-            <span>Share Receipt</span>
+            <span>View Receipt (PDF)</span>
           </button>
           <button type="button" class="btn btn-primary flex-1 btn-lg" id="btn-transfer-done">
             Done
