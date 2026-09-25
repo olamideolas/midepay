@@ -9,8 +9,22 @@
 const fs = require('fs');
 const path = require('path');
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+const configPath = path.join(__dirname, 'config.js');
+let existingUrl = '';
+let existingAnonKey = '';
+
+try {
+  if (fs.existsSync(configPath)) {
+    const existing = fs.readFileSync(configPath, 'utf8');
+    const urlMatch = existing.match(/url:\s*['"]([^'"]+)['"]/);
+    const keyMatch = existing.match(/anonKey:\s*['"]([^'"]+)['"]/);
+    if (urlMatch && urlMatch[1]) existingUrl = urlMatch[1];
+    if (keyMatch && keyMatch[1]) existingAnonKey = keyMatch[1];
+  }
+} catch (e) {}
+
+const supabaseUrl = process.env.SUPABASE_URL || existingUrl || 'https://pxdzdehocjnmxbuvipxu.supabase.co';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || existingAnonKey || 'sb_publishable_5adXF0UhSQJ1n4F_IqLXEw_0naxL0wT';
 
 const configContent = `/**
  * MidePay — Runtime Configuration
@@ -23,7 +37,6 @@ window.MIDEPAY_SUPABASE_CONFIG = {
 };
 `;
 
-const configPath = path.join(__dirname, 'config.js');
 fs.writeFileSync(configPath, configContent, 'utf8');
 
 console.log('✅ [Vercel Build] config.js generated successfully.');
