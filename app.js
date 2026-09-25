@@ -12,7 +12,12 @@ const state = {
   heroBalance: 842500.00,
   dashBalance: 0.00,
   txFilter: 'all',
-  transactions: []
+  transactions: [],
+  // CBN 100% Regulatory Compliance State
+  kycTier: 2, // 1 (Basic), 2 (Standard), 3 (Premium / Full KYC)
+  dailySpent: 45000.00,
+  dailyLimit: 200000.00,
+  isAccountFrozen: false
 };
 
 // Default Demo Transactions for Sandbox / Interactive Prototype Preview
@@ -345,6 +350,10 @@ function renderBalances() {
       }
     }
   });
+
+  if (typeof renderCbnKycStatus === 'function') {
+    renderCbnKycStatus();
+  }
 }
 
 // Toggle Balance Privacy
@@ -457,6 +466,15 @@ function renderDashboardTransactions() {
 }
 
 // Global active receipt state
+// Technical 30-digit NIBSS Session ID Generator (CBN NIP technical specification)
+function generateNibssSessionId() {
+  const switchCode = '999048'; // 999 = NIBSS switch prefix, 048 = MidePay routing code
+  const datePart = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // 6 digits YYMMDD
+  const timePart = Date.now().toString().slice(-6); // 6 digits
+  const randPart = Math.floor(100000000000 + Math.random() * 900000000000).toString(); // 12 digits
+  return `${switchCode}${datePart}${timePart}${randPart}`;
+}
+
 let activeReceiptData = null;
 
 // Open Official Standard Transaction Receipt Modal
@@ -501,6 +519,33 @@ function openReceiptModal(receiptData) {
     if (elTokenUnits) elTokenUnits.textContent = receiptData.units || 'Estimated Units: Standard Tariff';
   } else if (tokenContainer) {
     tokenContainer.classList.add('hidden');
+  }
+
+  // CBN Standard: Mandatory 30-Digit NIBSS Session ID
+  const elSessionId = document.getElementById('receipt-session-id');
+  if (!receiptData.nibssSessionId) {
+    receiptData.nibssSessionId = generateNibssSessionId();
+  }
+  if (elSessionId) elSessionId.textContent = receiptData.nibssSessionId;
+
+  // Wire copy NIBSS Session ID button
+  const btnCopySession = document.getElementById('btn-copy-session');
+  if (btnCopySession) {
+    btnCopySession.onclick = () => {
+      navigator.clipboard.writeText(receiptData.nibssSessionId || '').then(() => {
+        showToast('✓ NIBSS Session ID copied to clipboard!');
+      });
+    };
+  }
+
+  // CBN Standard: EMTL Levy (₦50 on electronic inflows >= ₦10,000 per Finance Act)
+  const elEmtl = document.getElementById('receipt-emtl-levy');
+  if (elEmtl) {
+    if (receiptData.type === 'inflow' && (receiptData.amount || 0) >= 10000) {
+      elEmtl.textContent = '₦50.00 (Statutory EMTL)';
+    } else {
+      elEmtl.textContent = '₦0.00 (Exempt)';
+    }
   }
 
   modalReceipt.classList.remove('hidden');
@@ -1249,6 +1294,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const heroQuickCards = document.getElementById('hero-quick-cards');
 
   function openSendModal() {
+    if (state.isAccountFrozen) {
+      showToast('🔒 Account is frozen. Outbound transfers are blocked per CBN emergency protocol. Tap "Unfreeze" on your balance card.', 'error');
+      openFreezeModal();
+      return;
+    }
     const sendModalBalance = document.getElementById('transfer-modal-balance');
     if (sendModalBalance) {
       sendModalBalance.textContent = formatNaira(state.dashBalance);
@@ -1284,6 +1334,135 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCloseCards = document.getElementById('close-card-modal-btn');
   const modalReceipt = document.getElementById('modal-receipt');
   const btnCloseReceipt = document.getElementById('close-receipt-modal-btn');
+  const modalKyc = document.getElementById('modal-cbn-kyc');
+  const btnCloseKyc = document.getElementById('close-kyc-modal-btn');
+  const modalFreeze = document.getElementById('modal-emergency-freeze');
+  const btnCloseFreeze = document.getElementById('close-freeze-modal-btn');
+
+  // CBN KYC Modal openers
+  const btnOpenKycTier = document.getElementById('btn-open-kyc-tier');
+  const btnQuickUpgradeTier = document.getElementById('btn-quick-upgrade-tier');
+  const qaKyc = document.getElementById('qa-kyc');
+  const btnSubmitTier3Upgrade = document.getElementById('btn-submit-tier3-upgrade');
+
+  function openKycModal() {
+    modalKyc?.classList.remove('hidden');
+  }
+
+  if (btnOpenKycTier) btnOpenKycTier.addEventListener('click', openKycModal);
+  if (btnQuickUpgradeTier) btnQuickUpgradeTier.addEventListener('click', openKycModal);
+  if (qaKyc) qaKyc.addEventListener('click', openKycModal);
+  if (btnCloseKyc) btnCloseKyc.addEventListener('click', () => modalKyc?.classList.add('hidden'));
+
+  // CBN Tier 3 Upgrade simulation
+  if (btnSubmitTier3Upgrade) {
+    btnSubmitTier3Upgrade.addEventListener('click', () => {
+      btnSubmitTier3Upgrade.disabled = true;
+      btnSubmitTier3Upgrade.innerHTML = '<span>Verifying Identity & Proof of Address with NIBSS...</span>';
+
+      setTimeout(() => {
+        state.kycTier = 3;
+        state.dailyLimit = 5000000;
+        
+        const tier3Card = document.getElementById('kyc-tier-3-card');
+        const tier2Card = document.getElementById('kyc-tier-2-card');
+        const chipTier3 = document.getElementById('chip-tier-3-status');
+        const chipTier2 = document.getElementById('chip-tier-2-status');
+
+        if (tier3Card) tier3Card.classList.add('active-tier');
+        if (tier2Card) tier2Card.classList.remove('active-tier');
+        if (chipTier3) {
+          chipTier3.textContent = 'Active (Verified)';
+          chipTier3.className = 'kyc-tier-chip active';
+        }
+        if (chipTier2) {
+          chipTier2.textContent = 'Passed';
+          chipTier2.className = 'kyc-tier-chip';
+        }
+
+        btnSubmitTier3Upgrade.disabled = true;
+        btnSubmitTier3Upgrade.innerHTML = '<span>✓ Tier 3 Verified (Unlimited)</span>';
+
+        renderCbnKycStatus();
+        modalKyc?.classList.add('hidden');
+        showToast('🎉 Upgraded to CBN KYC Tier 3! Unlimited balance & ₦5M daily limit unlocked.');
+      }, 1200);
+    });
+  }
+
+  // CBN Emergency Freeze (Panic Switch) openers
+  const qaPanicFreeze = document.getElementById('qa-panic-freeze');
+  const btnBannerUnfreeze = document.getElementById('btn-banner-unfreeze');
+  const btnToggleAccountFreeze = document.getElementById('btn-toggle-account-freeze');
+  const btnFreezeText = document.getElementById('btn-freeze-text');
+  const freezeHeading = document.getElementById('freeze-state-heading');
+  const freezeDesc = document.getElementById('freeze-state-desc');
+  const accountFrozenBanner = document.getElementById('account-frozen-banner');
+  const qaFreezeTitle = document.getElementById('qa-freeze-title');
+  const qaFreezeSub = document.getElementById('qa-freeze-sub');
+
+  function openFreezeModal() {
+    updateFreezeModalUI();
+    modalFreeze?.classList.remove('hidden');
+  }
+
+  function updateFreezeModalUI() {
+    if (state.isAccountFrozen) {
+      if (btnFreezeText) btnFreezeText.textContent = '🔓 Unfreeze Account Now';
+      if (freezeHeading) freezeHeading.textContent = 'Account Currently Frozen';
+      if (freezeDesc) freezeDesc.textContent = 'Outbound transfers and virtual cards are locked under CBN security directives. Tap below to verify security credentials and unfreeze.';
+      if (accountFrozenBanner) accountFrozenBanner.classList.remove('hidden');
+      if (qaFreezeTitle) qaFreezeTitle.textContent = 'Unfreeze Switch';
+      if (qaFreezeSub) qaFreezeSub.textContent = 'Account Locked';
+    } else {
+      if (btnFreezeText) btnFreezeText.textContent = '🔒 Freeze Account Immediately';
+      if (freezeHeading) freezeHeading.textContent = 'Instant Account Lockout';
+      if (freezeDesc) freezeDesc.textContent = 'In compliance with CBN Fraud Mitigation Standards, freezing your account immediately disables all outbound transfers, locks your virtual cards, and blocks active sessions until you unfreeze.';
+      if (accountFrozenBanner) accountFrozenBanner.classList.add('hidden');
+      if (qaFreezeTitle) qaFreezeTitle.textContent = 'Freeze Switch';
+      if (qaFreezeSub) qaFreezeSub.textContent = 'Instant Panic Lock';
+    }
+  }
+
+  if (qaPanicFreeze) qaPanicFreeze.addEventListener('click', openFreezeModal);
+  if (btnBannerUnfreeze) btnBannerUnfreeze.addEventListener('click', openFreezeModal);
+  if (btnCloseFreeze) btnCloseFreeze.addEventListener('click', () => modalFreeze?.classList.add('hidden'));
+
+  if (btnToggleAccountFreeze) {
+    btnToggleAccountFreeze.addEventListener('click', () => {
+      state.isAccountFrozen = !state.isAccountFrozen;
+      updateFreezeModalUI();
+      modalFreeze?.classList.add('hidden');
+
+      if (state.isAccountFrozen) {
+        showToast('🔒 Account Frozen! Outbound transfers & cards locked per CBN emergency protocol.', 'error');
+      } else {
+        showToast('🔓 Account Unfrozen! Normal banking operations restored.');
+      }
+    });
+  }
+
+  // Render CBN KYC Status & Daily Limit Progress
+  function renderCbnKycStatus() {
+    const cardKycText = document.getElementById('card-kyc-tier-text');
+    const limitUsage = document.getElementById('cbn-limit-usage');
+    const progressBar = document.getElementById('cbn-progress-bar');
+    const qaKycSub = document.getElementById('qa-kyc-sub');
+
+    if (cardKycText) {
+      cardKycText.textContent = state.kycTier === 3 ? 'Tier 3 (Unlimited)' : `Tier ${state.kycTier} Verified`;
+    }
+    if (qaKycSub) {
+      qaKycSub.textContent = state.kycTier === 3 ? 'Tier 3 (Unlimited)' : `Tier ${state.kycTier} Verified`;
+    }
+    if (limitUsage) {
+      limitUsage.textContent = `${formatNaira(state.dailySpent)} / ${formatNaira(state.dailyLimit)}`;
+    }
+    if (progressBar) {
+      const pct = Math.min(100, (state.dailySpent / state.dailyLimit) * 100);
+      progressBar.style.width = `${pct}%`;
+    }
+  }
 
   if (btnCloseSend) btnCloseSend.addEventListener('click', () => modalSend?.classList.add('hidden'));
   if (btnCloseAdd) btnCloseAdd.addEventListener('click', () => modalAdd?.classList.add('hidden'));
@@ -1293,7 +1472,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCloseReceipt) btnCloseReceipt.addEventListener('click', () => modalReceipt?.classList.add('hidden'));
 
   // Close modals when clicking backdrop
-  [modalSend, modalAdd, modalAirtime, modalBills, modalCards, modalReceipt].forEach(m => {
+  [modalSend, modalAdd, modalAirtime, modalBills, modalCards, modalReceipt, modalKyc, modalFreeze].forEach(m => {
     if (!m) return;
     m.addEventListener('click', (e) => {
       if (e.target === m) m.classList.add('hidden');
