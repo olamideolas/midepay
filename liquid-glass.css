@@ -18,11 +18,14 @@
 }
 
 /* Base Liquid Glass Element */
+liquid-glass {
+  display: inline-block;
+}
+
 .liquid-glass,
 [data-liquid-glass],
 liquid-glass {
   position: relative;
-  display: inline-block;
   backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate)) brightness(var(--lg-brightness));
   -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturate)) brightness(var(--lg-brightness));
   background: var(--lg-tint-color);
