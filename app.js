@@ -720,6 +720,67 @@ async function loadDashboardData() {
   }
 }
 
+// --- System-Compatible Light & Dark Theme Controller ---
+function initThemeController() {
+  const THEME_STORAGE_KEY = 'midepay_theme_preference';
+  const root = document.documentElement;
+
+  function getSystemPreference() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+
+  function getActiveTheme() {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+    return getSystemPreference();
+  }
+
+  function applyTheme(theme, isUserExplicit = false) {
+    root.setAttribute('data-theme', theme);
+    if (isUserExplicit) {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
+    updateThemeToggleUI(theme);
+  }
+
+  function updateThemeToggleUI(theme) {
+    const btns = document.querySelectorAll('.theme-toggle-btn');
+    btns.forEach(btn => {
+      const isDark = theme === 'dark';
+      btn.setAttribute('aria-label', isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode');
+      btn.setAttribute('title', isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode');
+    });
+  }
+
+  // Set initial theme immediately
+  applyTheme(getActiveTheme(), false);
+
+  // Global click listener for any theme toggle button (desktop header, mobile drawer)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.theme-toggle-btn');
+    if (!btn) return;
+    const current = root.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next, true);
+    if (typeof showToast === 'function') {
+      showToast(next === 'light' ? '☀️ Switched to Light (White) Mode' : '🌙 Switched to Dark Mode');
+    }
+  });
+
+  // Watch system color scheme changes if user hasn't explicitly set a preference
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (!saved) {
+        applyTheme(e.matches ? 'dark' : 'light', false);
+      }
+    });
+  }
+}
+
+// Run immediately for instant theme styling
+initThemeController();
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initial LocalStorage session check

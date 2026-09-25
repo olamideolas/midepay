@@ -8,14 +8,19 @@
 
 
 /* --- CSS Variables & Design Tokens --- */
-:root {
-  /* Color Tokens */
-  --bg-main: #08110E;
-  --bg-surface: #0E1A16;
-  --bg-surface-elevated: #142520;
-  --bg-input: #101C19;
-  --bg-input-focus: #132420;
-  --bg-card: rgba(16, 28, 25, 0.85);
+:root,
+[data-theme="dark"] {
+  /* Color Tokens - Obsidian Midnight & Emerald Fintech */
+  --bg-main: #0B0F19;
+  --bg-surface: #111827;
+  --bg-surface-elevated: #1F2937;
+  --bg-input: #151E2E;
+  --bg-input-focus: #1C273C;
+  --bg-card: rgba(17, 24, 39, 0.88);
+  --header-bg: rgba(11, 15, 25, 0.82);
+  --footer-bg: #070A12;
+  --modal-bg: rgba(17, 24, 39, 0.96);
+  --modal-overlay-bg: rgba(4, 7, 13, 0.78);
 
   /* Emerald & Teal Primary Accents */
   --primary-emerald: #10B981;
@@ -31,16 +36,23 @@
   --accent-gold-border: rgba(245, 158, 11, 0.28);
 
   /* High Contrast Neutral Text Hierarchy */
-  --text-primary: #EFF5F2;       /* Light, crisp contrast against dark bg */
+  --text-primary: #F8FAFC;       /* Radiant crisp contrast against dark bg */
   --text-secondary: #94A3B8;     /* Clean muted cool slate */
   --text-muted: #64748B;         /* Subtle metadata text */
-  --text-inverse: #08110E;       /* Dark text for bright buttons */
+  --text-inverse: #0B0F19;       /* Dark text for bright buttons */
 
   /* Borders & Dividers */
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-medium: rgba(255, 255, 255, 0.15);
-  --border-emerald: rgba(16, 185, 129, 0.3);
+  --border-medium: rgba(255, 255, 255, 0.16);
+  --border-emerald: rgba(16, 185, 129, 0.32);
   --border-emerald-focus: #10B981;
+
+  /* Component Surfaces */
+  --phone-frame-bg: #111827;
+  --phone-frame-border: #1F2937;
+  --phone-screen-bg: #0B0F19;
+  --phone-card-bg: linear-gradient(135deg, #13222E 0%, #0E1724 100%);
+  --waitlist-card-bg: linear-gradient(135deg, #111E2E 0%, #0B1320 100%);
 
   /* Status Colors */
   --color-success: #10B981;
@@ -67,6 +79,64 @@
   --radius-full: 9999px;
   --transition-fast: 0.2s ease;
   --transition-normal: 0.3s ease;
+}
+
+[data-theme="light"] {
+  /* Color Tokens - Porcelain Clean & Emerald Slate Fintech */
+  --bg-main: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #F1F5F9;
+  --bg-input: #FFFFFF;
+  --bg-input-focus: #F8FAFC;
+  --bg-card: rgba(255, 255, 255, 0.94);
+  --header-bg: rgba(255, 255, 255, 0.88);
+  --footer-bg: #F1F5F9;
+  --modal-bg: rgba(255, 255, 255, 0.98);
+  --modal-overlay-bg: rgba(15, 23, 42, 0.55);
+
+  /* Emerald & Teal Primary Accents - Richer contrast for white surfaces */
+  --primary-emerald: #059669;
+  --primary-emerald-hover: #047857;
+  --primary-teal: #0D9488;
+  --primary-glow: rgba(5, 150, 105, 0.12);
+  --primary-glow-strong: rgba(5, 150, 105, 0.25);
+
+  /* Soft Warm Gold Secondary Accents */
+  --accent-gold: #D97706;
+  --accent-gold-light: #B45309;
+  --accent-gold-bg: rgba(217, 119, 6, 0.08);
+  --accent-gold-border: rgba(217, 119, 6, 0.25);
+
+  /* Razor-sharp Slate Text Hierarchy */
+  --text-primary: #0F172A;       /* Deep slate navy for effortless reading */
+  --text-secondary: #475569;     /* Warm neutral slate body text */
+  --text-muted: #64748B;         /* Metadata text */
+  --text-inverse: #FFFFFF;       /* Light text for dark surfaces */
+
+  /* Borders & Dividers */
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-medium: rgba(15, 23, 42, 0.16);
+  --border-emerald: rgba(5, 150, 105, 0.35);
+  --border-emerald-focus: #059669;
+
+  /* Component Surfaces */
+  --phone-frame-bg: #0F172A;
+  --phone-frame-border: #334155;
+  --phone-screen-bg: #FFFFFF;
+  --phone-card-bg: linear-gradient(135deg, #059669 0%, #047857 100%);
+  --waitlist-card-bg: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+
+  /* Status Colors */
+  --color-success: #059669;
+  --color-danger: #DC2626;
+  --color-danger-bg: rgba(220, 38, 38, 0.08);
+  --color-danger-border: rgba(220, 38, 38, 0.22);
+
+  /* Shadows - Soft layered elevation */
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 10px 25px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 20px 40px -8px rgba(15, 23, 42, 0.12), 0 8px 16px -4px rgba(15, 23, 42, 0.06);
+  --shadow-emerald: 0 8px 24px rgba(5, 150, 105, 0.18);
 }
 
 /* --- Base & Reset --- */
@@ -147,17 +217,17 @@ select.form-input {
   padding: 0.85rem 1.15rem;
   font-size: 0.95rem;
   font-weight: 400;
-  color: #EFF5F2 !important;              /* Explicit high-contrast text */
-  background-color: #101C19 !important;   /* Dark high-contrast surface */
+  color: var(--text-primary) !important;
+  background-color: var(--bg-input) !important;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   outline: none;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-  color-scheme: dark;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+  color-scheme: light dark;
 }
 
 .form-input::placeholder {
-  color: #64748B;
+  color: var(--text-muted);
   opacity: 1;
 }
 
@@ -167,10 +237,10 @@ select.form-input {
 select.form-input:focus {
   border-color: var(--border-emerald-focus);
   background-color: var(--bg-input-focus) !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 0 3px var(--primary-glow-strong);
 }
 
-/* Chrome / Safari / Edge Autofill Override to avoid blinding white browser default */
+/* Chrome / Safari / Edge Autofill Override */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -178,10 +248,10 @@ input:-webkit-autofill:active,
 select:-webkit-autofill,
 select:-webkit-autofill:hover,
 select:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0 1000px #101C19 inset !important;
-  box-shadow: 0 0 0 1000px #101C19 inset !important;
-  -webkit-text-fill-color: #EFF5F2 !important;
-  caret-color: #10B981 !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset !important;
+  box-shadow: 0 0 0 1000px var(--bg-input) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--primary-emerald) !important;
   border-color: var(--border-emerald) !important;
   transition: background-color 5000s ease-in-out 0s;
 }
@@ -189,7 +259,7 @@ select:-webkit-autofill:focus {
 /* Select specific styling */
 select.form-input {
   appearance: none;
-  background-image: url("data:image/svg2+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 1rem center;
   background-size: 1rem;
@@ -197,8 +267,8 @@ select.form-input {
 }
 
 select.form-input option {
-  background-color: #101C19;
-  color: #EFF5F2;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 /* --- Buttons --- */
@@ -324,15 +394,67 @@ select.form-input option {
   position: sticky;
   top: 0;
   z-index: 100;
-  background-color: rgba(8, 17, 14, 0.72);
+  background-color: var(--header-bg);
   backdrop-filter: blur(24px) saturate(180%) brightness(1.08);
   -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
   height: var(--header-height);
   display: flex;
   align-items: center;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.brand-text-mide {
+  fill: var(--text-primary);
+  transition: fill var(--transition-fast);
+}
+
+/* --- THEME TOGGLE BUTTON (System Compatible Dark & White Mode) --- */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
   transition: all var(--transition-fast);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-surface);
+  color: var(--primary-emerald);
+  border-color: var(--border-emerald);
+  transform: translateY(-1px);
+}
+
+.theme-toggle-btn:active {
+  transform: translateY(1px);
+}
+
+/* Theme Icon Visibility */
+:root .theme-icon-sun,
+[data-theme="dark"] .theme-icon-sun {
+  display: block;
+  color: #FBBF24;
+}
+:root .theme-icon-moon,
+[data-theme="dark"] .theme-icon-moon {
+  display: none;
+}
+
+[data-theme="light"] .theme-icon-sun {
+  display: none;
+}
+[data-theme="light"] .theme-icon-moon {
+  display: block;
+  color: var(--text-primary);
 }
 
 .header-container {
@@ -685,24 +807,24 @@ select.form-input option {
 .phone-frame {
   width: 100%;
   max-width: 360px;
-  background: #0B1613;
-  border: 4px solid #1E332D;
+  background: var(--phone-frame-bg);
+  border: 4px solid var(--phone-frame-border);
   border-radius: 40px;
   padding: 0.9rem 0.9rem 1.4rem;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(16, 185, 129, 0.15);
+  box-shadow: var(--shadow-lg), 0 0 35px var(--primary-glow);
   position: relative;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .phone-frame:hover {
   transform: translateY(-4px);
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.75), 0 0 45px rgba(16, 185, 129, 0.22);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4), 0 0 45px var(--primary-glow-strong);
 }
 
 .phone-notch {
   width: 110px;
   height: 20px;
-  background: #050B09;
+  background: var(--phone-frame-bg);
   border-radius: 0 0 14px 14px;
   position: absolute;
   top: 4px;
@@ -728,12 +850,13 @@ select.form-input option {
 }
 
 .phone-screen-content {
-  background: #08120F;
+  background: var(--phone-screen-bg);
   border-radius: 28px;
   padding: 1.1rem;
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
+  transition: background-color var(--transition-fast);
 }
 
 .phone-app-header {
@@ -784,11 +907,11 @@ select.form-input option {
 
 /* Phone Balance Card (Working Toggle) */
 .phone-balance-card {
-  background: linear-gradient(135deg, #122822 0%, #0E1D19 100%);
-  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: var(--phone-card-bg);
+  border: 1px solid var(--border-emerald);
   border-radius: 18px;
   padding: 1.15rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
   position: relative;
   overflow: hidden;
 }
@@ -1376,14 +1499,14 @@ select.form-input option {
    WAITLIST EMAIL CAPTURE
    ========================================================================== */
 .waitlist-card {
-  background: linear-gradient(135deg, #10241E 0%, #0B1915 100%);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: var(--waitlist-card-bg);
+  border: 1px solid var(--border-emerald);
   border-radius: 28px;
   padding: 4rem 2rem;
   text-align: center;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
 }
 
 .waitlist-content {
@@ -1467,8 +1590,9 @@ select.form-input option {
    ========================================================================== */
 .site-footer {
   border-top: 1px solid var(--border-subtle);
-  background-color: #060D0B;
+  background-color: var(--footer-bg);
   padding: 4.5rem 0 3rem;
+  transition: background-color var(--transition-fast);
 }
 
 .footer-top {
@@ -2053,7 +2177,7 @@ select.form-input option {
 
 .tx-filter-pills {
   display: flex;
-  background: #08110F;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
   padding: 0.2rem;
@@ -2139,7 +2263,7 @@ select.form-input option {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(4, 9, 8, 0.72);
+  background: var(--modal-overlay-bg);
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   display: flex;
@@ -2155,13 +2279,13 @@ select.form-input option {
   max-height: 90vh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: rgba(14, 26, 22, 0.94);
+  background: var(--modal-bg);
   backdrop-filter: blur(28px) saturate(180%) brightness(1.05);
   -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.05);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--border-medium);
   border-radius: var(--radius-lg);
   padding: 2rem;
-  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(16, 185, 129, 0.18) inset;
+  box-shadow: var(--shadow-lg);
   position: relative;
   animation: modalEnter 0.25s ease-out;
 }
@@ -2224,7 +2348,7 @@ select.form-input option {
 .currency-input-wrap {
   display: flex;
   align-items: center;
-  background: #101C19;
+  background: var(--bg-input);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding-left: 1rem;
@@ -2283,7 +2407,7 @@ select.form-input option {
 }
 
 .funding-nuban-box {
-  background: #091310;
+  background: var(--bg-surface-elevated);
   border: 1px solid rgba(16, 185, 129, 0.25);
   border-radius: var(--radius-md);
   padding: 1.2rem;
@@ -2502,7 +2626,7 @@ select.form-input option {
 
 .service-tab-pill {
   display: flex;
-  background: #0B1613;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 0.25rem;
@@ -2522,9 +2646,9 @@ select.form-input option {
 }
 
 .service-tab-btn.active {
-  background: var(--bg-surface-elevated);
+  background: var(--bg-surface);
   color: var(--primary-emerald);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-sm);
 }
 
 .network-select-section {
@@ -2546,7 +2670,7 @@ select.form-input option {
   align-items: center;
   gap: 0.45rem;
   padding: 0.65rem 0.3rem;
-  background: #0B1613;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -2555,7 +2679,7 @@ select.form-input option {
 
 .network-btn:hover {
   border-color: var(--border-medium);
-  background: #10201B;
+  background: var(--bg-input-focus);
 }
 
 .network-btn.active {
@@ -2665,7 +2789,7 @@ select.form-input option {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem;
-  background: #0B1613;
+  background: var(--bg-surface-elevated);
   padding: 0.3rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
@@ -2691,7 +2815,7 @@ select.form-input option {
 
 .radio-label.active {
   background: var(--primary-emerald);
-  color: #09110F;
+  color: #FFFFFF;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
@@ -2738,7 +2862,7 @@ select.form-input option {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: #0B1613;
+  background: var(--bg-surface-elevated);
   border: 1px dashed var(--border-subtle);
   border-radius: var(--radius-sm);
   font-size: 0.82rem;
@@ -2751,9 +2875,9 @@ select.form-input option {
    ========================================================================== */
 .receipt-modal-box {
   max-width: 480px;
-  background: #0B1613;
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7), 0 0 35px -5px rgba(16, 185, 129, 0.15);
+  background: var(--modal-bg);
+  border: 1px solid var(--border-emerald);
+  box-shadow: var(--shadow-lg);
   padding: 1.5rem;
   max-height: 90vh;
   overflow-y: auto;
@@ -2881,7 +3005,7 @@ select.form-input option {
   align-items: center;
   justify-content: center;
   gap: 0.65rem;
-  background: #0B1613;
+  background: var(--bg-surface-elevated);
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   border: 1px dashed rgba(245, 158, 11, 0.4);
@@ -3894,8 +4018,8 @@ select.form-input option {
 
 /* Transfer Summary Pill for PIN Confirmation */
 .pin-transfer-summary {
-  background: #091310;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-emerald);
   border-radius: var(--radius-md);
   padding: 1rem;
   text-align: center;
@@ -4330,13 +4454,14 @@ select.form-input option {
 
 /* Official CBN & NDIC Regulatory Footer */
 .cbn-site-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: #060910;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--footer-bg);
   padding: 3.5rem 1.5rem 2.5rem;
-  color: #94A3B8;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   position: relative;
   z-index: 10;
+  transition: background-color var(--transition-fast);
 }
 .cbn-footer-inner {
   max-width: 1200px;
@@ -4356,8 +4481,8 @@ select.form-input option {
   gap: 0.85rem;
   padding: 1.15rem;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
 }
 .cbn-trust-icon {
   width: 36px;
@@ -4372,24 +4497,24 @@ select.form-input option {
 .cbn-trust-card h4 {
   margin: 0 0 0.25rem;
   font-size: 0.88rem;
-  color: #F8FAFC;
+  color: var(--text-primary);
   font-weight: 700;
 }
 .cbn-trust-card p {
   margin: 0;
   font-size: 0.76rem;
   line-height: 1.4;
-  color: #94A3B8;
+  color: var(--text-secondary);
 }
 .cbn-legal-text-block {
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-subtle);
   font-size: 0.77rem;
   line-height: 1.6;
-  color: #64748B;
+  color: var(--text-muted);
 }
 .cbn-legal-text-block strong {
-  color: #CBD5E1;
+  color: var(--text-secondary);
 }
 
 /* CBN KYC Tier Selection Cards */
@@ -4402,10 +4527,10 @@ select.form-input option {
 .kyc-tier-card {
   padding: 1.25rem;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   position: relative;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background-color 0.2s;
 }
 .kyc-tier-card.active-tier {
   border-color: rgba(52, 211, 153, 0.6);
@@ -4420,7 +4545,7 @@ select.form-input option {
 .kyc-tier-title {
   font-weight: 700;
   font-size: 0.96rem;
-  color: #F8FAFC;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -4437,16 +4562,16 @@ select.form-input option {
   color: #04100C;
 }
 .kyc-tier-chip.locked {
-  background: rgba(255, 255, 255, 0.1);
-  color: #94A3B8;
+  background: var(--bg-surface-elevated);
+  color: var(--text-secondary);
 }
 .kyc-tier-limits {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 0.5rem;
   padding: 0.65rem 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   margin-bottom: 0.75rem;
 }
 .kyc-limit-box {
@@ -4455,17 +4580,17 @@ select.form-input option {
 }
 .kyc-limit-label {
   font-size: 0.68rem;
-  color: #64748B;
+  color: var(--text-muted);
   margin-bottom: 0.15rem;
 }
 .kyc-limit-val {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #F1F5F9;
+  color: var(--text-primary);
 }
 .kyc-reqs-list {
   font-size: 0.76rem;
-  color: #94A3B8;
+  color: var(--text-secondary);
   margin: 0;
   padding-left: 1.2rem;
 }
