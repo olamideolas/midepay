@@ -72,6 +72,10 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span>CBN Licensed • NDIC Insured</span>
         </div>
+        <button class="btn btn-outline-xs" id="nav-landing-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <span>Executive Portal</span>
+        </button>
         <button class="btn btn-ghost" id="nav-login-btn">Log in</button>
         <button class="btn btn-primary" id="nav-register-btn">Get started</button>
       </div>
@@ -86,12 +90,12 @@
           <span class="user-avatar-circle" id="nav-user-initials">M</span>
           <span class="user-pill-name" id="nav-user-name">User</span>
         </div>
-        <button class="btn btn-outline-xs" id="nav-open-admin-btn" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700;" title="Open Executive Back-Office & Investor Terminal">
+        <button class="btn btn-outline-xs" id="nav-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           <span>Executive Portal</span>
         </button>
-        <button class="btn btn-primary btn-sm" id="nav-goto-dashboard-btn" style="padding: 0.4rem 0.9rem; font-size: 0.84rem;">Dashboard</button>
-        <button class="btn btn-outline-sm" id="nav-logout-btn">Log out</button>
+        <button class="btn btn-primary btn-sm" id="nav-goto-dashboard-btn" onclick="showView('dashboard')" style="padding: 0.4rem 0.9rem; font-size: 0.84rem;">Dashboard</button>
+        <button class="btn btn-outline-sm" id="nav-logout-btn" onclick="handleLogout()">Log out</button>
       </div>
 
       <!-- Theme Switcher (Dark & White Mode System-Compatible) -->
@@ -151,6 +155,11 @@
       <div class="mobile-nav-actions">
         <button class="btn btn-ghost w-full" id="mobile-login-btn">Log in</button>
         <button class="btn btn-primary w-full" id="mobile-register-btn">Get started</button>
+        <button class="btn btn-outline-xs w-full" id="mobile-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem; font-size: 0.84rem; font-weight: 700; margin-top: 0.35rem; cursor: pointer;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <span>Executive Portal</span>
+        </button>
+        <button class="btn btn-outline-sm w-full hidden" id="mobile-logout-btn" onclick="handleLogout()" style="border-color: rgba(239, 68, 68, 0.4); color: #FCA5A5; margin-top: 0.35rem;">Log out</button>
       </div>
     </div>
   </header>
@@ -737,6 +746,7 @@
             <button class="footer-btn-link" id="footer-login-btn">Sign In</button>
             <button class="footer-btn-link" id="footer-register-btn">Open Free Account</button>
             <button class="footer-btn-link" id="footer-demo-direct">Go to Dashboard</button>
+            <button class="footer-btn-link" id="footer-admin-btn" onclick="showView('admin')" style="color: #FBBF24; font-weight: 700;">Executive Back-Office</button>
           </div>
         </div>
 
@@ -1005,7 +1015,11 @@
         </div>
 
         <div class="dash-header-actions">
-          <button class="btn btn-outline-sm" id="dash-logout-btn">
+          <button class="btn btn-outline-xs" id="dash-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span>Executive Portal</span>
+          </button>
+          <button class="btn btn-outline-sm" id="dash-logout-btn" onclick="handleLogout()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
@@ -1094,14 +1108,14 @@
 
             <!-- Card Actions -->
             <div class="dash-card-buttons">
-              <button class="btn btn-primary" id="btn-open-send-modal">
+              <button type="button" class="btn btn-primary" id="btn-open-send-modal" onclick="event.preventDefault(); if (typeof openSendModal === 'function') openSendModal();">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13"></line>
                   <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                 </svg>
                 <span>Send Money</span>
               </button>
-              <button class="btn btn-outline" id="btn-open-add-modal">
+              <button type="button" class="btn btn-outline" id="btn-open-add-modal">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
                   <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -1123,7 +1137,7 @@
           <div class="dash-quick-section">
             <h3 class="dash-section-title">Quick Actions</h3>
             <div class="dash-action-grid">
-              <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-transfer" title="Send Money">
+              <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-transfer" onclick="event.preventDefault(); if (typeof openSendModal === 'function') openSendModal();" title="Send Money">
                 <div class="qa-icon-wrap emerald">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -1234,8 +1248,14 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>Export Investor Dossier (CSV)</span>
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="admin-switch-wallet-btn">
+          <button type="button" class="btn btn-primary btn-sm" id="admin-switch-wallet-btn" onclick="showView('dashboard')">
             <span>← My Wallet Dashboard</span>
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" id="admin-switch-landing-btn" onclick="showView('landing')">
+            <span>← Public Site</span>
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" id="admin-logout-btn" onclick="handleLogout()" style="border-color: rgba(239, 68, 68, 0.4); color: #FCA5A5;">
+            <span>Log out</span>
           </button>
         </div>
       </div>
@@ -1694,6 +1714,7 @@
                 id="send-amount" 
                 class="form-input currency-field" 
                 placeholder="5000" 
+                value="5000"
                 min="50" 
                 step="any"
                 required
@@ -2040,6 +2061,7 @@
               id="airtime-phone" 
               class="form-input phone-field" 
               placeholder="801 234 5678" 
+              value="08031234567"
               required
             >
           </div>
@@ -2160,8 +2182,6 @@
               <button type="button" class="brand-select-btn" data-disco="IBEDC - Ibadan Electricity" title="Ibadan Electricity (IBEDC)">
                 <div class="brand-icon-box" style="background:#059669;">
                   <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                    <path d="M14 5a6 6 0 0 0-4 10.5V19h8v-3.5A6 6 0 0 0 14 5z" fill="#FFF"/>
-                    <rect x="12" y="20" width="4" height="3" rx="1" fill="#FEF08A"/>
                     <path d="M14 8v5" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
                   </svg>
                 </div>
@@ -2172,7 +2192,7 @@
 
           <div class="form-group">
             <label for="disco-provider-select" class="form-label">All Electricity Distribution Companies</label>
-            <select id="disco-provider-select" class="form-input form-select" required>
+            <select id="disco-provider-select" class="form-input form-select">
               <option value="IKEDC - Ikeja Electric">Ikeja Electric (IKEDC) — Lagos</option>
               <option value="EKEDC - Eko Electric">Eko Electric (EKEDC) — Lagos Island</option>
               <option value="AEDC - Abuja Electricity">Abuja Electricity (AEDC) — FCT / Nasarawa</option>
@@ -2206,8 +2226,7 @@
                 class="form-input" 
                 placeholder="e.g. 0419 2847 291" 
                 maxlength="13" 
-                value="04192847291" 
-                required
+                value="04192847291"
               >
               <button type="button" class="btn-verify-input" id="btn-verify-meter">Verify</button>
             </div>
@@ -2226,7 +2245,6 @@
                 min="500" 
                 max="500000" 
                 value="10000"
-                required
               >
             </div>
             <div class="quick-amount-tags">
@@ -2763,8 +2781,8 @@
 
   <!-- Supabase JS Client & MidePay Backend Integration -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=2.6"></script>
-  <script src="supabaseClient.js?v=2.6"></script>
-  <script src="app.js?v=2.6"></script>
+  <script src="config.js?v=3.5"></script>
+  <script src="supabaseClient.js?v=3.5"></script>
+  <script src="app.js?v=3.5"></script>
 </body>
 </html>

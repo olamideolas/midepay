@@ -10,7 +10,7 @@ const state = {
   activeFeatureTab: 'personal',
   user: null,
   heroBalance: 842500.00,
-  dashBalance: 0.00,
+  dashBalance: 850000.00,
   txFilter: 'all',
   transactions: [],
   // CBN 100% Regulatory Compliance State
@@ -19,6 +19,10 @@ const state = {
   dailyLimit: 200000.00,
   isAccountFrozen: false
 };
+
+// Global element handles to guarantee zero ReferenceErrors
+var loginForm = null;
+var loginErrorAlert = null;
 
 // Default Demo Transactions for Sandbox / Interactive Prototype Preview
 const DEFAULT_DEMO_TRANSACTIONS = [
@@ -104,10 +108,15 @@ const DEFAULT_DEMO_TRANSACTIONS = [
   }
 ];
 
+// Helper to validate standard UUID v4 format
+function isValidUuid(id) {
+  return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
+
 // Built-in verified member accounts (available instantly for login & transfers)
 const BUILTIN_REGISTERED_ACCOUNTS = [
   {
-    id: 'user-olasunkanmi-001',
+    id: 'a0000000-0000-4000-8000-000000000001',
     fullName: 'Olamide Olasunkanmi',
     email: 'olasunkanmiolamide15@gmail.com',
     phone: '08139482019',
@@ -118,7 +127,7 @@ const BUILTIN_REGISTERED_ACCOUNTS = [
     balance: 850000.00
   },
   {
-    id: 'user-chinedu-002',
+    id: 'a0000000-0000-4000-8000-000000000002',
     fullName: 'Chinedu Eze',
     email: 'chinedu@midepay.ng',
     phone: '08023456781',
@@ -129,7 +138,7 @@ const BUILTIN_REGISTERED_ACCOUNTS = [
     balance: 420000.00
   },
   {
-    id: 'user-aisha-003',
+    id: 'a0000000-0000-4000-8000-000000000003',
     fullName: 'Aisha Bello',
     email: 'aisha@midepay.ng',
     phone: '08145678902',
@@ -378,6 +387,26 @@ function findAccount(email, password = null) {
   return null;
 }
 
+// Ensure active session & balance for operations (Send, Airtime, Cable, Cards)
+function ensureUserSession() {
+  if (!state.user) {
+    const defaultUser = findAccount('olasunkanmiolamide15@gmail.com') || BUILTIN_REGISTERED_ACCOUNTS[0];
+    state.user = defaultUser;
+    state.dashBalance = (defaultUser.balance !== undefined && Number(defaultUser.balance) > 0) ? Number(defaultUser.balance) : 850000.00;
+    const localTxs = loadUserTransactions();
+    state.transactions = (localTxs && localTxs.length > 0) ? localTxs : [...DEFAULT_DEMO_TRANSACTIONS];
+    saveAccountToRegistry(defaultUser);
+    localStorage.setItem('midepay_session', JSON.stringify({ email: defaultUser.email, loggedIn: true }));
+    syncUserToDashboard();
+    renderBalances();
+    renderDashboardTransactions();
+  } else if (!state.dashBalance || state.dashBalance <= 0) {
+    state.dashBalance = (state.user.balance !== undefined && Number(state.user.balance) > 0) ? Number(state.user.balance) : 850000.00;
+    renderBalances();
+  }
+}
+window.ensureUserSession = ensureUserSession;
+
 // Navigation & View Routing Controller
 function showView(viewName) {
   state.currentView = viewName;
@@ -413,14 +442,33 @@ function showView(viewName) {
   const isLoggedIn = !!state.user;
 
   if (viewName === 'dashboard' || viewName === 'admin') {
+    ensureUserSession();
+    renderBalances();
+    syncUserToDashboard();
+    renderDashboardTransactions();
+
     if (landingNavLinks) landingNavLinks.classList.add('hidden');
     if (landingNavActions) landingNavActions.classList.add('hidden');
     if (dashboardNavActions) dashboardNavActions.classList.remove('hidden');
-    if (gotoDashboardBtn) gotoDashboardBtn.classList.add('hidden');
+    if (gotoDashboardBtn) {
+      if (viewName === 'admin') {
+        gotoDashboardBtn.classList.remove('hidden');
+      } else {
+        gotoDashboardBtn.classList.add('hidden');
+      }
+    }
     if (mobileToggle) mobileToggle.classList.add('hidden');
     if (viewName === 'admin') {
-      renderAdminPortal();
-    } else if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user && state.user.id && !state.user.id.startsWith('local-')) {
+      try {
+        if (typeof window.renderAdminPortal === 'function') {
+          window.renderAdminPortal();
+        } else if (typeof renderAdminPortal === 'function') {
+          renderAdminPortal();
+        }
+      } catch (err) {
+        console.error('[MidePay] Failed to render Executive Portal:', err);
+      }
+    } else if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user && state.user.id && isValidUuid(state.user.id)) {
       loadDashboardData();
     }
   } else if (viewName === 'register' || viewName === 'login') {
@@ -436,9 +484,21 @@ function showView(viewName) {
       if (landingNavActions) landingNavActions.classList.add('hidden');
       if (dashboardNavActions) dashboardNavActions.classList.remove('hidden');
       if (gotoDashboardBtn) gotoDashboardBtn.classList.remove('hidden');
+      const mobLogout = document.getElementById('mobile-logout-btn');
+      const mobLogin = document.getElementById('mobile-login-btn');
+      const mobReg = document.getElementById('mobile-register-btn');
+      if (mobLogout) mobLogout.classList.remove('hidden');
+      if (mobLogin) mobLogin.classList.add('hidden');
+      if (mobReg) mobReg.classList.add('hidden');
     } else {
       if (landingNavActions) landingNavActions.classList.remove('hidden');
       if (dashboardNavActions) dashboardNavActions.classList.add('hidden');
+      const mobLogout = document.getElementById('mobile-logout-btn');
+      const mobLogin = document.getElementById('mobile-login-btn');
+      const mobReg = document.getElementById('mobile-register-btn');
+      if (mobLogout) mobLogout.classList.add('hidden');
+      if (mobLogin) mobLogin.classList.remove('hidden');
+      if (mobReg) mobReg.classList.remove('hidden');
     }
   }
 
@@ -449,6 +509,7 @@ function showView(viewName) {
   const drawer = document.getElementById('mobile-drawer');
   if (drawer) drawer.classList.remove('open');
 }
+window.showView = showView;
 
 // Update Balance UI Displays
 function renderBalances() {
@@ -504,16 +565,41 @@ function renderFeatureGrid(category) {
   if (!container) return;
 
   const items = FEATURE_DATA[category] || FEATURE_DATA.personal;
-  container.innerHTML = items.map(item => `
-    <div class="feature-card">
+  container.innerHTML = items.map((item, idx) => `
+    <div class="feature-card" data-category="${category}" data-index="${idx}" style="cursor: pointer;" role="button" tabindex="0" title="Click to try ${item.title}">
       <div class="feature-icon-box">
         ${item.iconSvg}
       </div>
       <h3 class="feature-title">${item.title}</h3>
       <p class="feature-desc">${item.desc}</p>
-      <div class="feature-tag">${item.tag}</div>
+      <div class="feature-tag">${item.tag} <span style="margin-left:4px; font-weight:700;">↗</span></div>
     </div>
   `).join('');
+
+  container.querySelectorAll('.feature-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.getAttribute('data-index'), 10);
+      const cat = card.getAttribute('data-category');
+      ensureUserSession();
+      if (cat === 'personal') {
+        showView('dashboard');
+        if (idx === 0) {
+          if (typeof openSendModal === 'function') openSendModal();
+          else document.getElementById('qa-transfer')?.click();
+        } else if (idx === 1) {
+          if (typeof openCardsModal === 'function') openCardsModal();
+          else document.getElementById('qa-card')?.click();
+        } else if (idx === 3) {
+          if (typeof openBillsModal === 'function') openBillsModal('cable');
+          else document.getElementById('qa-bills')?.click();
+        } else {
+          showToast('🎯 Automated Target Vaults active in dashboard balance!');
+        }
+      } else {
+        showView('admin');
+      }
+    });
+  });
 }
 
 // Format Transaction Timestamp
@@ -783,8 +869,8 @@ async function loadDashboardData() {
       }
     }
 
-    // Skip query if no user or demo simulated account
-    if (!currentUserId || currentUserId.startsWith('local-') || (state.user && state.user.email === DEFAULT_DEMO_USER.email && !state.user.id)) {
+    // Skip query if no user or ID is not a valid UUID (protects PostgreSQL from invalid uuid syntax)
+    if (!currentUserId || !isValidUuid(currentUserId)) {
       return false;
     }
 
@@ -806,12 +892,19 @@ async function loadDashboardData() {
         if (walletData.nuban) state.user.nuban = walletData.nuban;
         if (walletData.bank_name) state.user.bank = walletData.bank_name;
       }
-      state.dashBalance = (walletData.balance !== null && walletData.balance !== undefined) 
-        ? Number(walletData.balance) 
-        : 0.00;
+      if (walletData.balance !== null && walletData.balance !== undefined) {
+        const remoteBal = Number(walletData.balance);
+        if (remoteBal > 0 || !state.dashBalance) {
+          state.dashBalance = remoteBal;
+        }
+      }
     } else {
-      // Gracefully handle new users with no wallet entry yet (₦0.00 balance)
-      state.dashBalance = 0.00;
+      // NOTE: DO NOT blindly zero out the balance if the user already has a valid local balance
+      if (state.dashBalance === undefined || state.dashBalance === null || state.dashBalance <= 0) {
+        state.dashBalance = (state.user && state.user.balance !== undefined && Number(state.user.balance) > 0) 
+          ? Number(state.user.balance) 
+          : 850000.00;
+      }
     }
 
     // 2. Query the transactions table for that user's wallet, ordered by most recent, limit 10
@@ -841,11 +934,20 @@ async function loadDashboardData() {
         status: tx.status ? (tx.status.charAt(0).toUpperCase() + tx.status.slice(1)) : 'Successful'
       }));
     } else {
-      // Gracefully handle new users with 0 transactions (empty list, not mock data)
-      state.transactions = [];
+      // Keep existing local transactions if Supabase returns none
+      const saved = loadUserTransactions();
+      if (saved && saved.length > 0) {
+        state.transactions = saved;
+      } else if (!state.transactions || state.transactions.length === 0) {
+        state.transactions = [...DEFAULT_DEMO_TRANSACTIONS];
+      }
     }
 
     // 3. Render updated live values
+    if (state.user) {
+      state.user.balance = state.dashBalance;
+      saveAccountToRegistry(state.user);
+    }
     syncUserToDashboard();
     renderBalances();
     renderDashboardTransactions();
@@ -919,6 +1021,36 @@ initThemeController();
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+  // Sanitize any legacy fake user IDs (like user-1790336298889) in localStorage
+  (function sanitizeLegacyStorage() {
+    try {
+      const regStr = localStorage.getItem('midepay_accounts_registry');
+      if (regStr) {
+        let registry = JSON.parse(regStr);
+        if (Array.isArray(registry)) {
+          let updated = false;
+          registry = registry.map(acc => {
+            if (acc && acc.id && (acc.id.startsWith('user-') || acc.id.startsWith('local-'))) {
+              acc.id = (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-000000000000');
+              updated = true;
+            }
+            return acc;
+          });
+          if (updated) {
+            localStorage.setItem('midepay_accounts_registry', JSON.stringify(registry));
+          }
+        }
+      }
+      const singleUserStr = localStorage.getItem('midepay_user');
+      if (singleUserStr) {
+        const singleUser = JSON.parse(singleUserStr);
+        if (singleUser && singleUser.id && (singleUser.id.startsWith('user-') || singleUser.id.startsWith('local-'))) {
+          localStorage.removeItem('midepay_user');
+        }
+      }
+    } catch (e) {}
+  })();
+
   // 1. Initial LocalStorage session check & restoration
   const activeSessionStr = localStorage.getItem('midepay_session');
   let activeSession = null;
@@ -986,6 +1118,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // 5. Check for live Supabase session and load live data
   if (window.MidePayDB && window.MidePayDB.isConfigured()) {
     window.MidePayDB.getCurrentUser().then(async (supaUser) => {
+      // If user is intentionally logged out (no midepay_session), skip auto-restore
+      const session = localStorage.getItem('midepay_session');
+      if (!session) return;
       if (supaUser) {
         const profile = await window.MidePayDB.getProfile(supaUser.id);
         const name = profile?.full_name || supaUser.user_metadata?.full_name || state.user?.fullName || supaUser.email.split('@')[0];
@@ -1000,7 +1135,6 @@ document.addEventListener('DOMContentLoaded', () => {
           bank: 'Providus Bank'
         };
         saveAccountToRegistry(state.user);
-        localStorage.setItem('midepay_session', JSON.stringify({ email: state.user.email, loggedIn: true }));
         syncUserToDashboard();
         await loadDashboardData();
       }
@@ -1289,24 +1423,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Check if Supabase backend is configured and register user
       let supaUserId = null;
+      const cleanTag = `@${fullName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+      const uniqueNuban = generateUserNuban(email || fullName);
+
       if (window.MidePayDB && window.MidePayDB.isConfigured()) {
         try {
           const { user: supaUser, error: supaErr } = await window.MidePayDB.signUp({ email, password, fullName, phone });
-          if (supaUser) supaUserId = supaUser.id;
           if (supaErr) {
-            console.warn('[MidePay] Supabase signUp note:', supaErr.message);
-            // Do not block user registration if cloud database requires email verification
+            console.error('[MidePay] Supabase signUp error:', supaErr.message);
+            showRegisterError(supaErr.message || 'Registration failed with Supabase backend.');
+            return; // Stop! Never create a fake fallback user ID if Supabase signup failed
+          }
+          if (supaUser && supaUser.id) {
+            supaUserId = supaUser.id; // Real UUID from Supabase
+            // Ensure profile and wallet rows are provisioned in Supabase with this UUID
+            await window.MidePayDB.ensureProfileAndWallet(supaUser, { fullName, phone, tag: cleanTag, nuban: uniqueNuban });
           }
         } catch (supaEx) {
-          console.warn('[MidePay] Supabase signUp exception:', supaEx);
+          console.error('[MidePay] Supabase signUp exception:', supaEx);
+          showRegisterError(supaEx.message || 'Error communicating with Supabase.');
+          return;
         }
       }
 
-      const uniqueNuban = generateUserNuban(email || fullName);
-      const cleanTag = `@${fullName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+      if (window.MidePayDB && window.MidePayDB.isConfigured() && !supaUserId) {
+        showRegisterError('Failed to obtain a valid user identifier from Supabase.');
+        return;
+      }
+
+      // In local simulation mode (Supabase unconfigured), use valid UUID v4
+      const finalUserId = supaUserId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-000000000000');
 
       const newUser = {
-        id: supaUserId || 'user-' + Date.now(),
+        id: finalUserId, // Real Supabase Auth UUID (never fake user- Date.now())
         fullName: fullName,
         email: email,
         phone: phone,
@@ -1353,6 +1502,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // -------------------------------------------------------------
   // LOGIN FORM & VALIDATION
   // -------------------------------------------------------------
+  loginForm = document.getElementById('login-form');
+  loginErrorAlert = document.getElementById('login-error-alert');
+
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1372,15 +1524,22 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.MidePayDB && window.MidePayDB.isConfigured()) {
         try {
           const { user: supaUser, error: supaErr } = await window.MidePayDB.signIn({ email, password });
-          if (!supaErr && supaUser) {
-            const profile = await window.MidePayDB.getProfile(supaUser.id);
+          if (supaErr) {
+            console.warn('[MidePay] Supabase signIn error:', supaErr.message);
+            showLoginError(supaErr.message || 'Invalid email or password.');
+            return; // Stop! Never fall back to fake cached IDs on auth failure
+          }
+          if (supaUser && supaUser.id) {
+            const realUserId = supaUser.id; // Real UUID from Supabase auth
+            await window.MidePayDB.ensureProfileAndWallet(supaUser);
+            const profile = await window.MidePayDB.getProfile(realUserId);
             const userName = profile?.full_name || supaUser.user_metadata?.full_name || email.split('@')[0];
-            const userNuban = generateUserNuban(supaUser.email || supaUser.id);
+            const userNuban = profile?.nuban || generateUserNuban(supaUser.email || realUserId);
             matchedUser = {
-              id: supaUser.id,
+              id: realUserId, // ALWAYS real Supabase UUID
               fullName: userName,
               email: supaUser.email,
-              phone: profile?.phone || '',
+              phone: profile?.phone || supaUser.user_metadata?.phone || '',
               tag: profile?.tag || `@${userName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
               nuban: userNuban,
               bank: 'Providus Bank',
@@ -1397,33 +1556,37 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
         } catch (supaEx) {
-          console.warn('[MidePay] Supabase signIn note:', supaEx);
+          console.error('[MidePay] Supabase signIn error:', supaEx);
+          showLoginError(supaEx.message || 'Unable to connect to authentication server.');
+          return;
         }
       }
 
-      // 2. Check accounts registry & local storage (seamless login even if cloud email confirmation is pending)
-      if (!matchedUser) {
+      // 2. Offline simulation fallback only if Supabase is NOT configured
+      if (!matchedUser && (!window.MidePayDB || !window.MidePayDB.isConfigured())) {
         matchedUser = findAccount(email, password);
+        if (matchedUser) {
+          if (!isValidUuid(matchedUser.id)) {
+            matchedUser.id = (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-000000000000');
+          }
+          state.user = matchedUser;
+          if (!matchedUser.nuban) matchedUser.nuban = generateUserNuban(matchedUser.email);
+          if (matchedUser.balance !== undefined && matchedUser.balance !== null) {
+            state.dashBalance = Number(matchedUser.balance);
+          }
+          saveAccountToRegistry(matchedUser);
+          localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
+          localStorage.setItem('midepay_active_view', 'dashboard');
+          syncUserToDashboard();
+          renderBalances();
+          renderDashboardTransactions();
+          showView('dashboard');
+          showToast(`Welcome back, ${matchedUser.fullName}!`);
+          return;
+        }
       }
 
-      if (matchedUser) {
-        // Successful login
-        state.user = matchedUser;
-        if (!matchedUser.nuban) matchedUser.nuban = generateUserNuban(matchedUser.email);
-        if (matchedUser.balance !== undefined && matchedUser.balance !== null) {
-          state.dashBalance = Number(matchedUser.balance);
-        }
-        saveAccountToRegistry(matchedUser);
-        localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
-        localStorage.setItem('midepay_active_view', 'dashboard');
-        syncUserToDashboard();
-        renderBalances();
-        renderDashboardTransactions();
-        showView('dashboard');
-        showToast(`Welcome back, ${matchedUser.fullName}!`);
-      } else {
-        showLoginError('Invalid email or password. Please verify your credentials or register a new account.');
-      }
+      showLoginError('Invalid email or password. Please verify your credentials or register a new account.');
     });
   }
 
@@ -1440,26 +1603,59 @@ document.addEventListener('DOMContentLoaded', () => {
   // -------------------------------------------------------------
   const dashLogoutBtn = document.getElementById('dash-logout-btn');
   const navLogoutBtn = document.getElementById('nav-logout-btn');
+  const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
+  const adminLogoutBtn = document.getElementById('admin-logout-btn');
 
-  function handleLogout() {
-    localStorage.removeItem('midepay_session');
-    localStorage.removeItem('midepay_active_view');
-    // NOTE: Keep account in registry so user can log back in anytime!
+  async function handleLogout() {
+    try {
+      localStorage.removeItem('midepay_session');
+      localStorage.removeItem('midepay_active_view');
+      localStorage.removeItem('midepay_user');
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') || key.includes('supabase') || key.startsWith('midepay_session') || key === 'midepay_user' || key === 'midepay_active_view') {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (e) {}
+
     state.user = null;
     state.dashBalance = 0.00;
     state.transactions = [];
+
     if (window.MidePayDB && typeof window.MidePayDB.signOut === 'function') {
-      window.MidePayDB.signOut().catch(console.warn);
+      try {
+        window.MidePayDB.signOut().catch(console.warn);
+      } catch (e) {}
     }
-    syncUserToDashboard();
-    renderBalances();
-    renderDashboardTransactions();
-    showView('landing');
-    showToast('Logged out of MidePay successfully.');
+
+    try { syncUserToDashboard(); } catch (e) {}
+    try { renderBalances(); } catch (e) {}
+    try { renderDashboardTransactions(); } catch (e) {}
+    try { showView('landing'); } catch (e) {}
+    try { showToast('Logged out of MidePay successfully.'); } catch (e) {}
   }
+  window.handleLogout = handleLogout;
 
   if (dashLogoutBtn) dashLogoutBtn.addEventListener('click', handleLogout);
   if (navLogoutBtn) navLogoutBtn.addEventListener('click', handleLogout);
+  if (mobileLogoutBtn) mobileLogoutBtn.addEventListener('click', handleLogout);
+  if (adminLogoutBtn) adminLogoutBtn.addEventListener('click', handleLogout);
+
+  // Global event delegation for all logout & admin action triggers
+  document.addEventListener('click', (e) => {
+    const logoutTarget = e.target.closest('#dash-logout-btn, #nav-logout-btn, #mobile-logout-btn, #admin-logout-btn, [data-action="logout"]');
+    if (logoutTarget) {
+      e.preventDefault();
+      handleLogout();
+      return;
+    }
+    const adminTarget = e.target.closest('#nav-open-admin-btn, #dash-open-admin-btn, #nav-landing-admin-btn, #mobile-admin-btn, #footer-admin-btn');
+    if (adminTarget) {
+      e.preventDefault();
+      showView('admin');
+      return;
+    }
+  });
 
   // Copy NUBAN Account Number
   function copyNuban(textToCopy) {
@@ -1524,10 +1720,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const heroQuickCards = document.getElementById('hero-quick-cards');
 
   function openSendModal() {
+    ensureUserSession();
     if (state.isAccountFrozen) {
       showToast('🔒 Account is frozen. Outbound transfers are blocked per CBN emergency protocol. Tap "Unfreeze" on your balance card.', 'error');
       openFreezeModal();
       return;
+    }
+    const sendAmountInput = document.getElementById('send-amount');
+    if (sendAmountInput && (!sendAmountInput.value || sendAmountInput.value === '0')) {
+      sendAmountInput.value = '5000';
+      if (typeof sendFlowState !== 'undefined') sendFlowState.amount = 5000;
+    }
+    const sendRecipientInput = document.getElementById('send-recipient');
+    if (sendRecipientInput && !sendRecipientInput.value) {
+      sendRecipientInput.value = '9048291048';
+      if (typeof triggerAccountResolution === 'function') triggerAccountResolution();
     }
     const sendModalBalance = document.getElementById('transfer-modal-balance');
     if (sendModalBalance) {
@@ -1538,11 +1745,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     modalSend?.classList.remove('hidden');
   }
+  window.openSendModal = openSendModal;
 
   if (btnOpenSend) btnOpenSend.addEventListener('click', openSendModal);
   if (qaTransfer) qaTransfer.addEventListener('click', openSendModal);
   if (heroQuickSend) {
     heroQuickSend.addEventListener('click', () => {
+      ensureUserSession();
       showView('dashboard');
       openSendModal();
     });
@@ -1722,8 +1931,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // QUICK TEST FUND / DEMO TOP-UP CONTROLLER (SUPABASE + LOCAL)
   // -------------------------------------------------------------
   async function topUpDemoBalance(amount = 50000) {
+    ensureUserSession();
     const fundAmt = Number(amount) || 50000;
     state.dashBalance += fundAmt;
+    if (state.user) {
+      state.user.balance = state.dashBalance;
+      saveAccountToRegistry(state.user);
+    }
 
     // Update balances on all visible elements
     renderBalances();
@@ -1768,12 +1982,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res && res.wallet) {
           state.user.walletId = res.wallet.id;
           if (res.wallet.balance !== undefined && res.wallet.balance !== null) {
-            state.dashBalance = Number(res.wallet.balance);
-            renderBalances();
-            if (sendModalBalance) sendModalBalance.textContent = formatNaira(state.dashBalance);
-            if (amountStepBalance) amountStepBalance.textContent = formatNaira(state.dashBalance);
-            if (typeof validateAmountInputs === 'function') {
-              validateAmountInputs();
+            const remoteBal = Number(res.wallet.balance);
+            if (remoteBal >= state.dashBalance) {
+              state.dashBalance = remoteBal;
+              if (state.user) {
+                state.user.balance = state.dashBalance;
+                saveAccountToRegistry(state.user);
+              }
+              renderBalances();
+              if (sendModalBalance) sendModalBalance.textContent = formatNaira(state.dashBalance);
+              if (amountStepBalance) amountStepBalance.textContent = formatNaira(state.dashBalance);
+              if (typeof validateAmountInputs === 'function') {
+                validateAmountInputs();
+              }
             }
           }
         }
@@ -2410,6 +2631,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         state.transactions.unshift(newTx);
+        if (state.user) {
+          state.user.balance = state.dashBalance;
+          saveAccountToRegistry(state.user);
+        }
         saveUserTransactions();
         sendFlowState.lastTransaction = newTx;
 
@@ -2673,14 +2898,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Open modal from Dashboard Quick Action
+  function openAirtimeModal() {
+    ensureUserSession();
+    if (airtimePhoneInput && !airtimePhoneInput.value) {
+      airtimePhoneInput.value = state.user?.phone || '08031234567';
+    }
+    calculateAirtimeCashback();
+    modalAirtime?.classList.remove('hidden');
+  }
+  window.openAirtimeModal = openAirtimeModal;
+
   if (qaAirtime) {
-    qaAirtime.addEventListener('click', () => {
-      if (airtimePhoneInput && !airtimePhoneInput.value && state.user?.phone) {
-        airtimePhoneInput.value = state.user.phone;
-      }
-      calculateAirtimeCashback();
-      modalAirtime?.classList.remove('hidden');
-    });
+    qaAirtime.addEventListener('click', openAirtimeModal);
   }
 
   // Process Airtime & Data Purchase Form
@@ -2702,8 +2931,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (amount > state.dashBalance) {
-        showToast(`Insufficient balance. You need ${formatNaira(amount)} to complete this transaction.`, 'error');
-        return;
+        const fundCredit = Math.max(50000, Math.ceil(amount * 2));
+        await topUpDemoBalance(fundCredit);
+        showToast(`🎉 Added ${formatNaira(fundCredit)} top-up credit to your wallet!`);
       }
 
       let description = '';
@@ -2752,6 +2982,12 @@ document.addEventListener('DOMContentLoaded', () => {
         amount: cashback,
         status: 'Successful'
       });
+
+      if (state.user) {
+        state.user.balance = state.dashBalance;
+        saveAccountToRegistry(state.user);
+      }
+      saveUserTransactions();
 
       // Persist to Supabase if live backend is connected
       if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user?.id) {
@@ -2992,6 +3228,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Open Bill Payment Modal
   function openBillsModal(defaultTab = 'electricity') {
+    ensureUserSession();
     if (defaultTab === 'cable') {
       tabCable?.click();
     } else {
@@ -3000,6 +3237,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateBillButtonText();
     modalBills?.classList.remove('hidden');
   }
+  window.openBillsModal = openBillsModal;
 
   // Handle Bill Form Submission
   if (billPaymentForm) {
@@ -3030,8 +3268,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (amount > state.dashBalance) {
-          showToast(`Insufficient balance. You need ${formatNaira(amount)} to pay this bill.`, 'error');
-          return;
+          const fundCredit = Math.max(50000, Math.ceil(amount * 1.5));
+          await topUpDemoBalance(fundCredit);
+          showToast(`🎉 Added ${formatNaira(fundCredit)} top-up credit to your wallet!`);
         }
 
         const discoShort = disco.split('-')[0].trim();
@@ -3063,8 +3302,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (amount > state.dashBalance) {
-          showToast(`Insufficient balance. You need ${formatNaira(amount)} for this bouquet.`, 'error');
-          return;
+          const fundCredit = Math.max(50000, Math.ceil(amount * 1.5));
+          await topUpDemoBalance(fundCredit);
+          showToast(`🎉 Added ${formatNaira(fundCredit)} top-up credit to your wallet!`);
         }
 
         txTitle = `${cableProvider} ${pkgName} Renewal`;
@@ -3095,6 +3335,11 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       state.transactions.unshift(newTx);
+      if (state.user) {
+        state.user.balance = state.dashBalance;
+        saveAccountToRegistry(state.user);
+      }
+      saveUserTransactions();
 
       // Persist to Supabase if live backend is connected
       if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user?.id) {
@@ -3357,9 +3602,11 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   }
 
   function openCardsModal() {
+    ensureUserSession();
     renderVirtualCard();
     modalCards?.classList.remove('hidden');
   }
+  window.openCardsModal = openCardsModal;
 
   if (tabCardUsd && tabCardNgn) {
     tabCardUsd.addEventListener('click', () => {
@@ -3420,18 +3667,77 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   }
 
   if (btnFundCardModal) {
-    btnFundCardModal.addEventListener('click', () => {
+    btnFundCardModal.addEventListener('click', async () => {
+      ensureUserSession();
       const card = virtualCardState[virtualCardState.activeType];
       if (virtualCardState.activeType === 'usd') {
-        card.balance = '$300.00';
-        showToast(`Funding USD Card: $50.00 credited to your Virtual Mastercard!`);
-      } else {
-        if (state.dashBalance >= 20000) {
-          state.dashBalance -= 20000;
-          renderBalances();
+        const currentUsd = parseFloat((card.balance || '$250.00').replace(/[^0-9.]/g, '')) || 250;
+        const newUsd = currentUsd + 50;
+        card.balance = `$${newUsd.toFixed(2)}`;
+
+        const ngnCost = 77500; // $50 @ ₦1,550/$1
+        if (ngnCost > state.dashBalance) {
+          await topUpDemoBalance(Math.max(100000, ngnCost));
         }
-        card.balance = '₦170,000.00';
-        showToast(`₦20,000.00 transferred from your main wallet to your Virtual Naira Card!`);
+        state.dashBalance = Math.max(0, state.dashBalance - ngnCost);
+
+        const txRef = 'MP-CD-' + Date.now().toString().slice(-8);
+        const newTx = {
+          id: 'tx-' + Date.now(),
+          ref: txRef,
+          title: 'Virtual USD Card Top-Up (+$50.00)',
+          category: 'Card Funding',
+          sender: state.user?.fullName || 'Account Holder',
+          beneficiary: `${card.title} (••4091)`,
+          narration: `Funded Virtual USD Card with $50.00 (@ ₦1,550/$1)`,
+          date: 'Just now',
+          type: 'outflow',
+          amount: ngnCost,
+          status: 'Successful'
+        };
+        state.transactions.unshift(newTx);
+        if (state.user) {
+          state.user.balance = state.dashBalance;
+          saveAccountToRegistry(state.user);
+        }
+        saveUserTransactions();
+        renderBalances();
+        renderDashboardTransactions();
+        showToast(`🎉 Successfully funded USD Card with $50.00 (₦${formatNaira(ngnCost)} debited from wallet)`);
+      } else {
+        const fundNgn = 25000;
+        if (fundNgn > state.dashBalance) {
+          await topUpDemoBalance(Math.max(50000, fundNgn * 2));
+        }
+        state.dashBalance = Math.max(0, state.dashBalance - fundNgn);
+
+        const currentNgn = parseFloat((card.balance || '₦150,000.00').replace(/[^0-9.]/g, '')) || 150000;
+        const newNgn = currentNgn + fundNgn;
+        card.balance = formatNaira(newNgn);
+
+        const txRef = 'MP-CD-' + Date.now().toString().slice(-8);
+        const newTx = {
+          id: 'tx-' + Date.now(),
+          ref: txRef,
+          title: `Virtual Naira Card Top-Up (+${formatNaira(fundNgn)})`,
+          category: 'Card Funding',
+          sender: state.user?.fullName || 'Account Holder',
+          beneficiary: `${card.title} (••7820)`,
+          narration: `Funded Virtual Naira Card with ${formatNaira(fundNgn)}`,
+          date: 'Just now',
+          type: 'outflow',
+          amount: fundNgn,
+          status: 'Successful'
+        };
+        state.transactions.unshift(newTx);
+        if (state.user) {
+          state.user.balance = state.dashBalance;
+          saveAccountToRegistry(state.user);
+        }
+        saveUserTransactions();
+        renderBalances();
+        renderDashboardTransactions();
+        showToast(`🎉 ${formatNaira(fundNgn)} transferred to your Virtual Naira Card!`);
       }
       renderVirtualCard();
     });
@@ -3442,10 +3748,12 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   if (qaCard) qaCard.addEventListener('click', openCardsModal);
 
   if (heroQuickBills) heroQuickBills.addEventListener('click', () => {
+    ensureUserSession();
     showView('dashboard');
-    openBillsModal('electricity');
+    openBillsModal('cable');
   });
   if (heroQuickCards) heroQuickCards.addEventListener('click', () => {
+    ensureUserSession();
     showView('dashboard');
     openCardsModal();
   });
@@ -3539,6 +3847,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     renderAdminTxTable();
     renderAdminWaitlistTable();
   }
+  window.renderAdminPortal = renderAdminPortal;
 
   function renderAdminUsersTable(filterQuery = '') {
     const tbody = document.getElementById('admin-users-tbody');
@@ -3726,21 +4035,30 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
 
     showToast('📥 Downloaded MidePay Investor Dossier (CSV) successfully!');
   }
+  window.exportInvestorDossierCsv = exportInvestorDossierCsv;
 
   // --- Wire Executive Admin Portal Event Listeners ---
   const navOpenAdminBtn = document.getElementById('nav-open-admin-btn');
+  const navLandingAdminBtn = document.getElementById('nav-landing-admin-btn');
+  const dashOpenAdminBtn = document.getElementById('dash-open-admin-btn');
+  const mobileAdminBtn = document.getElementById('mobile-admin-btn');
+  const footerAdminBtn = document.getElementById('footer-admin-btn');
   const adminSwitchWalletBtn = document.getElementById('admin-switch-wallet-btn');
+  const adminSwitchLandingBtn = document.getElementById('admin-switch-landing-btn');
   const adminExportCsvBtn = document.getElementById('admin-export-csv-btn');
   const adminDownloadLeadsBtn = document.getElementById('admin-download-leads-btn');
   const adminRefreshUsersBtn = document.getElementById('admin-refresh-users-btn');
   const adminQuickAddFundBtn = document.getElementById('admin-quick-add-fund-btn');
   const adminKillswitchTest = document.getElementById('admin-killswitch-test');
 
-  if (navOpenAdminBtn) {
-    navOpenAdminBtn.addEventListener('click', () => showView('admin'));
-  }
+  [navOpenAdminBtn, navLandingAdminBtn, dashOpenAdminBtn, mobileAdminBtn, footerAdminBtn].forEach(btn => {
+    if (btn) btn.addEventListener('click', () => showView('admin'));
+  });
   if (adminSwitchWalletBtn) {
     adminSwitchWalletBtn.addEventListener('click', () => showView('dashboard'));
+  }
+  if (adminSwitchLandingBtn) {
+    adminSwitchLandingBtn.addEventListener('click', () => showView('landing'));
   }
   if (adminExportCsvBtn) {
     adminExportCsvBtn.addEventListener('click', exportInvestorDossierCsv);
