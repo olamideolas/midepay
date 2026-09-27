@@ -124,7 +124,8 @@ const BUILTIN_REGISTERED_ACCOUNTS = [
     tag: '@olamide',
     nuban: '9021849102',
     bank: 'Providus Bank',
-    balance: 850000.00
+    balance: 850000.00,
+    role: 'executive'
   },
   {
     id: 'a0000000-0000-4000-8000-000000000002',
@@ -135,7 +136,8 @@ const BUILTIN_REGISTERED_ACCOUNTS = [
     tag: '@chinedu',
     nuban: '9034821092',
     bank: 'Providus Bank',
-    balance: 420000.00
+    balance: 420000.00,
+    role: 'user'
   },
   {
     id: 'a0000000-0000-4000-8000-000000000003',
@@ -146,7 +148,8 @@ const BUILTIN_REGISTERED_ACCOUNTS = [
     tag: '@aishabello',
     nuban: '9058192041',
     bank: 'Providus Bank',
-    balance: 675000.00
+    balance: 675000.00,
+    role: 'user'
   }
 ];
 
@@ -407,8 +410,101 @@ function ensureUserSession() {
 }
 window.ensureUserSession = ensureUserSession;
 
+// =========================================================================
+// DATABASE-AUTHORITATIVE EXECUTIVE ROLE VERIFICATION & ACCESS CONTROL
+// =========================================================================
+let _isExecutiveVerified = null;
+let _executiveCheckInFlight = null;
+let _lastCheckedUserIdentifier = null;
+
+async function checkExecutiveRoleFromDatabase(forceRefresh = false) {
+  const currentIdentifier = state.user ? (state.user.id || state.user.email) : null;
+  if (currentIdentifier !== _lastCheckedUserIdentifier) {
+    _isExecutiveVerified = null;
+    _lastCheckedUserIdentifier = currentIdentifier;
+    forceRefresh = true;
+  }
+
+  if (!forceRefresh && _isExecutiveVerified !== null && !_executiveCheckInFlight) {
+    return _isExecutiveVerified;
+  }
+  if (_executiveCheckInFlight) {
+    return _executiveCheckInFlight;
+  }
+
+  _executiveCheckInFlight = (async () => {
+    try {
+      // 1. If Supabase is connected, query the database directly
+      if (window.MidePayDB && window.MidePayDB.isConfigured() && window.MidePayDB.client) {
+        const isExec = await window.MidePayDB.isUserExecutive();
+        _isExecutiveVerified = (isExec === true);
+        if (state.user) state.user.role = _isExecutiveVerified ? 'executive' : 'user';
+        return _isExecutiveVerified;
+      }
+
+      // 2. Offline simulation fallback ONLY when Supabase is not configured
+      if (state.user && state.user.email) {
+        const cleanEmail = state.user.email.toLowerCase().trim();
+        const account = findAccount(cleanEmail);
+        _isExecutiveVerified = (account && account.role === 'executive') || (cleanEmail === 'olasunkanmiolamide15@gmail.com');
+        return _isExecutiveVerified;
+      }
+
+      _isExecutiveVerified = false;
+      return false;
+    } catch (e) {
+      console.warn('[MidePay Security] Database executive role verification notice:', e);
+      _isExecutiveVerified = false;
+      return false;
+    } finally {
+      _executiveCheckInFlight = null;
+    }
+  })();
+
+  return _executiveCheckInFlight;
+}
+window.checkExecutiveRoleFromDatabase = checkExecutiveRoleFromDatabase;
+
+async function updateExecutiveNavButtons(forceRefresh = false) {
+  const isExec = await checkExecutiveRoleFromDatabase(forceRefresh);
+  const adminButtons = document.querySelectorAll(
+    '#nav-open-admin-btn, #dash-open-admin-btn, #mobile-admin-btn, #footer-admin-btn, #nav-landing-admin-btn'
+  );
+
+  adminButtons.forEach(btn => {
+    if (btn) {
+      if (isExec) {
+        btn.classList.remove('hidden');
+        btn.style.display = '';
+      } else {
+        btn.classList.add('hidden');
+        btn.style.display = 'none';
+      }
+    }
+  });
+
+  return isExec;
+}
+window.updateExecutiveNavButtons = updateExecutiveNavButtons;
+
 // Navigation & View Routing Controller
-function showView(viewName) {
+async function showView(viewName) {
+  // EXECUTIVE ACCESS GUARD ON VIEW ROUTING:
+  // If someone navigates to 'admin' (by direct click, hash, or console call),
+  // immediately verify executive role from the database.
+  if (viewName === 'admin') {
+    const isExecutive = await checkExecutiveRoleFromDatabase(true);
+    if (!isExecutive) {
+      console.warn('[MidePay Security] Unauthorized access attempt to Executive Portal blocked.');
+      if (typeof showToast === 'function') {
+        showToast('🔒 Access Denied: Executive Portal requires verified administrative clearance.', 'error');
+      }
+      localStorage.removeItem('midepay_active_view');
+      showView(state.user ? 'dashboard' : 'landing');
+      return;
+    }
+  }
+
   state.currentView = viewName;
   localStorage.setItem('midepay_active_view', viewName);
 
@@ -504,6 +600,11 @@ function showView(viewName) {
 
   // Scroll to top
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Dynamically update executive navigation button visibility
+  try {
+    updateExecutiveNavButtons().catch(() => {});
+  } catch (e) {}
 
   // Close mobile drawer if open
   const drawer = document.getElementById('mobile-drawer');
@@ -1097,13 +1198,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 3. Auto-restore active view (if logged in, keep them on dashboard or landing)
   if (state.user) {
-    const activeView = localStorage.getItem('midepay_active_view') || 'dashboard';
-    if (activeView === 'dashboard') {
-      showView('dashboard');
+    let activeView = localStorage.getItem('midepay_active_view') || 'dashboard';
+    if (activeView === 'admin') {
+      checkExecutiveRoleFromDatabase().then(isExec => {
+        if (!isExec) {
+          localStorage.setItem('midepay_active_view', 'dashboard');
+          showView('dashboard');
+        } else {
+          showView('admin');
+        }
+      });
     } else {
-      showView('landing');
+      showView(activeView);
     }
+  } else {
+    showView('landing');
   }
+  updateExecutiveNavButtons().catch(() => {});
 
   // 4. Wire header shortcuts
   const gotoDashBtn = document.getElementById('nav-goto-dashboard-btn');
@@ -1132,10 +1243,12 @@ document.addEventListener('DOMContentLoaded', () => {
           phone: profile?.phone || '',
           tag: profile?.tag || state.user?.tag || `@${name.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
           nuban: userNuban,
-          bank: 'Providus Bank'
+          bank: 'Providus Bank',
+          role: profile?.role || 'user'
         };
         saveAccountToRegistry(state.user);
         syncUserToDashboard();
+        await updateExecutiveNavButtons();
         await loadDashboardData();
       }
     }).catch(console.warn);
@@ -1543,13 +1656,15 @@ document.addEventListener('DOMContentLoaded', () => {
               tag: profile?.tag || `@${userName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
               nuban: userNuban,
               bank: 'Providus Bank',
-              password: password
+              password: password,
+              role: profile?.role || 'user'
             };
             saveAccountToRegistry(matchedUser);
             localStorage.setItem('midepay_session', JSON.stringify({ email: matchedUser.email, loggedIn: true }));
             localStorage.setItem('midepay_active_view', 'dashboard');
             state.user = matchedUser;
             syncUserToDashboard();
+            await updateExecutiveNavButtons();
             await loadDashboardData();
             showView('dashboard');
             showToast(`Welcome back, ${matchedUser.fullName}!`);
@@ -1621,6 +1736,8 @@ document.addEventListener('DOMContentLoaded', () => {
     state.user = null;
     state.dashBalance = 0.00;
     state.transactions = [];
+    _isExecutiveVerified = false;
+    _executiveCheckInFlight = null;
 
     if (window.MidePayDB && typeof window.MidePayDB.signOut === 'function') {
       try {
@@ -1631,6 +1748,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try { syncUserToDashboard(); } catch (e) {}
     try { renderBalances(); } catch (e) {}
     try { renderDashboardTransactions(); } catch (e) {}
+    try { updateExecutiveNavButtons().catch(() => {}); } catch (e) {}
     try { showView('landing'); } catch (e) {}
     try { showToast('Logged out of MidePay successfully.'); } catch (e) {}
   }
@@ -3770,6 +3888,37 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     // 1. Gather all users from accounts registry
     adminUsersList = getAccountsRegistry();
 
+    // Fetch live member profiles from Supabase if connected (permitted by RLS for executives)
+    if (window.MidePayDB && window.MidePayDB.isConfigured() && window.MidePayDB.client) {
+      try {
+        const { data: supaProfiles } = await window.MidePayDB.client
+          .from('profiles')
+          .select('id, full_name, email, phone, tag, role, kyc_tier');
+        if (supaProfiles && supaProfiles.length > 0) {
+          supaProfiles.forEach(sp => {
+            const match = adminUsersList.find(u => u.email && u.email.toLowerCase() === sp.email.toLowerCase());
+            if (match) {
+              match.role = sp.role || 'user';
+              if (sp.full_name) match.fullName = sp.full_name;
+              if (sp.phone) match.phone = sp.phone;
+            } else {
+              adminUsersList.push({
+                id: sp.id,
+                fullName: sp.full_name || 'Member',
+                email: sp.email,
+                phone: sp.phone || '',
+                tag: sp.tag || `@${(sp.full_name || 'user').toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+                role: sp.role || 'user',
+                balance: 150000.00
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[MidePay] Profiles sync notice:', err);
+      }
+    }
+
     // 2. Gather transactions
     const userTxs = loadUserTransactions();
     adminTxList = [...state.transactions, ...userTxs, ...DEFAULT_DEMO_TRANSACTIONS];
@@ -3901,7 +4050,12 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
             <span style="font-size:0.72rem; color:var(--text-muted);">${user.bank || 'Providus Bank'}</span>
           </td>
           <td>
-            <span class="badge-gold-sm" style="font-size:0.72rem;">Tier 2 (BVN/NIN)</span>
+            <div style="display:flex; flex-direction:column; gap:0.25rem;">
+              <span class="badge-gold-sm" style="font-size:0.72rem;">Tier 2 (BVN/NIN)</span>
+              ${user.role === 'executive' 
+                ? '<span style="font-size:0.68rem; font-weight:700; color:#FBBF24; display:inline-flex; align-items:center; gap:0.2rem;">★ Executive</span>' 
+                : '<span style="font-size:0.68rem; color:var(--text-muted);">Member</span>'}
+            </div>
           </td>
           <td>
             <div style="font-weight:700; font-size:0.96rem; color:var(--text-primary);">

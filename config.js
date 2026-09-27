@@ -9,3 +9,4 @@ window.MIDEPAY_SUPABASE_CONFIG = {
   // Paste your full anon / publishable key below:
   anonKey: 'sb_publishable_5adXF0UhSQJ1n4F_IqLXEw_0naxL0wT'
 };
+

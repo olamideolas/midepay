@@ -219,6 +219,31 @@
     },
 
     /**
+     * Check directly from Supabase database if current user has 'executive' role.
+     * Guaranteed database check via auth.getUser() + profiles.role query.
+     */
+    async isUserExecutive() {
+      if (!this.isConfigured() || !this.client) return false;
+      try {
+        const { data: userData, error: userErr } = await this.client.auth.getUser();
+        const user = userData?.user;
+        if (userErr || !user || !user.id || !isValidUuid(user.id)) return false;
+
+        const { data, error } = await this.client
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (error || !data) return false;
+        return data.role === 'executive';
+      } catch (err) {
+        console.warn('[MidePay] Executive role check notice:', err);
+        return false;
+      }
+    },
+
+    /**
      * Fetch primary NGN wallet (RLS protected: auth.uid() = user_id)
      */
     async getWallet(userId) {
@@ -253,7 +278,7 @@
           // 1. Ensure Profile row with real UUID
           const { data: profile } = await this.client
             .from('profiles')
-            .select('id, full_name, tag, phone')
+            .select('id, full_name, tag, phone, role')
             .eq('id', userId)
             .maybeSingle();
 

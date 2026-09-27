@@ -72,7 +72,7 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span>CBN Licensed • NDIC Insured</span>
         </div>
-        <button class="btn btn-outline-xs" id="nav-landing-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+        <button class="btn btn-outline-xs hidden" id="nav-landing-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           <span>Executive Portal</span>
         </button>
@@ -90,7 +90,7 @@
           <span class="user-avatar-circle" id="nav-user-initials">M</span>
           <span class="user-pill-name" id="nav-user-name">User</span>
         </div>
-        <button class="btn btn-outline-xs" id="nav-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+        <button class="btn btn-outline-xs hidden" id="nav-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           <span>Executive Portal</span>
         </button>
@@ -155,7 +155,7 @@
       <div class="mobile-nav-actions">
         <button class="btn btn-ghost w-full" id="mobile-login-btn">Log in</button>
         <button class="btn btn-primary w-full" id="mobile-register-btn">Get started</button>
-        <button class="btn btn-outline-xs w-full" id="mobile-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem; font-size: 0.84rem; font-weight: 700; margin-top: 0.35rem; cursor: pointer;">
+        <button class="btn btn-outline-xs w-full hidden" id="mobile-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem; font-size: 0.84rem; font-weight: 700; margin-top: 0.35rem; cursor: pointer;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           <span>Executive Portal</span>
         </button>
@@ -746,7 +746,7 @@
             <button class="footer-btn-link" id="footer-login-btn">Sign In</button>
             <button class="footer-btn-link" id="footer-register-btn">Open Free Account</button>
             <button class="footer-btn-link" id="footer-demo-direct">Go to Dashboard</button>
-            <button class="footer-btn-link" id="footer-admin-btn" onclick="showView('admin')" style="color: #FBBF24; font-weight: 700;">Executive Back-Office</button>
+            <button class="footer-btn-link hidden" id="footer-admin-btn" onclick="showView('admin')" style="color: #FBBF24; font-weight: 700;">Executive Back-Office</button>
           </div>
         </div>
 
@@ -1015,7 +1015,7 @@
         </div>
 
         <div class="dash-header-actions">
-          <button class="btn btn-outline-xs" id="dash-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+          <button class="btn btn-outline-xs hidden" id="dash-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             <span>Executive Portal</span>
           </button>
@@ -2781,8 +2781,8 @@
 
   <!-- Supabase JS Client & MidePay Backend Integration -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=3.5"></script>
-  <script src="supabaseClient.js?v=3.5"></script>
-  <script src="app.js?v=3.5"></script>
+  <script src="config.js?v=3.6"></script>
+  <script src="supabaseClient.js?v=3.6"></script>
+  <script src="app.js?v=3.6"></script>
 </body>
 </html>
