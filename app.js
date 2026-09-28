@@ -2233,6 +2233,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Screen 2: OPay/PalmPay PIN & Authorization Elements
   const pinAuthForm = document.getElementById('pin-auth-form');
+  const pinPromptLabel = document.getElementById('pin-prompt-label');
+  const pinSetupHint = document.getElementById('pin-setup-hint');
   const pinRecipientAvatar = document.getElementById('pin-recipient-avatar');
   const pinRecipientName = document.getElementById('pin-recipient-name');
   const pinRecipientBank = document.getElementById('pin-recipient-bank');
@@ -2554,9 +2556,50 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // -------------------------------------------------------------
-  // SCREEN 2: OPAY / PALMPAY CONFIRMATION & 4-DIGIT PIN LOGIC
+  // SCREEN 2: OPAY / PALMPAY CONFIRMATION & PER-USER 4-DIGIT PIN
   // -------------------------------------------------------------
-  function populatePinScreen() {
+  function getBcryptInstance() {
+    if (typeof dcodeIO !== 'undefined' && dcodeIO.bcrypt) return dcodeIO.bcrypt;
+    if (typeof window !== 'undefined' && window.bcrypt) return window.bcrypt;
+    return null;
+  }
+
+  async function hashPin(pin) {
+    const b = getBcryptInstance();
+    if (b && typeof b.hashSync === 'function') {
+      return b.hashSync(pin, 10);
+    }
+    if (window.crypto && window.crypto.subtle) {
+      const msgBuffer = new TextEncoder().encode(pin + '_midepay_pin_salt');
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return 'sha256:' + hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+    return 'pin_hash_' + pin;
+  }
+
+  async function verifyPin(pin, hash) {
+    if (!hash || !pin) return false;
+    const b = getBcryptInstance();
+    if (b && typeof b.compareSync === 'function' && (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$'))) {
+      try {
+        return b.compareSync(pin, hash);
+      } catch (err) {
+        console.warn('bcrypt compare error:', err);
+        return false;
+      }
+    }
+    if (hash.startsWith('sha256:') && window.crypto && window.crypto.subtle) {
+      const msgBuffer = new TextEncoder().encode(pin + '_midepay_pin_salt');
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const computed = 'sha256:' + hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+      return computed === hash;
+    }
+    return hash === pin || hash === ('pin_hash_' + pin);
+  }
+
+  async function populatePinScreen() {
     const name = sendFlowState.resolvedName || 'ADELEKE BABATUNDE';
     const bank = sendFlowState.selectedBank || 'OPay Digital Services';
     const acc = sendFlowState.accountNumber || '9048291048';
@@ -2574,7 +2617,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pinRecipientName) pinRecipientName.textContent = name;
     if (pinRecipientBank) pinRecipientBank.textContent = `${bank} • ${acc}`;
     if (pinSummaryAmount) pinSummaryAmount.textContent = formatNaira(amt);
-    if (btnAuthorizePayText) btnAuthorizePayText.textContent = `Pay ${formatNaira(amt)}`;
+
+    // Query per-user transaction PIN status for the currently logged-in user
+    const currentUserId = state.user?.id;
+    let userPinHash = state.user?.pinHash;
+    if (!userPinHash && window.MidePayDB && currentUserId) {
+      try {
+        userPinHash = await window.MidePayDB.getUserPinHash(currentUserId);
+        if (userPinHash && state.user) {
+          state.user.pinHash = userPinHash;
+          saveAccountToRegistry(state.user);
+        }
+      } catch (err) {
+        console.warn('[MidePay] Could not fetch user pin hash:', err);
+      }
+    }
+
+    if (!userPinHash) {
+      // First-time transfer for this user: prompt to set 4-digit PIN
+      if (pinPromptLabel) pinPromptLabel.textContent = 'Create 4-Digit Security PIN';
+      if (pinSetupHint) pinSetupHint.classList.remove('hidden');
+      if (btnAuthorizePayText) btnAuthorizePayText.textContent = `Set PIN & Pay ${formatNaira(amt)}`;
+    } else {
+      // Returning user: verify against their existing PIN hash
+      if (pinPromptLabel) pinPromptLabel.textContent = 'Enter 4-Digit Security PIN';
+      if (pinSetupHint) pinSetupHint.classList.add('hidden');
+      if (btnAuthorizePayText) btnAuthorizePayText.textContent = `Pay ${formatNaira(amt)}`;
+    }
+
+    // Never expose demo quick-fill helper so each user sets and uses their own PIN
+    if (btnFillDemoPin) btnFillDemoPin.classList.add('hidden');
   }
 
   function clearPinBoxes() {
@@ -2638,7 +2710,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // "⚡ Use PIN: 1234" Quick Fill Helper
+  // Demo PIN button hidden by default - kept safe
   if (btnFillDemoPin) {
     btnFillDemoPin.addEventListener('click', () => {
       ['1', '2', '3', '4'].forEach((digit, i) => {
@@ -2681,30 +2753,64 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
 
       const enteredPin = getEnteredPin();
-      if (enteredPin.length !== 4) {
+      if (enteredPin.length !== 4 || !/^\d{4}$/.test(enteredPin)) {
         if (pinAuthError && pinAuthErrorText) {
-          pinAuthErrorText.textContent = 'Please enter your 4-digit security PIN (or click ⚡ Use PIN: 1234).';
+          pinAuthErrorText.textContent = 'Please enter a valid 4-digit numeric security PIN.';
           pinAuthError.classList.remove('hidden');
         }
         authPinBoxes[0]?.focus();
         return;
       }
 
-      // Demo accepts 1234 or configured user PIN
-      const storedPinHash = state.user?.pinHash;
-      let isPinValid = (enteredPin === '1234');
-      if (!isPinValid && storedPinHash) {
-        isPinValid = (storedPinHash === enteredPin || storedPinHash.includes(enteredPin));
+      // -------------------------------------------------------------
+      // PER-USER PIN VERIFICATION (Not global or shared)
+      // Strictly checks or sets PIN for THIS logged-in user (state.user.id)
+      // -------------------------------------------------------------
+      const currentUserId = state.user?.id;
+      let storedPinHash = state.user?.pinHash;
+
+      // Always query Supabase profiles table for the latest hash if connected
+      if (window.MidePayDB && window.MidePayDB.isConfigured() && currentUserId) {
+        try {
+          const dbHash = await window.MidePayDB.getUserPinHash(currentUserId, true);
+          if (dbHash) {
+            storedPinHash = dbHash;
+            if (state.user) {
+              state.user.pinHash = dbHash;
+              saveAccountToRegistry(state.user);
+            }
+          }
+        } catch (err) {
+          console.warn('[MidePay] Error querying profile pin_hash:', err);
+        }
       }
 
-      if (!isPinValid) {
-        if (pinAuthError && pinAuthErrorText) {
-          pinAuthErrorText.textContent = 'Incorrect PIN. Default PIN is 1234.';
-          pinAuthError.classList.remove('hidden');
+      // FIRST-TIME TRANSFER: User sets their own PIN -> hash and store in DB per-user
+      if (!storedPinHash) {
+        const hashedPin = await hashPin(enteredPin);
+        if (state.user) {
+          state.user.pinHash = hashedPin;
+          saveAccountToRegistry(state.user);
         }
-        clearPinBoxes();
-        authPinBoxes[0]?.focus();
-        return;
+
+        if (window.MidePayDB && currentUserId) {
+          await window.MidePayDB.setUserPin(currentUserId, hashedPin);
+        }
+
+        showToast('🔐 4-digit transaction PIN created & encrypted for your account!', 'success');
+      } else {
+        // RETURNING TRANSFERS: Strictly verify entered PIN against THIS user's bcrypt hash
+        const isPinValid = await verifyPin(enteredPin, storedPinHash);
+
+        if (!isPinValid) {
+          if (pinAuthError && pinAuthErrorText) {
+            pinAuthErrorText.textContent = 'Incorrect PIN for your account. Please try again.';
+            pinAuthError.classList.remove('hidden');
+          }
+          clearPinBoxes();
+          authPinBoxes[0]?.focus();
+          return;
+        }
       }
 
       // Valid PIN -> Execute Transfer!
@@ -2807,7 +2913,10 @@ document.addEventListener('DOMContentLoaded', () => {
       } finally {
         btnAuthorizePay.disabled = false;
         if (btnAuthorizePayText) {
-          btnAuthorizePayText.textContent = `Pay ${formatNaira(sendFlowState.amount)}`;
+          const hasPin = !!(state.user?.pinHash);
+          btnAuthorizePayText.textContent = hasPin
+            ? `Pay ${formatNaira(sendFlowState.amount)}`
+            : `Set PIN & Pay ${formatNaira(sendFlowState.amount)}`;
         }
       }
     });

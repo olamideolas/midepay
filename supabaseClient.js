@@ -504,10 +504,12 @@
     /**
      * Fetch user transaction PIN hash from profile
      */
-    async getUserPinHash(userId) {
+    async getUserPinHash(userId, forceRefresh = false) {
       if (!userId) return null;
-      const cached = localStorage.getItem(`midepay_pin_hash_${userId}`);
-      if (cached) return cached;
+      if (!forceRefresh) {
+        const cached = localStorage.getItem(`midepay_pin_hash_${userId}`);
+        if (cached) return cached;
+      }
 
       if (this.isConfigured() && this.client && isValidUuid(userId)) {
         try {
@@ -525,7 +527,7 @@
           console.warn('⚠️ [MidePay] getUserPinHash error:', e.message);
         }
       }
-      return null;
+      return localStorage.getItem(`midepay_pin_hash_${userId}`) || null;
     },
 
     /**

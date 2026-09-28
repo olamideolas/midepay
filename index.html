@@ -1803,14 +1803,17 @@
         <form class="modal-form" id="pin-auth-form" onsubmit="return false;" style="margin-top:1rem;">
           <div class="form-group">
             <div class="label-with-aside">
-              <label class="form-label">Enter 4-Digit Security PIN</label>
-              <button type="button" class="btn-quick-fill-pin" id="btn-fill-demo-pin" style="background:none; border:none; color:#34D399; font-size:0.78rem; font-weight:600; cursor:pointer;">⚡ Use PIN: 1234</button>
+              <label class="form-label" id="pin-prompt-label">Enter 4-Digit Security PIN</label>
+              <button type="button" class="btn-quick-fill-pin hidden" id="btn-fill-demo-pin" style="background:none; border:none; color:#34D399; font-size:0.78rem; font-weight:600; cursor:pointer;">⚡ Use PIN: 1234</button>
             </div>
             <div class="pin-boxes-container" id="pin-auth-boxes">
               <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="auth-pin-1" data-index="1" autocomplete="off" required>
               <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="auth-pin-2" data-index="2" autocomplete="off" required>
               <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="auth-pin-3" data-index="3" autocomplete="off" required>
               <input type="password" inputmode="numeric" maxlength="1" class="pin-digit-input" id="auth-pin-4" data-index="4" autocomplete="off" required>
+            </div>
+            <div id="pin-setup-hint" class="hidden" style="font-size:0.8rem; color:#34D399; margin-top:0.45rem; text-align:center; font-weight:600;">
+              ✨ First Transfer: Set your 4-digit PIN. It will be hashed & encrypted for your account.
             </div>
           </div>
 
