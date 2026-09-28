@@ -839,20 +839,176 @@
      * Fetch business invoices
      */
     async getBusinessInvoices(businessId) {
-  if (!this.isConfigured() || !this.client) return [];
+      if (!this.isConfigured() || !this.client) return [];
 
-  const { data, error } = await this.client
-    .from('invoices')
-    .select('*')
-    .eq('business_id', businessId)
-    .order('created_at', { ascending: false });
+      const { data, error } = await this.client
+        .from('invoices')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
 
-  if (error) {
-    console.warn('Error fetching invoices:', error.message);
-    return [];
-  }
-  return data;
-}
+      if (error) {
+        console.warn('Error fetching invoices:', error.message);
+        return [];
+      }
+      return data;
+    },
+
+    // =========================================================================
+    // PAYMENT REQUESTS ("REQUEST MONEY")
+    // =========================================================================
+
+    /**
+     * Helper to save payment request to local storage registry
+     */
+    _saveLocalPaymentRequest(request) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('midepay_payment_requests') || '[]');
+        const idx = stored.findIndex(r => r.id === request.id);
+        if (idx >= 0) {
+          stored[idx] = { ...stored[idx], ...request };
+        } else {
+          stored.unshift(request);
+        }
+        localStorage.setItem('midepay_payment_requests', JSON.stringify(stored));
+      } catch (e) {}
+    },
+
+    /**
+     * Create a new payment request (requester asks payer for money)
+     */
+    async createPaymentRequest({ requesterId, payerId, amount, note = '', requesterDetails = null, payerDetails = null }) {
+      if (!requesterId || !payerId) return { success: false, error: 'Requester and Payer are required' };
+      if (requesterId === payerId) return { success: false, error: 'Cannot request money from yourself' };
+      if (!amount || Number(amount) <= 0) return { success: false, error: 'Request amount must be greater than zero' };
+
+      const numAmount = Number(amount);
+      const reqId = 'req-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+      const newRequest = {
+        id: reqId,
+        requester_id: requesterId,
+        payer_id: payerId,
+        amount: numAmount,
+        note: note || '',
+        status: 'pending',
+        requester: requesterDetails,
+        payer: payerDetails,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // 1. If Supabase configured & valid UUIDs, insert into public.payment_requests
+      if (this.isConfigured() && this.client && isValidUuid(requesterId) && isValidUuid(payerId)) {
+        try {
+          const { data, error } = await this.client
+            .from('payment_requests')
+            .insert({
+              requester_id: requesterId,
+              payer_id: payerId,
+              amount: numAmount,
+              note: note || '',
+              status: 'pending'
+            })
+            .select('*')
+            .single();
+
+          if (!error && data) {
+            const merged = { ...data, requester: requesterDetails, payer: payerDetails };
+            this._saveLocalPaymentRequest(merged);
+            return { success: true, data: merged };
+          }
+          if (error) {
+            console.warn('⚠️ [MidePay] Supabase payment_requests insert warning:', error.message);
+          }
+        } catch (err) {
+          console.warn('⚠️ [MidePay] createPaymentRequest network error:', err.message);
+        }
+      }
+
+      // 2. Local / Offline Simulation Storage
+      this._saveLocalPaymentRequest(newRequest);
+      return { success: true, data: newRequest, isLocal: true };
+    },
+
+    /**
+     * Get all payment requests involving the user (as requester or payer)
+     */
+    async getPaymentRequests(userId) {
+      if (!userId) return [];
+      let requests = [];
+
+      // 1. Try Supabase
+      if (this.isConfigured() && this.client && isValidUuid(userId)) {
+        try {
+          const { data, error } = await this.client
+            .from('payment_requests')
+            .select(`
+              *,
+              requester:profiles!requester_id(id, full_name, email, phone, tag),
+              payer:profiles!payer_id(id, full_name, email, phone, tag)
+            `)
+            .or(`requester_id.eq.${userId},payer_id.eq.${userId}`)
+            .order('created_at', { ascending: false });
+
+          if (!error && data) {
+            requests = data;
+          }
+        } catch (e) {
+          console.warn('⚠️ [MidePay] getPaymentRequests error:', e.message);
+        }
+      }
+
+      // 2. Merge with local storage requests (ensures demo/local works seamlessly)
+      try {
+        const local = JSON.parse(localStorage.getItem('midepay_payment_requests') || '[]');
+        const userLocal = local.filter(r => r.requester_id === userId || r.payer_id === userId);
+        userLocal.forEach(locReq => {
+          if (!requests.some(r => r.id === locReq.id)) {
+            requests.push(locReq);
+          }
+        });
+      } catch (e) {}
+
+      // Sort by created_at desc
+      requests.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return requests;
+    },
+
+    /**
+     * Update payment request status ('approved' or 'declined')
+     */
+    async updatePaymentRequestStatus(requestId, status, userId = null) {
+      if (!requestId || !status) return { success: false, error: 'Request ID and status required' };
+
+      // 1. Try Supabase
+      if (this.isConfigured() && this.client) {
+        try {
+          const { error } = await this.client
+            .from('payment_requests')
+            .update({ status: status, updated_at: new Date().toISOString() })
+            .eq('id', requestId);
+
+          if (error) {
+            console.warn('⚠️ [MidePay] updatePaymentRequestStatus error:', error.message);
+          }
+        } catch (e) {
+          console.warn('⚠️ [MidePay] updatePaymentRequestStatus exception:', e.message);
+        }
+      }
+
+      // 2. Update local storage
+      try {
+        const stored = JSON.parse(localStorage.getItem('midepay_payment_requests') || '[]');
+        const target = stored.find(r => r.id === requestId);
+        if (target) {
+          target.status = status;
+          target.updated_at = new Date().toISOString();
+          localStorage.setItem('midepay_payment_requests', JSON.stringify(stored));
+        }
+      } catch (e) {}
+
+      return { success: true, status };
+    }
   };
 
 // Expose to window

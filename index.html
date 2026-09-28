@@ -86,6 +86,32 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span>CBN Tier 2 Verified</span>
         </div>
+
+        <!-- Notification Bell with Pending Requests Badge -->
+        <div class="nav-notification-wrapper" id="nav-notification-wrapper">
+          <button type="button" class="btn-notification-bell" id="btn-notification-bell" aria-label="Notifications" title="Payment Requests & Alerts">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="notification-badge hidden" id="notification-badge">0</span>
+          </button>
+          
+          <!-- Dropdown Flyout for Pending Payment Requests -->
+          <div class="notifications-dropdown hidden" id="notifications-dropdown">
+            <div class="notifications-dropdown-header">
+              <h4>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span>Payment Requests</span>
+              </h4>
+              <span class="badge-pending-count" id="pending-requests-count-tag">0 pending</span>
+            </div>
+            <div class="notifications-dropdown-list" id="notifications-list">
+              <!-- Populated dynamically by JS -->
+            </div>
+          </div>
+        </div>
+
         <div class="user-pill" id="nav-user-pill" style="cursor: pointer;" title="Open Dashboard">
           <span class="user-avatar-circle" id="nav-user-initials">M</span>
           <span class="user-pill-name" id="nav-user-name">User</span>
@@ -1115,6 +1141,14 @@
                 </svg>
                 <span>Send Money</span>
               </button>
+              <button type="button" class="btn btn-outline" id="btn-open-request-modal" onclick="event.preventDefault(); if (typeof openRequestModal === 'function') openRequestModal();">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                </svg>
+                <span>Request</span>
+              </button>
               <button type="button" class="btn btn-outline" id="btn-open-add-modal">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -1146,6 +1180,18 @@
                 </div>
                 <span class="qa-title">Send</span>
                 <span class="qa-desc">Instant ₦0 fee</span>
+              </button>
+
+              <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="teal" id="qa-request" onclick="event.preventDefault(); if (typeof openRequestModal === 'function') openRequestModal();" title="Request Money">
+                <div class="qa-icon-wrap teal">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  </svg>
+                </div>
+                <span class="qa-title">Request</span>
+                <span class="qa-desc">Ask contacts</span>
               </button>
 
               <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-airtime">
@@ -1214,11 +1260,17 @@
                 <button class="tx-filter-pill active" data-filter="all">All</button>
                 <button class="tx-filter-pill" data-filter="inflow">Inflow</button>
                 <button class="tx-filter-pill" data-filter="outflow">Outflow</button>
+                <button class="tx-filter-pill" data-filter="requests" id="tx-filter-requests">Requests</button>
               </div>
             </div>
 
             <!-- Dynamic Transaction List -->
             <div class="dash-tx-list" id="dashboard-tx-list">
+              <!-- Populated by JavaScript -->
+            </div>
+
+            <!-- Dynamic Payment Requests List (Requester-side visibility) -->
+            <div class="dash-tx-list hidden" id="dashboard-requests-list">
               <!-- Populated by JavaScript -->
             </div>
           </div>
@@ -1515,6 +1567,168 @@
       </div>
     </div>
   </footer>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: REQUEST MONEY (P2P PAYMENT REQUEST FLOW)               -->
+  <!-- ============================================================= -->
+  <div class="modal-overlay hidden" id="modal-request-money" role="dialog" aria-modal="true" aria-labelledby="request-modal-title">
+    <div class="modal-box">
+      
+      <!-- SCREEN 1: REQUEST FORM -->
+      <div class="send-step" id="request-step-form">
+        <div class="modal-header">
+          <div class="modal-title-with-badge">
+            <h3 class="modal-title" id="request-modal-title">Request Money</h3>
+            <span class="badge-emerald-sm">Instant P2P Request</span>
+          </div>
+          <button type="button" class="modal-close-btn" id="close-request-modal-btn" aria-label="Close modal">✕</button>
+        </div>
+
+        <form class="modal-form" id="main-request-form" onsubmit="return false;">
+          <!-- Information banner -->
+          <div class="transfer-balance-alert" style="background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3);">
+            <span style="color:#93C5FD;">💡 The recipient will receive an instant notification to approve & pay you.</span>
+          </div>
+
+          <!-- Recipient Search Field (Email, Phone, or MideTag) -->
+          <div class="form-group">
+            <label for="request-recipient-input" class="form-label">Search Contact or Registered Member</label>
+            <div style="position:relative;">
+              <input 
+                type="text" 
+                id="request-recipient-input" 
+                class="form-input" 
+                placeholder="Enter @tag, email, or phone (e.g. @chinedu)" 
+                maxlength="50"
+                autocomplete="off"
+                required
+              >
+              <div id="request-searching-spinner" class="recipient-search-spinner hidden" style="position:absolute; right:12px; top:50%; transform:translateY(-50%);"></div>
+            </div>
+
+            <!-- Recipient Resolved Card -->
+            <div class="account-resolved-box hidden" id="request-recipient-resolved-box" style="margin-top:0.6rem;">
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <span class="badge-resolved-check">✓</span>
+                <div>
+                  <div style="font-weight:700; color:#FFF;" id="request-resolved-name">Chinedu Eze</div>
+                  <div style="font-size:0.75rem; color:#A7F3D0;" id="request-resolved-detail">@chinedu • 08023456781</div>
+                </div>
+              </div>
+            </div>
+            <span class="form-hint" id="request-recipient-hint">Search any registered MidePay member by MideTag (@username), email, or phone number.</span>
+          </div>
+
+          <!-- Request Amount Field with Quick Chips -->
+          <div class="form-group">
+            <div class="label-with-aside">
+              <label for="request-amount-input" class="form-label">Amount to Request (NGN)</label>
+            </div>
+            <div class="currency-input-wrap">
+              <span class="currency-symbol">₦</span>
+              <input 
+                type="number" 
+                id="request-amount-input" 
+                class="form-input currency-field" 
+                placeholder="5000" 
+                value="5000"
+                min="50" 
+                step="any"
+                required
+              >
+            </div>
+            <div class="quick-amount-tags" id="request-quick-amount-tags">
+              <button type="button" class="amount-tag-btn" data-amt="1000">₦1,000</button>
+              <button type="button" class="amount-tag-btn" data-amt="2000">₦2,000</button>
+              <button type="button" class="amount-tag-btn active" data-amt="5000">₦5,000</button>
+              <button type="button" class="amount-tag-btn" data-amt="10000">₦10,000</button>
+              <button type="button" class="amount-tag-btn" data-amt="20000">₦20,000</button>
+              <button type="button" class="amount-tag-btn" data-amt="50000">₦50,000</button>
+            </div>
+          </div>
+
+          <!-- Optional Note / Reason -->
+          <div class="form-group">
+            <label for="request-note-input" class="form-label">Note / Remark (Optional)</label>
+            <input 
+              type="text" 
+              id="request-note-input" 
+              class="form-input" 
+              placeholder="e.g. Lunch split, project milestone, shared bill" 
+              maxlength="60"
+            >
+          </div>
+
+          <!-- Validation Error Banner -->
+          <div class="flow-alert-banner flow-alert-error hidden" id="request-form-error">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span id="request-form-error-text">Please pick a recipient and enter a valid amount.</span>
+          </div>
+
+          <!-- Action Button -->
+          <div style="margin-top:1.25rem;">
+            <button type="button" class="btn btn-primary w-full btn-lg" id="btn-submit-request">
+              <span id="btn-submit-request-text">Send Payment Request</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- SCREEN 2: CONFIRMATION SUCCESS SCREEN -->
+      <div class="send-step hidden" id="request-step-success">
+        <div class="modal-header">
+          <div class="modal-title-with-badge">
+            <h3 class="modal-title">Request Sent</h3>
+            <span class="badge-emerald-sm">Status: Pending</span>
+          </div>
+          <button type="button" class="modal-close-btn" id="close-request-success-btn" aria-label="Close modal">✕</button>
+        </div>
+
+        <div style="text-align:center; padding:1.5rem 1rem;">
+          <div style="width:68px; height:68px; border-radius:50%; background:rgba(16,185,129,0.15); border:2px solid #10B981; color:#34D399; display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem auto;">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          
+          <h2 style="font-size:1.45rem; font-weight:800; color:var(--text-primary); margin-bottom:0.4rem;">
+            Request Sent!
+          </h2>
+          <p style="font-size:0.92rem; color:var(--text-secondary); max-width:320px; margin:0 auto 1.5rem auto;">
+            Your request for <strong style="color:#34D399;" id="req-success-amount-text">₦5,000.00</strong> was sent to <strong style="color:#FFF;" id="req-success-recipient-text">Chinedu Eze</strong>.
+          </p>
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:12px; padding:1rem; text-align:left; margin-bottom:1.5rem; font-size:0.85rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+              <span style="color:var(--text-muted);">Recipient:</span>
+              <strong style="color:var(--text-primary);" id="req-success-name">Chinedu Eze</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+              <span style="color:var(--text-muted);">Amount:</span>
+              <strong style="color:#34D399;" id="req-success-amt">₦5,000.00</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+              <span style="color:var(--text-muted);">Note:</span>
+              <span style="color:var(--text-secondary);" id="req-success-note">—</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:var(--text-muted);">Status:</span>
+              <span class="status-pill pending">Pending Approval</span>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-primary w-full btn-lg" id="btn-request-done">
+            Done
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
 
   <!-- ============================================================= -->
   <!-- MODAL 1: SEND MONEY (OPAY & PALMPAY STYLE INSTANT TRANSFER)   -->

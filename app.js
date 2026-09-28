@@ -113,6 +113,17 @@ function isValidUuid(id) {
   return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
+// XSS escape helper
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Built-in verified member accounts (available instantly for login & transfers)
 const BUILTIN_REGISTERED_ACCOUNTS = [
   {
@@ -542,6 +553,9 @@ async function showView(viewName) {
     renderBalances();
     syncUserToDashboard();
     renderDashboardTransactions();
+    if (typeof refreshNotificationsAndRequests === 'function') {
+      refreshNotificationsAndRequests().catch(console.warn);
+    }
 
     if (landingNavLinks) landingNavLinks.classList.add('hidden');
     if (landingNavActions) landingNavActions.classList.add('hidden');
@@ -724,7 +738,22 @@ function formatTxDate(dateString) {
 // Render Dashboard Transactions List
 function renderDashboardTransactions() {
   const listContainer = document.getElementById('dashboard-tx-list');
+  const requestsContainer = document.getElementById('dashboard-requests-list');
   if (!listContainer) return;
+
+  if (state.txFilter === 'requests') {
+    listContainer.classList.add('hidden');
+    if (requestsContainer) {
+      requestsContainer.classList.remove('hidden');
+      if (typeof renderDashboardPaymentRequests === 'function') {
+        renderDashboardPaymentRequests(requestsContainer);
+      }
+    }
+    return;
+  } else {
+    if (requestsContainer) requestsContainer.classList.add('hidden');
+    listContainer.classList.remove('hidden');
+  }
 
   let filtered = state.transactions || [];
   if (state.txFilter === 'inflow') {
@@ -1052,6 +1081,9 @@ async function loadDashboardData() {
     syncUserToDashboard();
     renderBalances();
     renderDashboardTransactions();
+    if (typeof refreshNotificationsAndRequests === 'function') {
+      refreshNotificationsAndRequests().catch(console.warn);
+    }
     return true;
   } catch (err) {
     console.error('❌ [MidePay] Live dashboard load error:', err);
@@ -2194,7 +2226,9 @@ document.addEventListener('DOMContentLoaded', () => {
     transferFee: 0.00, // Zero fee switch like OPay/PalmPay
     narration: '',
     currentStep: 'form', // 'form' | 'pin-confirm' | 'success'
-    lastTransaction: null
+    lastTransaction: null,
+    recipientId: null,
+    approvedRequestId: null
   };
 
   // Step Containers (Unified 3-Screen OPay / PalmPay flow + CodeFronts Animated Processing)
@@ -2864,16 +2898,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Persist to Supabase if configured
         if (window.MidePayDB && window.MidePayDB.isConfigured() && state.user?.id) {
-          window.MidePayDB.recordTransfer({
-            walletId: state.user.walletId,
-            userId: state.user.id,
-            amount: totalDebit,
-            fee: sendFlowState.transferFee,
-            recipient: `${sendFlowState.resolvedName} (${sendFlowState.accountNumber})`,
-            destinationBank: sendFlowState.selectedBank,
-            narration: sendFlowState.narration,
-            reference: txRef
-          }).catch(console.warn);
+          if (sendFlowState.recipientId && isValidUuid(sendFlowState.recipientId)) {
+            window.MidePayDB.transferFunds({
+              senderId: state.user.id,
+              recipientId: sendFlowState.recipientId,
+              amount: sendFlowState.amount,
+              narration: sendFlowState.narration
+            }).catch(console.warn);
+          } else {
+            window.MidePayDB.recordTransfer({
+              walletId: state.user.walletId,
+              userId: state.user.id,
+              amount: totalDebit,
+              fee: sendFlowState.transferFee,
+              recipient: `${sendFlowState.resolvedName} (${sendFlowState.accountNumber})`,
+              destinationBank: sendFlowState.selectedBank,
+              narration: sendFlowState.narration,
+              reference: txRef
+            }).catch(console.warn);
+          }
+        }
+
+        // If this transfer fulfills an approved payment request:
+        if (sendFlowState.approvedRequestId && window.MidePayDB) {
+          window.MidePayDB.updatePaymentRequestStatus(sendFlowState.approvedRequestId, 'approved', state.user?.id).catch(console.warn);
+          sendFlowState.approvedRequestId = null;
+          if (typeof refreshNotificationsAndRequests === 'function') {
+            refreshNotificationsAndRequests().catch(console.warn);
+          }
         }
 
         renderBalances();
@@ -2952,7 +3004,518 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // =========================================================================
+  // REQUEST MONEY FLOW CONTROLLER (P2P PAYMENT REQUESTS)
+  // =========================================================================
+  const modalRequest = document.getElementById('modal-request-money');
+  const btnOpenRequest = document.getElementById('btn-open-request-modal');
+  const qaRequest = document.getElementById('qa-request');
+  const closeRequestBtn = document.getElementById('close-request-modal-btn');
+  const closeRequestSuccessBtn = document.getElementById('close-request-success-btn');
+  const btnRequestDone = document.getElementById('btn-request-done');
 
+  const requestStepForm = document.getElementById('request-step-form');
+  const requestStepSuccess = document.getElementById('request-step-success');
+
+  const requestRecipientInput = document.getElementById('request-recipient-input');
+  const requestSearchingSpinner = document.getElementById('request-searching-spinner');
+  const requestRecipientResolvedBox = document.getElementById('request-recipient-resolved-box');
+  const requestResolvedName = document.getElementById('request-resolved-name');
+  const requestResolvedDetail = document.getElementById('request-resolved-detail');
+
+  const requestAmountInput = document.getElementById('request-amount-input');
+  const requestQuickAmountBtns = document.querySelectorAll('#request-quick-amount-tags .amount-tag-btn');
+  const requestNoteInput = document.getElementById('request-note-input');
+
+  const requestFormError = document.getElementById('request-form-error');
+  const requestFormErrorText = document.getElementById('request-form-error-text');
+  const btnSubmitRequest = document.getElementById('btn-submit-request');
+  const btnSubmitRequestText = document.getElementById('btn-submit-request-text');
+
+  // Success screen elements
+  const reqSuccessAmountText = document.getElementById('req-success-amount-text');
+  const reqSuccessRecipientText = document.getElementById('req-success-recipient-text');
+  const reqSuccessName = document.getElementById('req-success-name');
+  const reqSuccessAmt = document.getElementById('req-success-amt');
+  const reqSuccessNote = document.getElementById('req-success-note');
+
+  // Request flow state
+  const requestFlowState = {
+    resolvedRecipient: null,
+    amount: 5000,
+    note: ''
+  };
+
+  function openRequestModal() {
+    ensureUserSession();
+    if (modalRequest) modalRequest.classList.remove('hidden');
+    if (requestStepForm) requestStepForm.classList.remove('hidden');
+    if (requestStepSuccess) requestStepSuccess.classList.add('hidden');
+    if (requestFormError) requestFormError.classList.add('hidden');
+    if (requestRecipientResolvedBox) requestRecipientResolvedBox.classList.add('hidden');
+
+    if (requestRecipientInput) {
+      requestRecipientInput.value = '';
+      setTimeout(() => requestRecipientInput.focus(), 60);
+    }
+    if (requestAmountInput) requestAmountInput.value = '5000';
+    if (requestNoteInput) requestNoteInput.value = '';
+    requestFlowState.resolvedRecipient = null;
+    requestFlowState.amount = 5000;
+    requestFlowState.note = '';
+
+    // Reset quick chips
+    requestQuickAmountBtns.forEach(btn => {
+      if (btn.getAttribute('data-amt') === '5000') btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  }
+  window.openRequestModal = openRequestModal;
+
+  if (btnOpenRequest) btnOpenRequest.addEventListener('click', openRequestModal);
+  if (qaRequest) qaRequest.addEventListener('click', openRequestModal);
+  if (closeRequestBtn) closeRequestBtn.addEventListener('click', () => modalRequest?.classList.add('hidden'));
+  if (closeRequestSuccessBtn) closeRequestSuccessBtn.addEventListener('click', () => modalRequest?.classList.add('hidden'));
+  if (btnRequestDone) {
+    btnRequestDone.addEventListener('click', () => {
+      modalRequest?.classList.add('hidden');
+      refreshNotificationsAndRequests().catch(console.warn);
+    });
+  }
+
+  // Quick Amount Chips
+  requestQuickAmountBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      requestQuickAmountBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const amt = Number(btn.getAttribute('data-amt')) || 5000;
+      if (requestAmountInput) requestAmountInput.value = amt;
+      requestFlowState.amount = amt;
+    });
+  });
+
+  if (requestAmountInput) {
+    requestAmountInput.addEventListener('input', () => {
+      const val = Number(requestAmountInput.value) || 0;
+      requestFlowState.amount = val;
+      requestQuickAmountBtns.forEach(b => {
+        b.classList.toggle('active', Number(b.getAttribute('data-amt')) === val);
+      });
+    });
+  }
+
+  // Real-time recipient lookup for Request Money (Debounced)
+  let requestLookupDebounce = null;
+  if (requestRecipientInput) {
+    requestRecipientInput.addEventListener('input', () => {
+      clearTimeout(requestLookupDebounce);
+      const query = requestRecipientInput.value.trim();
+
+      if (!query || query.length < 2) {
+        if (requestRecipientResolvedBox) requestRecipientResolvedBox.classList.add('hidden');
+        if (requestSearchingSpinner) requestSearchingSpinner.classList.add('hidden');
+        requestFlowState.resolvedRecipient = null;
+        return;
+      }
+
+      if (requestSearchingSpinner) requestSearchingSpinner.classList.remove('hidden');
+
+      requestLookupDebounce = setTimeout(async () => {
+        try {
+          const recipient = await window.MidePayDB?.findRecipient(query, state.user?.id);
+          if (requestSearchingSpinner) requestSearchingSpinner.classList.add('hidden');
+
+          if (recipient) {
+            requestFlowState.resolvedRecipient = recipient;
+            if (requestResolvedName) requestResolvedName.textContent = recipient.fullName;
+            if (requestResolvedDetail) {
+              const tagText = recipient.tag || `@${recipient.fullName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+              const phoneText = recipient.phone || recipient.email || '';
+              requestResolvedDetail.textContent = `${tagText} • ${phoneText}`;
+            }
+            if (requestRecipientResolvedBox) requestRecipientResolvedBox.classList.remove('hidden');
+            if (requestFormError) requestFormError.classList.add('hidden');
+          } else {
+            requestFlowState.resolvedRecipient = null;
+            if (requestRecipientResolvedBox) requestRecipientResolvedBox.classList.add('hidden');
+          }
+        } catch (err) {
+          if (requestSearchingSpinner) requestSearchingSpinner.classList.add('hidden');
+          console.warn('[MidePay] Request recipient lookup error:', err);
+        }
+      }, 250);
+    });
+  }
+
+  // Submit Payment Request
+  if (btnSubmitRequest) {
+    btnSubmitRequest.addEventListener('click', async (e) => {
+      e.preventDefault();
+      ensureUserSession();
+
+      const recipient = requestFlowState.resolvedRecipient;
+      const amount = Number(requestAmountInput?.value) || requestFlowState.amount;
+      const note = (requestNoteInput?.value || '').trim();
+
+      if (!recipient) {
+        if (requestFormError && requestFormErrorText) {
+          requestFormErrorText.textContent = 'Please enter a valid MideTag, email, or phone of a registered member.';
+          requestFormError.classList.remove('hidden');
+        }
+        requestRecipientInput?.focus();
+        return;
+      }
+
+      if (recipient.id === state.user?.id || (recipient.email && recipient.email.toLowerCase() === state.user?.email?.toLowerCase())) {
+        if (requestFormError && requestFormErrorText) {
+          requestFormErrorText.textContent = 'You cannot request money from your own account.';
+          requestFormError.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (!amount || amount <= 0) {
+        if (requestFormError && requestFormErrorText) {
+          requestFormErrorText.textContent = 'Please enter a valid request amount greater than ₦0.';
+          requestFormError.classList.remove('hidden');
+        }
+        requestAmountInput?.focus();
+        return;
+      }
+
+      btnSubmitRequest.disabled = true;
+      if (btnSubmitRequestText) {
+        btnSubmitRequestText.innerHTML = `
+          <div class="recipient-search-spinner" style="position:static; width:16px; height:16px; margin-right:8px; display:inline-block; vertical-align:middle;"></div>
+          <span>Sending Request...</span>
+        `;
+      }
+
+      try {
+        const result = await window.MidePayDB.createPaymentRequest({
+          requesterId: state.user.id,
+          payerId: recipient.id,
+          amount: amount,
+          note: note,
+          requesterDetails: {
+            id: state.user.id,
+            fullName: state.user.fullName,
+            email: state.user.email,
+            phone: state.user.phone,
+            tag: state.user.tag
+          },
+          payerDetails: {
+            id: recipient.id,
+            fullName: recipient.fullName,
+            email: recipient.email,
+            phone: recipient.phone,
+            tag: recipient.tag
+          }
+        });
+
+        if (result.success) {
+          // Transition to Screen 2: Confirmation
+          if (requestStepForm) requestStepForm.classList.add('hidden');
+          if (requestStepSuccess) requestStepSuccess.classList.remove('hidden');
+
+          if (reqSuccessAmountText) reqSuccessAmountText.textContent = formatNaira(amount);
+          if (reqSuccessRecipientText) reqSuccessRecipientText.textContent = recipient.fullName;
+          if (reqSuccessName) reqSuccessName.textContent = recipient.fullName;
+          if (reqSuccessAmt) reqSuccessAmt.textContent = formatNaira(amount);
+          if (reqSuccessNote) reqSuccessNote.textContent = note || '—';
+
+          showToast(`📩 Request sent to ${recipient.fullName}!`, 'success');
+          await refreshNotificationsAndRequests();
+        } else {
+          showToast(`Could not send request: ${result.error || 'Server error'}`, 'error');
+        }
+      } catch (err) {
+        console.error('Request creation error:', err);
+        showToast(`Request failed: ${err.message || 'Network error'}`, 'error');
+      } finally {
+        btnSubmitRequest.disabled = false;
+        if (btnSubmitRequestText) btnSubmitRequestText.textContent = 'Send Payment Request';
+      }
+    });
+  }
+
+  // =========================================================================
+  // NOTIFICATIONS BELL & PENDING PAYMENT REQUESTS CONTROLLER
+  // =========================================================================
+  const btnNotificationBell = document.getElementById('btn-notification-bell');
+  const notificationBadge = document.getElementById('notification-badge');
+  const notificationsDropdown = document.getElementById('notifications-dropdown');
+  const notificationsList = document.getElementById('notifications-list');
+  const pendingRequestsCountTag = document.getElementById('pending-requests-count-tag');
+
+  // Toggle notification flyout
+  if (btnNotificationBell && notificationsDropdown) {
+    btnNotificationBell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = notificationsDropdown.classList.contains('hidden');
+      if (isHidden) {
+        notificationsDropdown.classList.remove('hidden');
+        refreshNotificationsAndRequests().catch(console.warn);
+      } else {
+        notificationsDropdown.classList.add('hidden');
+      }
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!notificationsDropdown.contains(e.target) && !btnNotificationBell.contains(e.target)) {
+        notificationsDropdown.classList.add('hidden');
+      }
+    });
+  }
+
+  // Initialize demo request if local storage empty
+  function initDefaultPaymentRequests() {
+    try {
+      const stored = localStorage.getItem('midepay_payment_requests');
+      if (!stored) {
+        const demoRequests = [
+          {
+            id: 'req-demo-001',
+            requester_id: 'a0000000-0000-4000-8000-000000000002', // Chinedu Eze
+            payer_id: 'a0000000-0000-4000-8000-000000000001', // Olamide Olasunkanmi
+            amount: 5000,
+            note: 'Lunch at Terra Kulture',
+            status: 'pending',
+            requester: {
+              id: 'a0000000-0000-4000-8000-000000000002',
+              fullName: 'Chinedu Eze',
+              email: 'chinedu@midepay.ng',
+              phone: '08023456781',
+              tag: '@chinedu'
+            },
+            payer: {
+              id: 'a0000000-0000-4000-8000-000000000001',
+              fullName: 'Olamide Olasunkanmi',
+              email: 'olasunkanmiolamide15@gmail.com',
+              phone: '08139482019',
+              tag: '@olamide'
+            },
+            created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+            updated_at: new Date(Date.now() - 3600000 * 2).toISOString()
+          }
+        ];
+        localStorage.setItem('midepay_payment_requests', JSON.stringify(demoRequests));
+      }
+    } catch (e) {}
+  }
+  initDefaultPaymentRequests();
+
+  // Refresh notifications and requests
+  async function refreshNotificationsAndRequests() {
+    const currentUserId = state.user?.id;
+    if (!currentUserId || !window.MidePayDB) return;
+
+    try {
+      const allRequests = await window.MidePayDB.getPaymentRequests(currentUserId);
+
+      // 1. Pending requests where current user is the PAYER
+      const pendingForMe = allRequests.filter(r => r.payer_id === currentUserId && r.status === 'pending');
+      const pendingCount = pendingForMe.length;
+
+      // Update badge
+      if (notificationBadge) {
+        if (pendingCount > 0) {
+          notificationBadge.textContent = pendingCount > 9 ? '9+' : pendingCount.toString();
+          notificationBadge.classList.remove('hidden');
+        } else {
+          notificationBadge.classList.add('hidden');
+        }
+      }
+
+      if (pendingRequestsCountTag) {
+        pendingRequestsCountTag.textContent = `${pendingCount} pending`;
+      }
+
+      // Render Dropdown List
+      if (notificationsList) {
+        if (pendingCount === 0) {
+          notificationsList.innerHTML = `
+            <div class="notifications-empty-state">
+              <span style="font-size: 2rem;">✨</span>
+              <strong style="color: var(--text-primary);">No pending requests</strong>
+              <span>You're all caught up! Incoming payment requests from contacts will appear here.</span>
+            </div>
+          `;
+        } else {
+          notificationsList.innerHTML = pendingForMe.map(req => {
+            const requesterName = req.requester?.fullName || req.requester?.full_name || 'MidePay Member';
+            const requesterTag = req.requester?.tag || `@${requesterName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+            const initials = requesterName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'MP';
+            const noteText = req.note ? `<div class="req-note-box">💬 "${escapeHtml(req.note)}"</div>` : '';
+
+            return `
+              <div class="req-item-card" data-req-id="${req.id}">
+                <div class="req-item-top">
+                  <div class="req-user-info">
+                    <div class="req-user-avatar">${initials}</div>
+                    <div class="req-name-tag">
+                      <span class="req-user-name">${escapeHtml(requesterName)}</span>
+                      <span class="req-user-tag">${escapeHtml(requesterTag)}</span>
+                    </div>
+                  </div>
+                  <div class="req-amount-badge">${formatNaira(req.amount)}</div>
+                </div>
+                ${noteText}
+                <div class="req-actions-row">
+                  <button type="button" class="btn-req-approve" data-request-id="${req.id}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Approve & Pay</span>
+                  </button>
+                  <button type="button" class="btn-req-decline" data-request-id="${req.id}">
+                    <span>Decline</span>
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          // Attach Approve listeners
+          notificationsList.querySelectorAll('.btn-req-approve').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const reqId = btn.getAttribute('data-request-id');
+              const targetReq = pendingForMe.find(r => r.id === reqId);
+              if (targetReq) {
+                handleApprovePaymentRequest(targetReq);
+              }
+            });
+          });
+
+          // Attach Decline listeners
+          notificationsList.querySelectorAll('.btn-req-decline').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              const reqId = btn.getAttribute('data-request-id');
+              await handleDeclinePaymentRequest(reqId);
+            });
+          });
+        }
+      }
+
+      // Also render Requester-Side Visibility in Dashboard (Step 6)
+      const dashboardRequestsList = document.getElementById('dashboard-requests-list');
+      if (dashboardRequestsList && state.txFilter === 'requests') {
+        renderDashboardPaymentRequests(dashboardRequestsList, allRequests);
+      }
+    } catch (err) {
+      console.warn('[MidePay] refreshNotificationsAndRequests error:', err);
+    }
+  }
+  window.refreshNotificationsAndRequests = refreshNotificationsAndRequests;
+
+  // Step 4 — Approve Flow: Triggers exact Send Money PIN verification & execution
+  function handleApprovePaymentRequest(request) {
+    if (!request) return;
+
+    // Check balance first
+    if (state.dashBalance < Number(request.amount)) {
+      showToast(`⚠️ Insufficient balance (${formatNaira(state.dashBalance)}) to approve ${formatNaira(request.amount)} request. Top up first!`, 'error');
+      return;
+    }
+
+    // Close notifications dropdown
+    notificationsDropdown?.classList.add('hidden');
+
+    const requesterName = request.requester?.fullName || request.requester?.full_name || 'MidePay Member';
+    const requesterTag = request.requester?.tag || request.requester?.email || 'MidePay Tag';
+
+    // Pre-populate sendFlowState
+    sendFlowState.resolvedName = requesterName;
+    sendFlowState.selectedBank = 'MidePay Member';
+    sendFlowState.accountNumber = requesterTag;
+    sendFlowState.amount = Number(request.amount);
+    sendFlowState.transferFee = 0.00;
+    sendFlowState.narration = `Payment Request: ${request.note || 'Settlement'}`;
+    sendFlowState.recipientId = request.requester_id;
+    sendFlowState.isAccountResolved = true;
+    sendFlowState.approvedRequestId = request.id;
+
+    // Open Send Money modal directly at PIN verification screen
+    modalSend?.classList.remove('hidden');
+    showSendStep('pin-confirm');
+  }
+
+  // Step 5 — Decline Flow:
+  async function handleDeclinePaymentRequest(requestId) {
+    if (!requestId) return;
+    try {
+      await window.MidePayDB.updatePaymentRequestStatus(requestId, 'declined', state.user?.id);
+      showToast('Payment request declined. No money moved.', 'info');
+      await refreshNotificationsAndRequests();
+    } catch (err) {
+      showToast('Could not decline request: ' + err.message, 'error');
+    }
+  }
+
+  // Step 6 — Requester-Side Visibility:
+  async function renderDashboardPaymentRequests(container, allRequests = null) {
+    if (!container) return;
+    const currentUserId = state.user?.id;
+    if (!currentUserId) return;
+
+    let requests = allRequests;
+    if (!requests && window.MidePayDB) {
+      requests = await window.MidePayDB.getPaymentRequests(currentUserId);
+    }
+    if (!requests) requests = [];
+
+    if (requests.length === 0) {
+      container.innerHTML = `
+        <div class="dash-tx-empty-state" style="padding: 2.8rem 1.2rem; text-align: center; color: var(--text-muted);">
+          <div style="font-size: 2.2rem; margin-bottom: 0.6rem; opacity: 0.7;">📩</div>
+          <div style="font-weight: 600; font-size: 1.05rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
+            No payment requests yet
+          </div>
+          <div style="font-size: 0.88rem; max-width: 280px; margin: 0 auto; color: var(--text-muted); line-height: 1.5;">
+            Use the "Request" quick action to ask registered contacts for funds.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = requests.map(req => {
+      const isRequester = (req.requester_id === currentUserId);
+      const otherPersonName = isRequester
+        ? (req.payer?.fullName || req.payer?.full_name || 'Contact')
+        : (req.requester?.fullName || req.requester?.full_name || 'Contact');
+      
+      const title = isRequester ? `Request to ${otherPersonName}` : `Request from ${otherPersonName}`;
+      const statusClass = req.status || 'pending';
+      const statusLabel = req.status ? req.status.charAt(0).toUpperCase() + req.status.slice(1) : 'Pending';
+      const dateStr = formatTxDate(req.created_at);
+      const noteStr = req.note ? ` • "${escapeHtml(req.note)}"` : '';
+
+      return `
+        <div class="dash-tx-item" style="cursor: default;">
+          <div class="dash-tx-left">
+            <div class="tx-badge-icon ${isRequester ? 'tx-inflow' : 'tx-outflow'}" style="background: rgba(59,130,246,0.15); color: #60A5FA;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </div>
+            <div class="dash-tx-details">
+              <span class="dash-tx-title">${escapeHtml(title)}</span>
+              <span class="dash-tx-meta">${dateStr}${noteStr}</span>
+            </div>
+          </div>
+          <div class="dash-tx-right" style="text-align: right;">
+            <div class="dash-tx-val" style="color: ${isRequester ? '#34D399' : '#F87171'};">
+              ${isRequester ? '+' : '-'}${formatNaira(req.amount)}
+            </div>
+            <span class="status-pill ${statusClass}" style="margin-top: 3px;">${statusLabel}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 
   // Add Money Form Simulation & Database Record
   const addFundsForm = document.getElementById('add-funds-form');
