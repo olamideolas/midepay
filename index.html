@@ -12,7 +12,8 @@
   
   <!-- Favicon: Square Icon Mark -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="icon" type="image/png" sizes="256x256" href="midepay-icon.png">
+  <link rel="apple-touch-icon" href="midepay-icon.png">
   
   <link rel="stylesheet" href="style.css?v=2.6">
   <link rel="stylesheet" href="loading-animation.css">
@@ -25,35 +26,11 @@
   <header class="site-header" id="site-header">
     <div class="header-container">
       <a href="#" class="brand-logo" id="brand-logo-btn" aria-label="MidePay Home">
-        <svg class="brand-logo-svg" width="154" height="40" viewBox="0 0 170 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="nav-logo-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#24C16E"/>
-              <stop offset="50%" stop-color="#1EAA60"/>
-              <stop offset="100%" stop-color="#137D45"/>
-            </linearGradient>
-            <linearGradient id="nav-logo-fold" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#178046"/>
-              <stop offset="100%" stop-color="#0F5A30"/>
-            </linearGradient>
-            <linearGradient id="nav-logo-coin" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#F5BD6B"/>
-              <stop offset="60%" stop-color="#DEA253"/>
-              <stop offset="100%" stop-color="#C58536"/>
-            </linearGradient>
-            <filter id="nav-logo-shadow" x="-10%" y="-10%" width="130%" height="130%">
-              <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.3"/>
-            </filter>
-          </defs>
-          <g transform="translate(2, 2)">
-            <path d="M 13 2 H 32 C 37 2, 38 4, 38 9 V 31 C 38 36, 37 38, 32 38 H 8 C 3 38, 2 36, 2 31 V 13 Z" fill="url(#nav-logo-bg)"/>
-            <path d="M 2 13 L 13 13 L 13 2 Z" fill="url(#nav-logo-fold)" filter="url(#nav-logo-shadow)"/>
-            <circle cx="26" cy="23" r="5.5" fill="url(#nav-logo-coin)"/>
-          </g>
-          <text x="54" y="29" font-family="'Sora', 'Inter', -apple-system, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.5">
-            <tspan fill="#F8FAFC" class="brand-text-mide">Mide</tspan><tspan fill="#22C55E">Pay</tspan>
-          </text>
-        </svg>
+        <img src="midepay-icon.png" width="36" height="36" alt="Midepay" class="brand-logo-mark">
+        <div class="brand-text-wrap">
+          <span class="brand-text-name">Mide<span class="brand-text-pay">pay</span></span>
+          <span class="brand-text-sub">FINTECH SOLUTIONS</span>
+        </div>
         <span class="badge-concept">Concept</span>
       </a>
 
@@ -731,16 +708,11 @@
         <div class="footer-top">
           <div class="footer-brand-col">
             <div class="brand-logo">
-              <svg class="brand-logo-svg" width="144" height="38" viewBox="0 0 170 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <g transform="translate(2, 2)">
-                  <path d="M 13 2 H 32 C 37 2, 38 4, 38 9 V 31 C 38 36, 37 38, 32 38 H 8 C 3 38, 2 36, 2 31 V 13 Z" fill="url(#nav-logo-bg)"/>
-                  <path d="M 2 13 L 13 13 L 13 2 Z" fill="url(#nav-logo-fold)" filter="url(#nav-logo-shadow)"/>
-                  <circle cx="26" cy="23" r="5.5" fill="url(#nav-logo-coin)"/>
-                </g>
-                <text x="54" y="29" font-family="'Sora', 'Inter', -apple-system, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.5">
-                  <tspan fill="#F8FAFC" class="brand-text-mide">Mide</tspan><tspan fill="#22C55E">Pay</tspan>
-                </text>
-              </svg>
+              <img src="midepay-icon.png" width="34" height="34" alt="Midepay" class="brand-logo-mark">
+              <div class="brand-text-wrap">
+                <span class="brand-text-name">Mide<span class="brand-text-pay">pay</span></span>
+                <span class="brand-text-sub">FINTECH SOLUTIONS</span>
+              </div>
             </div>
             <p class="footer-bio">
               Next-generation digital wallet and commercial payments architecture tailored for Nigeria's digital economy.
@@ -805,12 +777,8 @@
           </button>
 
           <div class="auth-brand-center">
-            <div class="logo-icon sm">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L3 7V12C3 17.52 6.84 22.74 12 24C17.16 22.74 21 17.52 21 12V7L12 2Z" fill="#10B981" />
-              </svg>
-            </div>
-            <span class="auth-brand-name">Mide<span class="text-accent">Pay</span></span>
+            <img src="midepay-icon.png" width="30" height="30" alt="Midepay" class="auth-brand-icon">
+            <span class="auth-brand-name">Mide<span class="brand-text-pay">pay</span></span>
           </div>
 
           <h2 class="auth-title">Create your digital wallet</h2>
@@ -937,12 +905,8 @@
           </button>
 
           <div class="auth-brand-center">
-            <div class="logo-icon sm">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L3 7V12C3 17.52 6.84 22.74 12 24C17.16 22.74 21 17.52 21 12V7L12 2Z" fill="#10B981" />
-              </svg>
-            </div>
-            <span class="auth-brand-name">Mide<span class="text-accent">Pay</span></span>
+            <img src="midepay-icon.png" width="30" height="30" alt="Midepay" class="auth-brand-icon">
+            <span class="auth-brand-name">Mide<span class="brand-text-pay">pay</span></span>
           </div>
 
           <h2 class="auth-title">Welcome back</h2>
@@ -2725,16 +2689,11 @@
         <!-- Brand Watermark & Top Bar -->
         <div class="receipt-brand-row">
           <div class="brand-logo">
-            <svg class="brand-logo-svg sm" width="120" height="32" viewBox="0 0 170 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <g transform="translate(2, 2)">
-                <path d="M 13 2 H 32 C 37 2, 38 4, 38 9 V 31 C 38 36, 37 38, 32 38 H 8 C 3 38, 2 36, 2 31 V 13 Z" fill="url(#nav-logo-bg)"/>
-                <path d="M 2 13 L 13 13 L 13 2 Z" fill="url(#nav-logo-fold)" filter="url(#nav-logo-shadow)"/>
-                <circle cx="26" cy="23" r="5.5" fill="url(#nav-logo-coin)"/>
-              </g>
-              <text x="54" y="29" font-family="'Sora', 'Inter', -apple-system, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.5">
-                <tspan fill="#F8FAFC">Mide</tspan><tspan fill="#22C55E">Pay</tspan>
-              </text>
-            </svg>
+            <img src="midepay-icon.png" width="28" height="28" alt="Midepay" class="brand-logo-mark sm">
+            <div class="brand-text-wrap">
+              <span class="brand-text-name" style="font-size: 1.15rem;">Mide<span class="brand-text-pay">pay</span></span>
+              <span class="brand-text-sub" style="font-size: 0.44rem;">FINTECH SOLUTIONS</span>
+            </div>
           </div>
           <span class="receipt-tagline">OFFICIAL TRANSACTION RECEIPT</span>
         </div>

@@ -489,6 +489,57 @@ select.form-input option {
   height: 28px;
 }
 
+.brand-logo-mark {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+  filter: drop-shadow(0 2px 6px rgba(0, 82, 204, 0.25));
+}
+
+.brand-logo:hover .brand-logo-mark {
+  transform: scale(1.05);
+}
+
+.brand-logo-mark.sm {
+  width: 28px;
+  height: 28px;
+}
+
+.brand-text-wrap {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.brand-text-name {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #FFFFFF;
+}
+
+.brand-text-pay {
+  color: #00D492;
+}
+
+.brand-text-sub {
+  font-family: var(--font-body);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #94A3B8;
+  margin-top: 1px;
+}
+
+.auth-brand-icon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 82, 204, 0.25));
+}
+
 .logo-icon {
   width: 36px;
   height: 36px;
