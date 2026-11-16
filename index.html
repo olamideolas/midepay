@@ -10,13 +10,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Favicon: Square Icon Mark -->
+  <!-- Favicon & Installable PWA Configuration -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00D492">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MidePay">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="icon" type="image/png" sizes="256x256" href="midepay-icon.png">
   <link rel="apple-touch-icon" href="midepay-icon.png">
   
-  <link rel="stylesheet" href="style.css?v=2.6">
-  <link rel="stylesheet" href="loading-animation.css">
+  <link rel="stylesheet" href="liquid-glass.css?v=4.0">
+  <link rel="stylesheet" href="style.css?v=4.0">
+  <link rel="stylesheet" href="loading-animation.css?v=4.0">
 </head>
 <body>
   <!-- Toast Notification Container -->
@@ -708,11 +715,7 @@
         <div class="footer-top">
           <div class="footer-brand-col">
             <div class="brand-logo">
-              <img src="midepay-icon.png" width="34" height="34" alt="Midepay" class="brand-logo-mark">
-              <div class="brand-text-wrap">
-                <span class="brand-text-name">Mide<span class="brand-text-pay">pay</span></span>
-                <span class="brand-text-sub">FINTECH SOLUTIONS</span>
-              </div>
+              <img src="midepay-logo.svg" width="196" height="46" alt="MidePay — Fintech Solutions" class="brand-wordmark-svg">
             </div>
             <p class="footer-bio">
               Next-generation digital wallet and commercial payments architecture tailored for Nigeria's digital economy.
@@ -1020,6 +1023,42 @@
         </div>
       </div>
 
+      <!-- Offline Connectivity Fallback Banner -->
+      <div class="pwa-offline-banner hidden" id="offline-status-banner" role="status" aria-live="polite">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+        <span><strong>Offline Mode:</strong> Viewing cached wallet data. Live transfers & sync will resume automatically once mobile data reconnects.</span>
+      </div>
+
+      <!-- Install MidePay App (PWA) Prompt Banner -->
+      <div class="pwa-install-banner liquid-glass hidden" data-liquid-glass="rounded" data-liquid-theme="emerald" id="pwa-install-banner" role="region" aria-label="Install MidePay Mobile App">
+        <div class="pwa-install-info">
+          <img src="midepay-icon.png" width="40" height="40" alt="MidePay App Icon" class="pwa-install-icon">
+          <div class="pwa-install-copy">
+            <strong>Install MidePay App</strong>
+            <span>Add MidePay to your home screen for instant 1-tap transfers & offline statement access.</span>
+          </div>
+        </div>
+        <div class="pwa-install-actions">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-pwa-install">Install App</button>
+          <button type="button" class="btn-pwa-dismiss" id="btn-pwa-dismiss" aria-label="Dismiss install banner">✕</button>
+        </div>
+      </div>
+
+      <!-- Workspace Switcher: Personal Wallet vs Business Suite (Team Payroll) -->
+      <div class="dash-workspace-switcher" id="dash-workspace-switcher" role="tablist" aria-label="Workspace Switcher">
+        <button type="button" class="workspace-switch-btn active" id="dash-workspace-personal" role="tab" aria-selected="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Personal Wallet &amp; MideSave</span>
+        </button>
+        <button type="button" class="workspace-switch-btn" id="dash-workspace-business" role="tab" aria-selected="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          <span>Business Suite &amp; Team Payroll</span>
+          <span class="badge-emerald-sm" style="margin-left:0.35rem; font-size:0.65rem;">₦0 Batch Fee</span>
+        </button>
+      </div>
+
+      <!-- PERSONAL WALLET PANEL -->
+      <div id="dashboard-personal-panel">
       <!-- Dashboard Main Grid -->
       <div class="dashboard-grid">
         <!-- LEFT COLUMN: BALANCE CARD & QUICK ACTIONS -->
@@ -1201,6 +1240,30 @@
                 <span class="qa-desc" id="qa-kyc-sub">Tier 2 Verified</span>
               </button>
 
+              <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-midesave" title="MideSave Goal-Based Savings Vaults (14.5% p.a.)">
+                <div class="qa-icon-wrap emerald">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2V5z"></path>
+                    <circle cx="9" cy="11" r="1"></circle>
+                  </svg>
+                </div>
+                <span class="qa-title">MideSave</span>
+                <span class="qa-desc">14.5% p.a. Vaults</span>
+              </button>
+
+              <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="teal" id="qa-payroll" title="Business Suite Batch Team Payroll">
+                <div class="qa-icon-wrap gold">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+                <span class="qa-title">Team Payroll</span>
+                <span class="qa-desc">Batch Salaries</span>
+              </button>
+
               <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="obsidian" id="qa-panic-freeze" title="Emergency Account Freeze">
                 <div class="qa-icon-wrap" style="background:rgba(239,68,68,0.15); color:#F87171;">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1213,13 +1276,61 @@
               </button>
             </div>
           </div>
+
+          <!-- MIDESAVE GOAL-BASED SAVINGS VAULTS WIDGET -->
+          <div class="midesave-widget-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian" id="midesave-dashboard-widget">
+            <div class="midesave-widget-header">
+              <div>
+                <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                  <h3 class="dash-section-title" style="margin:0;">MideSave Goal Vaults</h3>
+                  <span class="badge-emerald-sm">14.5% p.a. APY</span>
+                </div>
+                <p class="midesave-widget-sub">Total Saved: <strong id="midesave-total-saved">₦0.00</strong> • <span id="midesave-active-count">0</span> active goals</p>
+              </div>
+              <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+                <button type="button" class="btn btn-outline-xs" id="btn-dash-open-midesave">Manage Vaults</button>
+                <button type="button" class="btn btn-primary-xs" id="btn-dash-create-vault">+ Create Vault</button>
+              </div>
+            </div>
+            <div class="midesave-vaults-preview" id="midesave-vaults-preview">
+              <!-- Populated dynamically by app.js -->
+            </div>
+          </div>
         </div>
 
         <!-- RIGHT COLUMN: RECENT TRANSACTIONS -->
         <div class="dash-side-col">
           <div class="dash-tx-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian">
             <div class="tx-card-header">
-              <h3 class="dash-section-title">Transactions</h3>
+              <div class="tx-header-top-row">
+                <h3 class="dash-section-title">Transactions</h3>
+                <div class="statement-menu-wrapper" id="statement-menu-wrapper">
+                  <button type="button" class="btn btn-outline-xs btn-download-statement" id="btn-download-statement" aria-haspopup="true" aria-expanded="false" title="Download Official Account Statement">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Download Statement</span>
+                  </button>
+                  <div class="statement-dropdown-menu hidden" id="statement-dropdown-menu" role="menu">
+                    <button type="button" class="statement-dropdown-item" id="btn-export-statement-csv" role="menuitem">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
+                      <div>
+                        <strong>Export CSV Statement</strong>
+                        <span>Spreadsheet (.csv) for Excel & bookkeeping</span>
+                      </div>
+                    </button>
+                    <button type="button" class="statement-dropdown-item" id="btn-open-statement-modal" role="menuitem">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                      <div>
+                        <strong>Official Statement (Print / PDF)</strong>
+                        <span>Branded Providus NUBAN statement & PDF</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
               <div class="tx-filter-pills" role="tablist">
                 <button class="tx-filter-pill active" data-filter="all">All</button>
                 <button class="tx-filter-pill" data-filter="inflow">Inflow</button>
@@ -1236,6 +1347,125 @@
             <!-- Dynamic Payment Requests List (Requester-side visibility) -->
             <div class="dash-tx-list hidden" id="dashboard-requests-list">
               <!-- Populated by JavaScript -->
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- ============================================================= -->
+      <!-- BUSINESS SUITE PANEL: TEAM PAYROLL (BATCH DISBURSEMENT)       -->
+      <!-- ============================================================= -->
+      <div id="dashboard-business-panel" class="hidden">
+        <div class="business-suite-hero liquid-glass" data-liquid-glass="card" data-liquid-theme="emerald">
+          <div class="business-hero-left">
+            <div style="display:flex; align-items:center; gap:0.55rem; margin-bottom:0.35rem;">
+              <span class="badge-gold-sm">MidePay Business Suite</span>
+              <span class="badge-emerald-sm">₦0.00 Internal Payroll Switch</span>
+            </div>
+            <h2 style="font-size:1.45rem; font-weight:800; color:var(--text-primary); margin:0 0 0.25rem 0;">Team Payroll &amp; Batch Salary Disbursement</h2>
+            <p style="font-size:0.86rem; color:var(--text-secondary); margin:0;">Add team members by 10-digit MidePay NUBAN or @tag, auto-verify their identity, and disburse salaries to all staff in one atomic transaction.</p>
+          </div>
+          <div class="business-hero-right">
+            <div style="text-align:right;">
+              <span style="font-size:0.74rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Available Payroll Treasury</span>
+              <div style="font-size:1.55rem; font-weight:800; color:#34D399;" id="payroll-wallet-balance">₦0.00</div>
+            </div>
+            <button type="button" class="btn btn-outline-sm" id="btn-payroll-back-personal">← Personal Wallet</button>
+          </div>
+        </div>
+
+        <div class="payroll-grid">
+          <!-- Left: Add Staff + Roster Table -->
+          <div class="payroll-main-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian">
+            <h3 class="dash-section-title" style="margin-bottom:0.85rem;">1. Build Staff Payroll Roster</h3>
+            <form class="payroll-add-form" id="payroll-add-staff-form" onsubmit="return false;">
+              <div class="payroll-form-row">
+                <div class="form-group" style="margin:0;">
+                  <label for="payroll-staff-identifier" class="form-label">Staff MidePay 10-Digit NUBAN or @tag</label>
+                  <input type="text" id="payroll-staff-identifier" class="form-input" placeholder="e.g. 9048291048 or @tunde" autocomplete="off" required>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label for="payroll-staff-role" class="form-label">Role / Department</label>
+                  <input type="text" id="payroll-staff-role" class="form-input" placeholder="e.g. Lead Engineer" value="Product Engineer" required>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label for="payroll-staff-salary" class="form-label">Monthly Salary (NGN)</label>
+                  <input type="number" id="payroll-staff-salary" class="form-input" placeholder="250000" min="500" step="any" value="150000" required>
+                </div>
+                <div style="display:flex; align-items:flex-end;">
+                  <button type="submit" class="btn btn-primary" id="btn-payroll-add-staff" style="white-space:nowrap;">+ Add Staff</button>
+                </div>
+              </div>
+              <div class="account-resolved-box hidden" id="payroll-staff-resolved-box" style="margin-top:0.55rem;">
+                <span class="badge-resolved-check" id="payroll-staff-resolved-badge">✓</span>
+                <span id="payroll-staff-resolved-text">Verifying staff account...</span>
+              </div>
+            </form>
+
+            <div class="admin-table-wrapper" style="margin-top:1.1rem;">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Verified Staff Name</th>
+                    <th>NUBAN / @tag</th>
+                    <th>Role</th>
+                    <th style="text-align:right;">Salary (NGN)</th>
+                    <th style="text-align:right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="payroll-roster-tbody">
+                  <tr>
+                    <td colspan="5" style="text-align:center; padding:1.6rem; color:var(--text-muted);">No staff added yet. Enter a MidePay 10-digit NUBAN or @tag above to add your team.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Right: Batch Authorization & Payroll History -->
+          <div class="payroll-side-col">
+            <div class="payroll-summary-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian">
+              <h3 class="dash-section-title" style="margin-bottom:0.85rem;">2. Authorize &amp; Disburse</h3>
+              <div class="form-group">
+                <label for="payroll-run-title" class="form-label">Payroll Cycle Title</label>
+                <input type="text" id="payroll-run-title" class="form-input" value="November 2026 Team Salary Run" maxlength="80">
+              </div>
+
+              <div class="payroll-totals-box">
+                <div class="fee-summary-row">
+                  <span>Staff Count</span>
+                  <strong id="payroll-summary-count">0 Employees</strong>
+                </div>
+                <div class="fee-summary-row">
+                  <span>Batch Processing Fee</span>
+                  <span class="text-accent font-bold">₦0.00 (Internal Switch)</span>
+                </div>
+                <div class="fee-summary-row" style="border-top:1px solid var(--border-subtle); padding-top:0.55rem; margin-top:0.35rem;">
+                  <span>Total Payroll Debit</span>
+                  <strong style="font-size:1.18rem; color:#34D399;" id="payroll-summary-total">₦0.00</strong>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top:0.9rem;">
+                <label for="payroll-pin-input" class="form-label">4-Digit Transaction PIN</label>
+                <input type="password" inputmode="numeric" maxlength="4" id="payroll-pin-input" class="form-input" placeholder="Enter 4-digit security PIN (e.g. 1234)" autocomplete="off">
+              </div>
+
+              <div class="flow-alert-banner flow-alert-error hidden" id="payroll-error-alert">
+                <span id="payroll-error-text">Unable to disburse payroll.</span>
+              </div>
+
+              <button type="button" class="btn btn-primary w-full btn-lg" id="btn-execute-payroll" style="margin-top:0.75rem;">
+                ⚡ Verify PIN &amp; Disburse Batch Payroll
+              </button>
+            </div>
+
+            <div class="payroll-summary-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian" style="margin-top:1rem;">
+              <h3 class="dash-section-title" style="margin-bottom:0.65rem;">Recent Payroll Runs</h3>
+              <div id="payroll-history-list" style="display:flex; flex-direction:column; gap:0.55rem;">
+                <div style="font-size:0.82rem; color:var(--text-muted); padding:0.75rem 0;">No batch payroll runs executed yet.</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1562,8 +1792,8 @@
                 type="text" 
                 id="request-recipient-input" 
                 class="form-input" 
-                placeholder="Enter @tag, email, or phone (e.g. @chinedu)" 
-                maxlength="50"
+                placeholder="Enter 10-digit NUBAN, @tag, email, or phone" 
+                maxlength="60"
                 autocomplete="off"
                 required
               >
@@ -1580,7 +1810,7 @@
                 </div>
               </div>
             </div>
-            <span class="form-hint" id="request-recipient-hint">Search any registered MidePay member by MideTag (@username), email, or phone number.</span>
+            <span class="form-hint" id="request-recipient-hint">Search any registered MidePay member by 10-digit MidePay NUBAN, MideTag (@username), email, or phone number.</span>
           </div>
 
           <!-- Request Amount Field with Quick Chips -->
@@ -1721,7 +1951,16 @@
           <div class="form-group">
             <label class="form-label">Select Destination Bank</label>
             <div class="bank-quick-grid" id="popular-banks-grid">
-              <button type="button" class="bank-quick-btn active" data-bank="OPay" title="OPay Digital Services">
+              <button type="button" class="bank-quick-btn active" data-bank="MidePay" title="MidePay Wallet (Instant Zero-Fee)">
+                <div class="bank-badge-icon" style="background:linear-gradient(135deg,#00D492,#059669);">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L4 6v6c0 5.5 3.4 10.6 8 12 4.6-1.4 8-6.5 8-12V6l-8-4z" stroke="#FFF" stroke-width="2.2" fill="none"/>
+                    <path d="M8.5 12.2l2.3 2.3 4.8-4.8" stroke="#FFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <span class="bank-badge-name">MidePay</span>
+              </button>
+              <button type="button" class="bank-quick-btn" data-bank="OPay" title="OPay Digital Services">
                 <div class="bank-badge-icon" style="background:#00B875;">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <circle cx="12" cy="12" r="8.5" stroke="#FFF" stroke-width="2.8"/>
@@ -1823,67 +2062,72 @@
 
           <!-- Destination Bank Selector Dropdown -->
           <div class="form-group">
-            <label for="send-destination" class="form-label">Destination Bank or MideTag</label>
+            <label for="send-destination" class="form-label">Destination Bank or MidePay Wallet</label>
             <select id="send-destination" class="form-input form-select" required>
-              <option value="OPay" selected>OPay Digital Services</option>
-              <option value="PalmPay">PalmPay</option>
-              <option value="Kuda Bank">Kuda Microfinance Bank</option>
-              <option value="Moniepoint">Moniepoint Microfinance Bank</option>
-              <option value="GTBank">Guaranty Trust Bank (GTBank)</option>
-              <option value="Access Bank">Access Bank Plc</option>
-              <option value="Zenith Bank">Zenith Bank Plc</option>
-              <option value="United Bank for Africa (UBA)">United Bank for Africa (UBA)</option>
-              <option value="First Bank of Nigeria">First Bank of Nigeria</option>
-              <option value="Providus Bank">Providus Bank</option>
-              <option value="MidePay Tag">MidePay Tag (@username) — Instant & Free</option>
-              <option value="Citibank Nigeria">Citibank Nigeria</option>
-              <option value="Ecobank Nigeria">Ecobank Nigeria</option>
-              <option value="Fidelity Bank">Fidelity Bank Plc</option>
-              <option value="First City Monument Bank (FCMB)">First City Monument Bank (FCMB)</option>
-              <option value="Heritage Bank">Heritage Bank Plc</option>
-              <option value="Jaiz Bank">Jaiz Bank</option>
-              <option value="Keystone Bank">Keystone Bank</option>
-              <option value="Lotus Bank">Lotus Bank</option>
-              <option value="Polaris Bank">Polaris Bank</option>
-              <option value="PremiumTrust Bank">PremiumTrust Bank</option>
-              <option value="Stanbic IBTC Bank">Stanbic IBTC Bank</option>
-              <option value="Standard Chartered Bank">Standard Chartered Bank</option>
-              <option value="Sterling Bank">Sterling Bank</option>
-              <option value="SunTrust Bank">SunTrust Bank</option>
-              <option value="Taj Bank">Taj Bank</option>
-              <option value="Titan Trust Bank">Titan Trust Bank</option>
-              <option value="Union Bank of Nigeria">Union Bank of Nigeria</option>
-              <option value="Unity Bank">Unity Bank</option>
-              <option value="VFD Microfinance Bank">VFD Microfinance Bank</option>
-              <option value="Wema Bank (ALAT)">Wema Bank / ALAT</option>
+              <option value="MidePay" data-bank-code="MIDEPAY" selected>MidePay Wallet (10-Digit NUBAN / @tag) — Instant &amp; Free</option>
+              <option value="OPay" data-bank-code="999992">OPay Digital Services</option>
+              <option value="PalmPay" data-bank-code="999991">PalmPay</option>
+              <option value="Kuda Bank" data-bank-code="50211">Kuda Microfinance Bank</option>
+              <option value="Moniepoint" data-bank-code="50515">Moniepoint Microfinance Bank</option>
+              <option value="GTBank" data-bank-code="058">Guaranty Trust Bank (GTBank)</option>
+              <option value="Access Bank" data-bank-code="044">Access Bank Plc</option>
+              <option value="Zenith Bank" data-bank-code="057">Zenith Bank Plc</option>
+              <option value="United Bank for Africa (UBA)" data-bank-code="033">United Bank for Africa (UBA)</option>
+              <option value="First Bank of Nigeria" data-bank-code="011">First Bank of Nigeria</option>
+              <option value="Providus Bank" data-bank-code="101">Providus Bank</option>
+              <option value="MidePay Tag" data-bank-code="MIDEPAY">MidePay Tag (@username) — Instant &amp; Free</option>
+              <option value="Citibank Nigeria" data-bank-code="023">Citibank Nigeria</option>
+              <option value="Ecobank Nigeria" data-bank-code="050">Ecobank Nigeria</option>
+              <option value="Fidelity Bank" data-bank-code="070">Fidelity Bank Plc</option>
+              <option value="First City Monument Bank (FCMB)" data-bank-code="214">First City Monument Bank (FCMB)</option>
+              <option value="Heritage Bank" data-bank-code="030">Heritage Bank Plc</option>
+              <option value="Jaiz Bank" data-bank-code="301">Jaiz Bank</option>
+              <option value="Keystone Bank" data-bank-code="082">Keystone Bank</option>
+              <option value="Lotus Bank" data-bank-code="303">Lotus Bank</option>
+              <option value="Polaris Bank" data-bank-code="076">Polaris Bank</option>
+              <option value="PremiumTrust Bank" data-bank-code="105">PremiumTrust Bank</option>
+              <option value="Stanbic IBTC Bank" data-bank-code="221">Stanbic IBTC Bank</option>
+              <option value="Standard Chartered Bank" data-bank-code="068">Standard Chartered Bank</option>
+              <option value="Sterling Bank" data-bank-code="232">Sterling Bank</option>
+              <option value="SunTrust Bank" data-bank-code="100">SunTrust Bank</option>
+              <option value="Taj Bank" data-bank-code="302">Taj Bank</option>
+              <option value="Titan Trust Bank" data-bank-code="102">Titan Trust Bank</option>
+              <option value="Union Bank of Nigeria" data-bank-code="032">Union Bank of Nigeria</option>
+              <option value="Unity Bank" data-bank-code="215">Unity Bank</option>
+              <option value="VFD Microfinance Bank" data-bank-code="566">VFD Microfinance Bank</option>
+              <option value="Wema Bank (ALAT)" data-bank-code="035">Wema Bank / ALAT</option>
             </select>
           </div>
 
           <!-- Recipient Account Number or MideTag -->
           <div class="form-group">
-            <label for="send-recipient" class="form-label">Recipient Account Number (10-Digit NUBAN)</label>
+            <label for="send-recipient" class="form-label">Recipient 10-Digit Account Number, @tag, Email, or Phone</label>
             <input 
               type="text" 
               id="send-recipient" 
               class="form-input" 
-              placeholder="e.g. 9048291048 or @username" 
-              maxlength="20"
+              placeholder="Enter 10-digit NUBAN (e.g. 90...), @tag, email, or phone" 
+              maxlength="60"
               autocomplete="off"
               required
             >
             <!-- Real-time Account Resolution Box (OPay / PalmPay Style) -->
             <div class="account-resolved-box hidden" id="account-resolved-box">
-              <span class="badge-resolved-check">✓</span>
+              <span class="badge-resolved-check" id="account-resolved-badge">✓</span>
               <span id="account-resolved-text">Resolving beneficiary...</span>
             </div>
-            <span class="form-hint" id="recipient-verify-hint">Enter 10-digit NUBAN to verify account name automatically.</span>
+            <span class="form-hint" id="recipient-verify-hint">Type a 10-digit MidePay NUBAN, @tag, email, or Nigerian bank account number for instant name enquiry.</span>
           </div>
 
           <!-- Transfer Amount Field (With Quick Amount Chips) -->
           <div class="form-group">
             <div class="label-with-aside">
               <label for="send-amount" class="form-label">Transfer Amount (NGN)</label>
-              <span class="aside-note" id="amount-balance-hint">Wallet Balance: ₦0.00</span>
+              <span class="aside-note" style="display:inline-flex; align-items:center; gap:0.35rem;">
+                <span id="amount-balance-hint">Wallet Balance:</span>
+                <strong id="amount-step-balance">₦0.00</strong>
+                <button type="button" class="btn-demo-fund" id="btn-amount-quick-fund" style="padding:0.12rem 0.45rem; font-size:0.7rem;" title="Fund Wallet">+ Fund</button>
+              </span>
             </div>
             <div class="currency-input-wrap">
               <span class="currency-symbol">₦</span>
@@ -1924,6 +2168,12 @@
           <div class="fee-summary-row">
             <span>Transfer Fee</span>
             <span class="text-accent font-bold" id="send-fee-display">₦0.00 (Zero Surcharge Demo)</span>
+          </div>
+
+          <!-- Insufficient Balance Alert Banner -->
+          <div class="flow-alert-banner flow-alert-error hidden" id="insufficient-balance-alert" style="justify-content: space-between; align-items: center; gap: 0.75rem;">
+            <span id="insufficient-balance-text">Insufficient wallet balance for this transfer amount.</span>
+            <button type="button" class="btn-demo-fund" id="btn-insufficient-fund-now" style="white-space: nowrap;">+ Fund Now</button>
           </div>
 
           <!-- Validation Error Banner -->
@@ -2114,12 +2364,15 @@
   </div>
 
   <!-- ============================================================= -->
-  <!-- MODAL 2: ADD MONEY (INTERACTIVE SIMULATION)                   -->
+  <!-- MODAL 2: ADD MONEY (INSTANT DIRECT TOP-UP + NOV 30 ROADMAP)   -->
   <!-- ============================================================= -->
   <div class="modal-overlay hidden" id="modal-add-money" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
     <div class="modal-box">
       <div class="modal-header">
-        <h3 class="modal-title" id="add-modal-title">Add Money to Wallet</h3>
+        <div class="modal-title-with-badge">
+          <h3 class="modal-title" id="add-modal-title">Fund NGN Wallet</h3>
+          <span class="badge-emerald-sm">Zero Fee Top-Up</span>
+        </div>
         <button class="modal-close-btn" id="close-add-modal-btn" aria-label="Close modal">✕</button>
       </div>
 
@@ -2134,32 +2387,90 @@
           <div class="fund-beneficiary">Beneficiary: <strong id="modal-user-beneficiary">Account Holder</strong></div>
         </div>
 
-        <div class="divider-text">OR SIMULATE INSTANT TOP-UP</div>
+        <div class="divider-text">INSTANT WALLET TOP-UP</div>
 
         <form class="modal-form" id="add-funds-form">
+          <input type="hidden" id="topup-gateway-provider" value="direct">
+
           <div class="form-group">
-            <label for="topup-amount" class="form-label">Amount to Deposit (NGN)</label>
+            <label class="form-label">Funding Channel</label>
+
+            <!-- Primary Default Method: Instant Direct Wallet Top-Up -->
+            <button type="button" class="gateway-option-btn gateway-option-primary active" id="gateway-provider-direct" data-gateway="direct" aria-checked="true" role="radio" style="width:100%; margin-bottom:0.65rem;">
+              <span class="gateway-logo-badge" aria-hidden="true" style="background:rgba(16,185,129,0.16); border-color:rgba(16,185,129,0.35); color:#34D399;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                </svg>
+              </span>
+              <span class="gateway-option-copy" style="flex:1;">
+                <strong class="gateway-option-title">Instant Direct Wallet Top-Up</strong>
+                <span class="gateway-option-sub">Providus Virtual NUBAN • Live & Sandbox Instant Credit</span>
+              </span>
+              <span class="badge-emerald-sm" style="font-size:0.68rem;">Active</span>
+            </button>
+
+            <!-- Card / Gateway Roadmap Options (Disabled until Nov 30, 2026) -->
+            <div class="gateway-selector-grid" role="group" aria-label="Upcoming Card Payment Gateways">
+              <button type="button" class="gateway-option-btn is-disabled-roadmap" id="gateway-provider-paystack" data-gateway="paystack" disabled aria-disabled="true" title="Paystack Card, Bank & USSD Checkout goes live November 30, 2026">
+                <span class="gateway-logo-badge gateway-logo-paystack" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="5" width="18" height="2.6" rx="1.3" fill="#00C3F7"/>
+                    <rect x="3" y="9.7" width="18" height="2.6" rx="1.3" fill="#00C3F7"/>
+                    <rect x="3" y="14.4" width="11" height="2.6" rx="1.3" fill="#09A5DB"/>
+                    <rect x="3" y="18.8" width="7" height="2.2" rx="1.1" fill="#011B33"/>
+                  </svg>
+                </span>
+                <span class="gateway-option-copy">
+                  <strong class="gateway-option-title">Paystack</strong>
+                  <span class="gateway-coming-badge">Coming Nov 30</span>
+                </span>
+              </button>
+
+              <button type="button" class="gateway-option-btn is-disabled-roadmap" id="gateway-provider-flutterwave" data-gateway="flutterwave" disabled aria-disabled="true" title="Flutterwave Card & Transfer Checkout goes live November 30, 2026">
+                <span class="gateway-logo-badge gateway-logo-flutterwave" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 16C7.5 8.5 13 6 20 6C15.5 10.5 13 14 12 19C9 17.5 6.5 17 4 16Z" fill="#F5A623"/>
+                    <path d="M8 18.5C11 13 15 11 20 11C16.8 14.2 15.2 16.5 14.5 20C12 19.2 10 19 8 18.5Z" fill="#10B981"/>
+                  </svg>
+                </span>
+                <span class="gateway-option-copy">
+                  <strong class="gateway-option-title">Flutterwave</strong>
+                  <span class="gateway-coming-badge">Coming Nov 30</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="topup-amount" class="form-label">Amount to Top Up (₦100 – ₦5,000,000)</label>
             <div class="currency-input-wrap">
               <span class="currency-symbol">₦</span>
               <input 
                 type="number" 
                 id="topup-amount" 
                 class="form-input currency-field" 
-                placeholder="20000" 
-                min="500" 
+                placeholder="10000" 
+                value="10000"
+                min="100" 
                 max="5000000" 
+                step="any"
                 required
               >
             </div>
             <div class="quick-amount-tags">
-              <button type="button" class="amount-tag-btn" data-topup="10000">₦10,000</button>
+              <button type="button" class="amount-tag-btn" data-topup="5000">₦5,000</button>
+              <button type="button" class="amount-tag-btn active" data-topup="10000">₦10,000</button>
               <button type="button" class="amount-tag-btn" data-topup="50000">₦50,000</button>
               <button type="button" class="amount-tag-btn" data-topup="100000">₦100,000</button>
             </div>
           </div>
 
+          <div class="flow-alert-banner flow-alert-error hidden" id="topup-error-alert" role="alert">
+            <span id="topup-error-text">Please enter a valid top-up amount.</span>
+          </div>
+
           <button type="submit" class="btn btn-primary w-full btn-lg" id="confirm-topup-btn">
-            Deposit Demo Funds
+            <span id="confirm-topup-btn-text">Credit Wallet Instantly</span>
           </button>
         </form>
       </div>
@@ -2179,10 +2490,12 @@
         <button class="modal-close-btn" id="close-airtime-modal-btn" aria-label="Close modal">✕</button>
       </div>
 
-      <!-- Segmented Tab: Airtime vs Data -->
+      <!-- Unified 4-Tab VTU & Utility Switcher -->
       <div class="service-tab-pill" role="tablist">
-        <button type="button" class="service-tab-btn active" id="tab-recharge-airtime" role="tab">Buy Airtime</button>
-        <button type="button" class="service-tab-btn" id="tab-recharge-data" role="tab">Data Bundle</button>
+        <button type="button" class="service-tab-btn active" id="tab-recharge-airtime" role="tab">📱 Airtime</button>
+        <button type="button" class="service-tab-btn" id="tab-recharge-data" role="tab">📶 Mobile Data</button>
+        <button type="button" class="service-tab-btn" id="tab-jump-electricity" role="tab">⚡ Electricity</button>
+        <button type="button" class="service-tab-btn" id="tab-jump-cable" role="tab">📺 Cable TV</button>
       </div>
 
       <!-- Network Operator Selector with Brand Logos -->
@@ -2280,12 +2593,10 @@
             <label for="data-plan-select" class="form-label">Choose Data Package</label>
             <select id="data-plan-select" class="form-input form-select">
               <option value="350" data-label="1GB Daily Plan (24 Hours)">1GB Daily Plan (24 Hours) — ₦350</option>
-              <option value="600" data-label="2.5GB 2-Day Plan">2.5GB 2-Day Plan — ₦600</option>
-              <option value="1200" data-label="1.5GB Monthly (30 Days)" selected>1.5GB Monthly (30 Days) — ₦1,200</option>
-              <option value="2000" data-label="3GB Monthly (30 Days)">3GB Monthly (30 Days) — ₦2,000</option>
-              <option value="3500" data-label="6.5GB Monthly (30 Days)">6.5GB Monthly (30 Days) — ₦3,500</option>
-              <option value="5000" data-label="11GB Monthly (30 Days)">11GB Monthly (30 Days) — ₦5,000</option>
-              <option value="10000" data-label="25GB Mega Monthly (30 Days)">25GB Mega Monthly (30 Days) — ₦10,000</option>
+              <option value="1200" data-label="1.5GB Monthly Bundle (30 Days)" selected>1.5GB Monthly Bundle (30 Days) — ₦1,200</option>
+              <option value="2500" data-label="4.5GB Monthly Bundle (30 Days)">4.5GB Monthly Bundle (30 Days) — ₦2,500</option>
+              <option value="4500" data-label="10GB Monthly Bundle (30 Days)">10GB Monthly Bundle (30 Days) — ₦4,500</option>
+              <option value="12000" data-label="40GB Mega Monthly Bundle (30 Days)">40GB Mega Monthly Bundle (30 Days) — ₦12,000</option>
             </select>
           </div>
         </div>
@@ -2297,6 +2608,16 @@
             <span>Instant 3% Cashback:</span>
             <strong id="airtime-cashback-amount">+₦30.00</strong> will be refunded to your wallet!
           </div>
+        </div>
+
+        <!-- 4-Digit Transaction PIN Verification -->
+        <div class="form-group" style="margin-top:0.65rem;">
+          <label for="airtime-pin-input" class="form-label">4-Digit Transaction PIN</label>
+          <input type="password" inputmode="numeric" maxlength="4" id="airtime-pin-input" class="form-input" placeholder="Enter 4-digit security PIN" autocomplete="off" required>
+        </div>
+
+        <div class="flow-alert-banner flow-alert-error hidden" id="airtime-error-alert">
+          <span id="airtime-error-text">Please enter your 4-digit Transaction PIN.</span>
         </div>
 
         <button type="submit" class="btn btn-primary w-full btn-lg" id="confirm-airtime-btn">
@@ -2313,15 +2634,17 @@
     <div class="modal-box">
       <div class="modal-header">
         <div class="modal-title-with-badge">
-          <h3 class="modal-title" id="bills-modal-title">Electricity & Cable TV</h3>
-          <span class="badge-gold-sm">Instant Token / Activation</span>
+          <h3 class="modal-title" id="bills-modal-title">Electricity &amp; Cable TV</h3>
+          <span class="badge-gold-sm">Instant 20-Digit STS Token</span>
         </div>
         <button class="modal-close-btn" id="close-bills-modal-btn" aria-label="Close modal">✕</button>
       </div>
 
-      <!-- Segmented Tab: Electricity vs Cable TV -->
+      <!-- Unified 4-Tab VTU & Utility Switcher -->
       <div class="service-tab-pill" role="tablist">
-        <button type="button" class="service-tab-btn active" id="tab-bill-electricity" role="tab">⚡ Electricity (DisCo)</button>
+        <button type="button" class="service-tab-btn" id="tab-jump-airtime" role="tab">📱 Airtime</button>
+        <button type="button" class="service-tab-btn" id="tab-jump-data" role="tab">📶 Mobile Data</button>
+        <button type="button" class="service-tab-btn active" id="tab-bill-electricity" role="tab">⚡ Electricity</button>
         <button type="button" class="service-tab-btn" id="tab-bill-cable" role="tab">📺 Cable TV</button>
       </div>
 
@@ -2526,11 +2849,21 @@
 
         <div class="fee-summary-row">
           <span>Convenience Surcharge</span>
-          <span class="text-accent font-bold">₦0.00 (Zero Fee Demo)</span>
+          <span class="text-accent font-bold">₦0.00 (Zero Surcharge Switch)</span>
+        </div>
+
+        <!-- 4-Digit Transaction PIN Verification -->
+        <div class="form-group" style="margin-top:0.65rem;">
+          <label for="bills-pin-input" class="form-label">4-Digit Transaction PIN</label>
+          <input type="password" inputmode="numeric" maxlength="4" id="bills-pin-input" class="form-input" placeholder="Enter 4-digit security PIN" autocomplete="off" required>
+        </div>
+
+        <div class="flow-alert-banner flow-alert-error hidden" id="bills-error-alert">
+          <span id="bills-error-text">Please enter your 4-digit Transaction PIN.</span>
         </div>
 
         <button type="submit" class="btn btn-primary w-full btn-lg" id="confirm-bill-btn">
-          Pay ₦10,000.00 & Generate Token
+          Pay ₦10,000.00 &amp; Generate Token
         </button>
       </form>
     </div>
@@ -2549,10 +2882,18 @@
         <button class="modal-close-btn" id="close-card-modal-btn" aria-label="Close modal">✕</button>
       </div>
 
-      <!-- Card Type Switcher: USD vs NGN -->
+      <!-- Card Type Switcher: USD vs NGN + Create New Card -->
       <div class="service-tab-pill" role="tablist">
         <button type="button" class="service-tab-btn active" id="tab-card-usd" role="tab">🇺🇸 Virtual Dollar Card (USD)</button>
         <button type="button" class="service-tab-btn" id="tab-card-ngn" role="tab">🇳🇬 Virtual Naira Card (NGN)</button>
+      </div>
+
+      <!-- Multi-Card Switcher & Issue New Virtual Card Row -->
+      <div class="vcard-toolbar-row" id="vcard-toolbar-row">
+        <div class="vcard-selector-pills" id="user-cards-selector-row"></div>
+        <button type="button" class="btn btn-outline-xs" id="btn-create-virtual-card" title="Issue a new persistent 16-digit Virtual Debit Card">
+          + Create New Virtual Card
+        </button>
       </div>
 
       <!-- 3D Realistic Debit Card -->
@@ -2581,7 +2922,7 @@
             </svg>
           </div>
           <div class="card-pan-row">
-            <span class="card-pan-number" id="card-pan-display">5399 &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; 4091</span>
+            <span class="card-pan-number" id="card-pan-display">5399 &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; 0000</span>
             <button type="button" class="btn-pan-toggle" id="btn-toggle-pan" title="Show/Hide Full Card Number">👁</button>
           </div>
           <div class="card-bottom-row">
@@ -2591,7 +2932,7 @@
             </div>
             <div class="card-expiry-col">
               <span class="card-label">EXPIRES</span>
-              <span class="card-val" id="card-expiry-val">08/29</span>
+              <span class="card-val" id="card-expiry-val">11/29</span>
             </div>
             <div class="card-cvv-col">
               <span class="card-label">CVV</span>
@@ -2608,14 +2949,14 @@
       <div class="card-controls-panel">
         <div class="card-balance-metric">
           <span class="card-metric-label">Available Balance</span>
-          <span class="card-metric-val" id="card-balance-display">$250.00</span>
+          <span class="card-metric-val" id="card-balance-display">$0.00</span>
         </div>
         <div class="card-actions-row">
           <button type="button" class="btn btn-outline-sm" id="btn-freeze-card">
             <span id="freeze-icon">🔒</span> <span id="freeze-text">Freeze Card</span>
           </button>
           <button type="button" class="btn btn-outline-sm" id="btn-copy-card">
-            📋 Copy Details
+            📋 Copy Card No.
           </button>
           <button type="button" class="btn btn-primary-sm" id="btn-fund-card-modal">
             + Fund Card
@@ -2627,12 +2968,20 @@
       <div class="card-limits-box">
         <div class="limit-header-row">
           <span class="limit-label">Monthly Spending Limit</span>
-          <span class="limit-value" id="card-limit-val">$1,000 / month</span>
+          <div style="display:flex; align-items:center; gap:0.5rem;">
+            <span class="limit-value" id="card-limit-val">$1,000 / month</span>
+            <button type="button" class="btn btn-ghost-xs" id="btn-edit-card-limit" style="font-size:0.74rem; padding:0.18rem 0.5rem;">Set Limit</button>
+          </div>
+        </div>
+        <div class="vcard-limit-editor hidden" id="card-limit-editor">
+          <input type="number" id="card-limit-input" class="form-input" min="10" step="any" placeholder="Enter monthly limit" style="padding:0.45rem 0.7rem; font-size:0.85rem;">
+          <button type="button" class="btn btn-primary-sm" id="btn-save-card-limit">Save</button>
+          <button type="button" class="btn btn-outline-sm" id="btn-cancel-card-limit">Cancel</button>
         </div>
         <div class="limit-progress-bar">
-          <div class="limit-progress-fill" style="width: 25%;"></div>
+          <div class="limit-progress-fill" style="width: 0%;"></div>
         </div>
-        <span class="limit-spent-subtext" id="card-spent-subtext">$250.00 spent of $1,000.00 limit</span>
+        <span class="limit-spent-subtext" id="card-spent-subtext">$0.00 balance • $1,000.00 monthly limit</span>
       </div>
 
       <!-- Recent Card Charges -->
@@ -2949,16 +3298,213 @@
     </div>
   </div>
 
-  <!-- Liquid Glass v2 Interactive Engine -->
-  <script src="liquid-glass.js"></script>
+  <!-- ============================================================= -->
+  <!-- MODAL: OFFICIAL PRINT-READY MIDEPAY ACCOUNT STATEMENT         -->
+  <!-- ============================================================= -->
+  <div class="modal-overlay hidden" id="modal-account-statement" role="dialog" aria-modal="true" aria-labelledby="statement-modal-title">
+    <div class="modal-box statement-modal-box">
+      <div class="modal-header no-print">
+        <div class="modal-title-with-badge">
+          <h3 class="modal-title" id="statement-modal-title">Official Account Statement</h3>
+          <span class="badge-emerald-sm">Print / Save as PDF</span>
+        </div>
+        <button class="modal-close-btn" id="close-statement-modal-btn" aria-label="Close modal">✕</button>
+      </div>
+
+      <div class="official-statement-sheet" id="official-statement-sheet">
+        <div class="stmt-brand-header">
+          <div class="stmt-brand-left">
+            <img src="midepay-logo.svg" width="168" height="40" alt="MidePay" class="stmt-logo-img">
+            <p class="stmt-bank-sub">Partner Settlement Rail: <strong>Providus Bank Plc</strong> • CBN Compliant Digital Wallet</p>
+          </div>
+          <div class="stmt-meta-right">
+            <div class="stmt-doc-badge">OFFICIAL STATEMENT OF ACCOUNT</div>
+            <div>Ref: <strong id="stmt-ref-id">MDP-STMT-20261116</strong></div>
+            <div>Generated: <span id="stmt-generated-date">16 Nov 2026</span></div>
+          </div>
+        </div>
+
+        <div class="stmt-account-grid">
+          <div class="stmt-account-box">
+            <span class="stmt-field-label">Account Holder</span>
+            <strong class="stmt-field-value" id="stmt-holder-name">Account Holder</strong>
+            <span class="stmt-field-sub" id="stmt-holder-meta">user@midepay.ng • @midepay</span>
+          </div>
+          <div class="stmt-account-box">
+            <span class="stmt-field-label">Dedicated Virtual NUBAN</span>
+            <strong class="stmt-field-value" id="stmt-holder-nuban" style="font-family:monospace;">9000 0000 00</strong>
+            <span class="stmt-field-sub" id="stmt-holder-kyc">Providus Bank • CBN Tier 2 Verified</span>
+          </div>
+        </div>
+
+        <div class="stmt-summary-strip">
+          <div class="stmt-summary-item">
+            <span>Available Balance</span>
+            <strong id="stmt-total-balance">₦0.00</strong>
+          </div>
+          <div class="stmt-summary-item inflow">
+            <span>Total Inflows</span>
+            <strong id="stmt-total-inflow">+₦0.00</strong>
+          </div>
+          <div class="stmt-summary-item outflow">
+            <span>Total Outflows</span>
+            <strong id="stmt-total-outflow">-₦0.00</strong>
+          </div>
+          <div class="stmt-summary-item">
+            <span>Total Fees</span>
+            <strong id="stmt-total-fees">₦0.00</strong>
+          </div>
+        </div>
+
+        <div class="stmt-table-wrap">
+          <table class="stmt-ledger-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reference</th>
+                <th>Type</th>
+                <th>Counterparty & Narration</th>
+                <th style="text-align:right;">Amount (NGN)</th>
+                <th style="text-align:right;">Fee</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="stmt-transactions-tbody">
+              <!-- Populated dynamically by app.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="stmt-legal-footer">
+          This computer-generated statement is an official record of transactions processed on your MidePay NGN Wallet. Enquiries: support@midepay.ng.
+        </div>
+      </div>
+
+      <div class="stmt-modal-actions no-print">
+        <button type="button" class="btn btn-outline" id="btn-modal-export-csv">
+          <span>Export CSV</span>
+        </button>
+        <button type="button" class="btn btn-primary" id="btn-print-statement">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right:0.35rem;">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          <span>Print / Save as PDF</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: MIDESAVE GOAL-BASED SAVINGS VAULTS (14.5% P.A.)        -->
+  <!-- ============================================================= -->
+  <div class="modal-overlay hidden" id="modal-midesave" role="dialog" aria-modal="true" aria-labelledby="midesave-modal-title">
+    <div class="modal-box modal-box-wide">
+      <div class="modal-header">
+        <div class="modal-title-with-badge">
+          <h3 class="modal-title" id="midesave-modal-title">MideSave Goal Vaults</h3>
+          <span class="badge-emerald-sm">14.5% p.a. Yield</span>
+        </div>
+        <button type="button" class="modal-close-btn" id="close-midesave-modal-btn" aria-label="Close modal">✕</button>
+      </div>
+
+      <div class="midesave-summary-banner">
+        <div>
+          <span style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Total Vault Savings</span>
+          <div style="font-size:1.5rem; font-weight:800; color:#34D399;" id="midesave-modal-total">₦0.00</div>
+          <span style="font-size:0.78rem; color:var(--text-secondary);">Available NGN Wallet: <strong id="midesave-modal-wallet-bal">₦0.00</strong></span>
+        </div>
+        <button type="button" class="btn btn-primary-sm" id="btn-show-create-vault-form">+ Create New Vault</button>
+      </div>
+
+      <!-- Create New Vault Form -->
+      <div class="midesave-drawer hidden" id="midesave-create-section">
+        <h4 style="margin:0 0 0.75rem 0; font-size:0.98rem; color:var(--text-primary);">Create Goal-Based Savings Vault</h4>
+        <div class="quick-amount-tags" style="margin-bottom:0.75rem;">
+          <button type="button" class="amount-tag-btn" data-vault-preset="Rent 2027" data-vault-cat="Housing & Rent" data-vault-target="1500000">🏠 Rent 2027</button>
+          <button type="button" class="amount-tag-btn" data-vault-preset="Emergency Fund" data-vault-cat="Emergency Fund" data-vault-target="500000">🛡️ Emergency Fund</button>
+          <button type="button" class="amount-tag-btn" data-vault-preset="Business Restock" data-vault-cat="Business Restock" data-vault-target="2000000">📦 Business Restock</button>
+        </div>
+        <form id="midesave-create-form" class="modal-form" onsubmit="return false;">
+          <div class="form-group">
+            <label for="vault-title-input" class="form-label">Vault Goal Title</label>
+            <input type="text" id="vault-title-input" class="form-input" placeholder="e.g. Rent 2027, Emergency Fund, Business Restock" maxlength="60" required>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+            <div class="form-group">
+              <label for="vault-category-select" class="form-label">Category</label>
+              <select id="vault-category-select" class="form-input form-select">
+                <option value="Housing & Rent">Housing &amp; Rent</option>
+                <option value="Emergency Fund">Emergency Fund</option>
+                <option value="Business Restock">Business Restock</option>
+                <option value="Education & Tuition">Education &amp; Tuition</option>
+                <option value="General">General Goal</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="vault-target-input" class="form-label">Target Amount (NGN)</label>
+              <input type="number" id="vault-target-input" class="form-input" placeholder="500000" min="1000" step="any" value="500000" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="vault-lock-date-input" class="form-label">Lock Until Date (Optional — Leave blank for Flexible Vault)</label>
+            <input type="date" id="vault-lock-date-input" class="form-input">
+            <span class="form-hint">Locked SafeBox vaults earn 14.5% p.a.; early withdrawal before maturity incurs a 1.5% early-break fee.</span>
+          </div>
+          <div style="display:flex; gap:0.65rem; justify-content:flex-end;">
+            <button type="button" class="btn btn-outline-sm" id="btn-cancel-create-vault">Cancel</button>
+            <button type="submit" class="btn btn-primary-sm" id="btn-submit-create-vault">Create Savings Vault</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- PIN-Protected Fund / Withdraw Vault Drawer -->
+      <div class="midesave-drawer hidden" id="midesave-action-panel">
+        <h4 style="margin:0 0 0.45rem 0; font-size:0.98rem; color:var(--text-primary);" id="midesave-action-heading">Top Up Vault</h4>
+        <div class="flow-alert-banner flow-alert-warning hidden" id="midesave-early-break-warning" style="margin-bottom:0.75rem;">
+          <span>⚠️ <strong>Locked Vault Notice:</strong> Withdrawing before maturity applies a <strong>1.5% early-break fee</strong>.</span>
+        </div>
+        <form id="midesave-action-form" class="modal-form" onsubmit="return false;">
+          <input type="hidden" id="midesave-action-vault-id" value="">
+          <input type="hidden" id="midesave-action-mode" value="fund">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+            <div class="form-group">
+              <label for="midesave-action-amount" class="form-label">Amount (NGN)</label>
+              <input type="number" id="midesave-action-amount" class="form-input" placeholder="25000" min="100" step="any" value="25000" required>
+            </div>
+            <div class="form-group">
+              <label for="midesave-action-pin" class="form-label">4-Digit Transaction PIN</label>
+              <input type="password" inputmode="numeric" maxlength="4" id="midesave-action-pin" class="form-input" placeholder="Enter 4-digit PIN" autocomplete="off" required>
+            </div>
+          </div>
+          <div class="flow-alert-banner flow-alert-error hidden" id="midesave-action-error">
+            <span id="midesave-action-error-text">Unable to process vault transaction.</span>
+          </div>
+          <div style="display:flex; gap:0.65rem; justify-content:flex-end; margin-top:0.5rem;">
+            <button type="button" class="btn btn-outline-sm" id="btn-cancel-midesave-action">Cancel</button>
+            <button type="submit" class="btn btn-primary-sm" id="btn-confirm-midesave-action">Verify PIN &amp; Confirm</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Active Vaults List -->
+      <div class="midesave-modal-list" id="midesave-modal-vaults-list">
+        <!-- Populated dynamically by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Liquid Glass v2.5 Interactive Engine -->
+  <script src="liquid-glass.js?v=4.0"></script>
 
   <!-- Cryptographic Hashing (bcryptjs for 4-digit Transaction PINs) -->
   <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
 
   <!-- Supabase JS Client & MidePay Backend Integration -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=3.6"></script>
-  <script src="supabaseClient.js?v=3.6"></script>
-  <script src="app.js?v=3.6"></script>
+  <script src="config.js?v=4.0"></script>
+  <script src="supabaseClient.js?v=4.0"></script>
+  <script src="app.js?v=4.0"></script>
 </body>
 </html>

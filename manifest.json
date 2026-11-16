@@ -1,0 +1,27 @@
+{
+  "name": "MidePay — Modern Digital Wallet",
+  "short_name": "MidePay",
+  "description": "Modern digital wallet for individuals and businesses in Nigeria. Instant zero-fee transfers, Providus Virtual NUBAN, virtual USD & NGN cards, and official account statements.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0B0F19",
+  "theme_color": "#00D492",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    {
+      "src": "midepay-icon.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+

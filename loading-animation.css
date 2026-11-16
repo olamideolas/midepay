@@ -1,8 +1,183 @@
-/**
- * CodeFronts E-Commerce Checkout / Payment Loading Animation
- * Scoped under .la-01
- * MIT Licensed - Source: https://codefronts.com/motion/css-loading-animations/e-commerce-checkout-cart-loading-animation/
- */
+/* ==========================================================================
+   MidePay Enterprise Loading, Spinner & Skeleton Animation System
+   Supports:
+   - .spinner, .spinner-sm, .spinner-lg, .spinner-gold
+   - .loading & .loading-animation across buttons, modals, and containers
+   - .skeleton, .skeleton-line, .skeleton-avatar, .skeleton-card
+   - .la-01 NIP Checkout / Payment Switch Multi-Stage Processing Animation
+   ========================================================================== */
+
+/* ── 1. Universal Spinners (.spinner) ────────────────────────────────────── */
+
+@keyframes midepay-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes midepay-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes midepay-pulse-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 2.2px solid rgba(16, 185, 129, 0.24);
+  border-top-color: #10B981;
+  animation: midepay-spin 0.72s linear infinite;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.spinner-sm {
+  width: 0.88rem;
+  height: 0.88rem;
+  border-width: 2px;
+}
+
+.spinner-lg {
+  width: 2rem;
+  height: 2rem;
+  border-width: 3px;
+}
+
+.spinner-gold {
+  border-color: rgba(245, 158, 11, 0.24);
+  border-top-color: #FBBF24;
+}
+
+/* White high-contrast spinner when placed inside primary emerald buttons */
+.btn-primary .spinner,
+button.btn-primary.loading::before {
+  border-color: rgba(11, 15, 25, 0.24);
+  border-top-color: #0B0F19;
+}
+
+/* ── 2. Button, Modal & Container .loading / .loading-animation States ───── */
+
+.loading,
+.loading-animation {
+  position: relative;
+}
+
+button.loading,
+.btn.loading {
+  pointer-events: none;
+  opacity: 0.88;
+  cursor: wait;
+}
+
+button.loading::before,
+.btn.loading::before {
+  content: '';
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  border: 2.2px solid rgba(255, 255, 255, 0.28);
+  border-top-color: currentColor;
+  animation: midepay-spin 0.72s linear infinite;
+  vertical-align: middle;
+}
+
+/* Top progress bar for modals and cards in .loading-animation or .modal-box.loading */
+.modal-box.loading::after,
+.loading-animation::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #10B981, #34D399, transparent);
+  animation: midepay-pulse-bar 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.modal-box.loading {
+  pointer-events: none;
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 15, 25, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: inherit;
+  z-index: 30;
+}
+
+[data-theme="light"] .loading-overlay {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+/* ── 3. Skeleton Shimmer Loaders (.skeleton) ─────────────────────────────── */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(52, 211, 153, 0.12) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: midepay-shimmer 1.6s ease-in-out infinite;
+  color: transparent !important;
+  user-select: none;
+  pointer-events: none;
+}
+
+[data-theme="light"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.05) 25%,
+    rgba(16, 185, 129, 0.12) 50%,
+    rgba(15, 23, 42, 0.05) 75%
+  );
+  background-size: 200% 100%;
+}
+
+.skeleton-line {
+  height: 0.85rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-title {
+  height: 1.4rem;
+  width: 60%;
+  margin-bottom: 0.75rem;
+}
+
+.skeleton-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+}
+
+.skeleton-card {
+  height: 8.5rem;
+  width: 100%;
+  border-radius: 18px;
+}
+
+/* ── 4. NIP Switch Checkout / Payment Processing Stage (.la-01) ──────────── */
 
 @property --la-01-p {
   syntax: '<integer>';
@@ -294,8 +469,7 @@
   }
 }
 
-/* ── Completed State: what your success callback switches on ── */
-
+/* Completed State */
 .la-01.is-ready .la-01__cart {
   opacity: 0;
   scale: .8;
@@ -345,61 +519,14 @@
   border-color: rgba(16, 185, 129, 0.4);
 }
 
-/* ── Optional Theme & Done Chrome buttons (for interactive standalone testing) ── */
-.la-01__chrome {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  z-index: 20;
-  display: flex;
-  gap: .5rem;
-}
-
-.la-01__btn {
-  inline-size: 2.25rem;
-  block-size: 2.25rem;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  transition: background .25s ease, transform .25s cubic-bezier(.16, 1, .3, 1), color .25s ease;
-}
-
-.la-01__btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-1px);
-}
-
-.la-01__btn svg {
-  inline-size: 1.1rem;
-  block-size: 1.1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.la-01__sun {
-  display: none;
-}
-
-.la-01__theme[aria-pressed="true"] .la-01__sun {
-  display: block;
-}
-
-.la-01__theme[aria-pressed="true"] .la-01__moon {
-  display: none;
-}
-
-.la-01__done[aria-pressed="true"] {
-  background: var(--ok);
-  border-color: transparent;
-  color: #fff;
+@media (prefers-reduced-motion: reduce) {
+  .spinner,
+  button.loading::before,
+  .btn.loading::before,
+  .skeleton,
+  .modal-box.loading::after,
+  .loading-animation::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

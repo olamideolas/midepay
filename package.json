@@ -1,10 +1,14 @@
 {
   "name": "midepay",
-  "version": "1.0.0",
-  "description": "MidePay — Modern Nigerian Fintech Digital Wallet Concept",
+  "version": "4.1.0",
+  "description": "MidePay — Enterprise Nigerian Digital Wallet & Business Payment Platform",
   "main": "index.html",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "build:docs": "node scripts/build_sdlc_docx.js",
+    "validate": "node scripts/validate_production.js",
+    "test:runtime": "node scripts/test_e2e_runtime.js",
+    "test:webhooks": "node --experimental-strip-types scripts/test_payment_webhook.js"
   },
   "keywords": [
     "fintech",
