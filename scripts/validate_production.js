@@ -195,6 +195,104 @@ if (!fs.existsSync(v44SqlPath)) {
   }
 }
 
+const hardeningSqlPath = path.join(ROOT, 'supabase', 'migrations', '20261116040000_backend_security_hardening.sql');
+if (!fs.existsSync(hardeningSqlPath)) {
+  fail('Missing Backend Security Hardening SQL migration: 20261116040000_backend_security_hardening.sql');
+} else {
+  const hardSql = fs.readFileSync(hardeningSqlPath, 'utf8');
+  const requiredHardRpcs = [
+    'handle_new_user',
+    'set_user_transaction_pin',
+    'verify_user_transaction_pin',
+    'execute_p2p_transfer',
+    'fund_virtual_card_from_wallet',
+    'set_virtual_card_freeze',
+    'log_virtual_card_reveal',
+    'fund_savings_vault',
+    'withdraw_savings_vault',
+    'pay_utility_bill',
+    'execute_business_payroll'
+  ];
+  const hasPrivilegeRevocation =
+    /REVOKE\s+INSERT,\s*UPDATE,\s*DELETE,\s*TRUNCATE\s+ON\s+TABLE/i.test(hardSql) &&
+    /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.security_audit_logs/i.test(hardSql) &&
+    /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.beneficiaries/i.test(hardSql) &&
+    /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.midesave_vaults/i.test(hardSql) &&
+    /SET\s+search_path\s*=\s*public,\s*extensions/i.test(hardSql) &&
+    /idempotency_key/i.test(hardSql);
+  const missingHardRpcs = requiredHardRpcs.filter(
+    fn => !new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+public\\.${fn}\\b`, 'i').test(hardSql)
+  );
+  if (!hasPrivilegeRevocation || missingHardRpcs.length > 0) {
+    fail(`20261116040000_backend_security_hardening.sql missing privilege revocations/audit tables or RPCs (${missingHardRpcs.join(', ')}).`);
+  } else {
+    pass('20261116040000_backend_security_hardening.sql verified (RLS + REVOKE direct writes, handle_new_user, security_audit_logs, 5-strike pgcrypto PIN, FOR UPDATE & idempotency RPCs).');
+  }
+}
+
+const authGateSqlPath = path.join(ROOT, 'supabase', 'migrations', '20261116050000_auth_verification_gate.sql');
+if (!fs.existsSync(authGateSqlPath)) {
+  fail('Missing Auth Verification Gate SQL migration: 20261116050000_auth_verification_gate.sql');
+} else {
+  const gateSql = fs.readFileSync(authGateSqlPath, 'utf8');
+  const requiredGateRpcs = [
+    '_assert_verified_wallet_ready',
+    'record_verified_login_session',
+    'execute_p2p_transfer',
+    'fund_virtual_card',
+    'pay_vtu_bill',
+    'manage_midesave_vault',
+    'execute_payroll_batch'
+  ];
+  const missingGateRpcs = requiredGateRpcs.filter(
+    fn => !new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+public\\.${fn}\\b`, 'i').test(gateSql)
+  );
+  const hasEmailAndPinGuards =
+    /SELECT\s+email_confirmed_at\s+FROM\s+auth\.users\s+WHERE\s+id\s*=\s*auth\.uid\(\)/i.test(gateSql) &&
+    /transaction_pin_hash\s+IS\s+NOT\s+NULL/i.test(gateSql) &&
+    /USER_LOGIN/.test(gateSql) &&
+    /UNVERIFIED_EMAIL_BLOCKED/.test(gateSql);
+
+  if (missingGateRpcs.length > 0 || !hasEmailAndPinGuards) {
+    fail(`20261116050000_auth_verification_gate.sql missing RPCs (${missingGateRpcs.join(', ')}) or email_confirmed_at / transaction_pin_hash guards.`);
+  } else {
+    pass('20261116050000_auth_verification_gate.sql verified (email_confirmed_at + transaction_pin_hash guards across execute_p2p_transfer, fund_virtual_card, pay_vtu_bill, manage_midesave_vault & execute_payroll_batch + USER_LOGIN audit).');
+  }
+}
+
+// Verify 6-Digit Email OTP & Mandatory Post-OTP PIN Onboarding DOM Elements + Resend Cooldown Wiring
+const requiredOtpAndPinDomIds = [
+  'modal-otp-verification',
+  'otp-verify-form',
+  'otp-target-email',
+  'otp-feedback-alert',
+  'otp-digit-1',
+  'otp-digit-2',
+  'otp-digit-3',
+  'otp-digit-4',
+  'otp-digit-5',
+  'otp-digit-6',
+  'btn-verify-otp',
+  'btn-resend-otp',
+  'otp-resend-timer',
+  'btn-otp-back-to-login',
+  'modal-pin-onboarding',
+  'pin-onboarding-form',
+  'pin-onboarding-new',
+  'pin-onboarding-confirm',
+  'btn-submit-pin-onboarding',
+  'pin-onboarding-error',
+  'btn-pin-onboarding-logout',
+  'login-security-alert-banner',
+  'login-security-alert-text'
+];
+const missingOtpDomIds = requiredOtpAndPinDomIds.filter(id => !htmlIds.has(id));
+if (missingOtpDomIds.length > 0) {
+  fail(`Missing OTP or Mandatory PIN Onboarding DOM IDs in index.html: ${missingOtpDomIds.join(', ')}`);
+} else {
+  pass(`All ${requiredOtpAndPinDomIds.length}/${requiredOtpAndPinDomIds.length} 6-Digit OTP, 60s Resend Cooldown, Login Alert & Mandatory PIN Onboarding DOM elements verified.`);
+}
+
 const supaCodeNoComments = supaJs.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
 if (/Math\.random\s*\(/.test(supaCodeNoComments)) {
   fail('supabaseClient.js still contains Math.random() instead of crypto.getRandomValues().');
@@ -202,6 +300,38 @@ if (/Math\.random\s*\(/.test(supaCodeNoComments)) {
   fail('supabaseClient.js missing Web Crypto crypto.getRandomValues() CSPRNG.');
 } else {
   pass('supabaseClient.js verified: zero Math.random() calls; strictly uses Web Crypto crypto.getRandomValues().');
+}
+
+const directSupaWrites = supaCodeNoComments.match(/\.(?:insert|update|upsert|delete)\s*\(/g) || [];
+if (directSupaWrites.length > 0) {
+  fail(`supabaseClient.js still contains ${directSupaWrites.length} direct table write call(s): ${directSupaWrites.join(', ')}`);
+} else if (!/generateIdempotencyKey/.test(supaCodeNoComments) || !/crypto\.randomUUID/.test(supaCodeNoComments)) {
+  fail('supabaseClient.js missing generateIdempotencyKey() / crypto.randomUUID() RPC deduplication.');
+} else {
+  pass('supabaseClient.js verified: zero direct .insert()/.update()/.upsert()/.delete() table calls; 100% SECURITY DEFINER RPCs with UUID idempotency.');
+}
+
+const appCodeNoComments = appJs.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+const appDirectWrites = [...appCodeNoComments.matchAll(/([A-Za-z0-9_$]+)\s*\.\s*(insert|update|upsert|delete)\s*\(/g)]
+  .filter(m => !['revealedPanIds', 'revealedCvvIds', '_activeSubmitLocks'].includes(m[1]));
+const clientBalMath = appCodeNoComments.match(/state\.dashBalance\s*(?:\+=|-=|=\s*state\.dashBalance\s*[\+\-])/g) || [];
+
+if (appDirectWrites.length > 0) {
+  fail(`app.js contains direct write calls: ${appDirectWrites.map(m => m[0]).join(', ')}`);
+} else if (clientBalMath.length > 0) {
+  fail(`app.js still contains client-side wallet balance arithmetic: ${clientBalMath.join(', ')}`);
+} else if (
+  !/function\s+withSubmitLock\b/.test(appCodeNoComments) ||
+  !/function\s+rehydrateBalanceFromServer\b/.test(appCodeNoComments) ||
+  !/function\s+enforceNoDemoControlsInProduction\b/.test(appCodeNoComments) ||
+  !/function\s+startOtpResendCooldown\b/.test(appCodeNoComments) ||
+  !/function\s+enforceMandatoryPinOnboardingLock\b/.test(appCodeNoComments) ||
+  !/auth\.verifyOtp/.test(supaCodeNoComments) ||
+  !/auth\.resend/.test(supaCodeNoComments)
+) {
+  fail('app.js / supabaseClient.js missing withSubmitLock, OTP verifyOtp/resend, 60s cooldown, or mandatory PIN onboarding lock.');
+} else {
+  pass('app.js & supabaseClient.js verified: zero client-side balance math, zero direct writes, 6-digit OTP verify/resend + 60s cooldown & mandatory PIN lock.');
 }
 
 for (const infraFile of [
@@ -249,10 +379,11 @@ if (!fs.existsSync(manifestPath)) {
 const swTxt = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 const hasSwAssets = ['index.html', 'style.css', 'liquid-glass.css', 'loading-animation.css', 'app.js', 'liquid-glass.js', 'midepay-icon.png', 'favicon.svg']
   .every(asset => swTxt.includes(asset));
-if (!hasSwAssets || !appJs.includes("serviceWorker.register('sw.js')")) {
-  fail('sw.js missing required cached assets or app.js missing serviceWorker.register("sw.js").');
+const hasBumpedSwCache = /CACHE_NAME\s*=\s*['"]midepay-pwa-static-v4\.6\.0['"]/.test(swTxt);
+if (!hasSwAssets || !hasBumpedSwCache || !appJs.includes("serviceWorker.register('sw.js')")) {
+  fail('sw.js missing required cached assets, bumped v4.6.0 CACHE_NAME, or app.js missing serviceWorker.register("sw.js").');
 } else {
-  pass('sw.js cache-first static assets, Supabase network-first routing & registration in app.js verified.');
+  pass('sw.js cache version bump (midepay-pwa-static-v4.6.0), cache-first static assets, Supabase network-first routing & registration verified.');
 }
 
 if (

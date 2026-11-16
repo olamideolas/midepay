@@ -88,6 +88,18 @@
     return `90${eightDigits}`;
   };
 
+  const generateIdempotencyKey = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const hex = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+  };
+
   const computeLuhnCheckDigit = (digits15) => {
     let sum = 0;
     for (let i = 0; i < 15; i++) {
@@ -210,9 +222,10 @@
           : '00000000-0000-4000-8000-000000000000';
         return {
           user: { id: fallbackUuid, email: normalizedEmail, user_metadata: { full_name: fullName, phone } },
-          session: { user: { id: fallbackUuid, email: normalizedEmail } },
+          session: null,
           error: null,
-          emailConfirmationPending: false
+          requiresOtpVerification: true,
+          emailConfirmationPending: true
         };
       }
 
@@ -229,31 +242,71 @@
 
       if (error) return { user: null, session: null, error };
 
-      // Seamless login when Supabase returns user with session === null:
-      // Attempt immediate signInWithPassword so auto-confirmed or relaxed-confirm setups sign in with zero friction
-      let activeSession = data.session || null;
-      let activeUser = data.user || null;
-      let emailConfirmationPending = false;
-
-      if (activeUser && !activeSession) {
-        const { data: signInData, error: signInErr } = await this.client.auth.signInWithPassword({
-          email: normalizedEmail,
-          password
-        });
-        if (!signInErr && signInData?.session) {
-          activeSession = signInData.session;
-          activeUser = signInData.user || activeUser;
-        } else if (signInErr && /confirm/i.test(signInErr.message || '')) {
-          emailConfirmationPending = true;
-        }
+      // Zero-Trust Session Hardening: Never auto-sign-in or expose an unverified session prior to 6-digit OTP verification
+      if (data?.session && !data?.user?.email_confirmed_at) {
+        try {
+          await this.client.auth.signOut();
+        } catch (_) {}
       }
 
       return {
-        user: activeUser,
-        session: activeSession,
+        user: data?.user || null,
+        session: null,
         error: null,
-        emailConfirmationPending
+        requiresOtpVerification: true,
+        emailConfirmationPending: true
       };
+    },
+
+    async verifySignupOtp({ email, token, type = 'signup' }) {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const cleanToken = String(token || '').replace(/[^0-9]/g, '');
+
+      if (!normalizedEmail || !normalizedEmail.includes('@')) {
+        return { user: null, session: null, error: new Error('Enter a valid email address.') };
+      }
+      if (!/^\d{6}$/.test(cleanToken)) {
+        return { user: null, session: null, error: new Error('Enter the complete 6-digit verification code.') };
+      }
+      if (!this.isConfigured() || !this.client) {
+        return { user: null, session: null, error: new Error('Authentication verification service is unavailable.') };
+      }
+
+      const { data, error } = await this.client.auth.verifyOtp({
+        email: normalizedEmail,
+        token: cleanToken,
+        type
+      });
+
+      if (error) {
+        return { user: null, session: null, error };
+      }
+
+      return {
+        user: data?.user || data?.session?.user || null,
+        session: data?.session || null,
+        error: null
+      };
+    },
+
+    async resendSignupOtp(email) {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      if (!normalizedEmail || !normalizedEmail.includes('@')) {
+        return { success: false, error: new Error('Enter a valid email address to resend OTP.') };
+      }
+      if (!this.isConfigured() || !this.client || typeof this.client.auth.resend !== 'function') {
+        return { success: false, error: new Error('OTP resend service is unavailable.') };
+      }
+
+      const { error } = await this.client.auth.resend({
+        type: 'signup',
+        email: normalizedEmail
+      });
+
+      if (error) {
+        return { success: false, error };
+      }
+      return { success: true, error: null };
     },
 
     async signIn({ email, password }) {
@@ -274,7 +327,34 @@
         password
       });
 
-      if (error) return { session: null, user: null, error };
+      if (error) {
+        const msg = String(error.message || '');
+        if (/email\s*not\s*confirmed|not\s*verified|unconfirmed/i.test(msg)) {
+          return {
+            session: null,
+            user: null,
+            emailNotConfirmed: true,
+            email: normalizedEmail,
+            error
+          };
+        }
+        return { session: null, user: null, error };
+      }
+
+      // Guard against relaxed Auth projects returning a session when `email_confirmed_at` is still null
+      if (data?.user && !data.user.email_confirmed_at) {
+        try {
+          await this.client.auth.signOut();
+        } catch (_) {}
+        return {
+          session: null,
+          user: null,
+          emailNotConfirmed: true,
+          email: normalizedEmail,
+          error: new Error('Email not confirmed')
+        };
+      }
+
       return { session: data.session, user: data.user, error: null };
     },
 
@@ -388,18 +468,16 @@
           return { success: false, error: 'Unauthorized account freeze request.' };
         }
 
-        const { error } = await this.client
-          .from('profiles')
-          .update({
-            is_frozen: Boolean(freezeState),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userId);
+        // Zero-Trust RPC ONLY: `set_own_account_freeze`
+        const { data: rpcFreeze, error: rpcErr } = await this.client.rpc('set_own_account_freeze', {
+          p_is_frozen: Boolean(freezeState)
+        });
 
-        if (error) {
-          return { success: false, error: error.message };
+        if (rpcErr || !rpcFreeze?.success) {
+          return { success: false, error: rpcErr?.message || rpcFreeze?.error || 'Failed to update account freeze state.' };
         }
-        return { success: true, isFrozen: Boolean(freezeState) };
+
+        return { success: true, isFrozen: Boolean(rpcFreeze.is_frozen) };
       } catch (e) {
         return { success: false, error: e.message || 'Failed to update account freeze state.' };
       }
@@ -427,100 +505,83 @@
       const userId = user.id;
       const fullName = (meta.fullName || user.user_metadata?.full_name || user.email?.split('@')[0] || 'MidePay Member').trim();
       const phone = meta.phone || user.user_metadata?.phone || null;
-      const baseHandle = fullName.split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '') || 'member';
-      const defaultTag = meta.tag || `@${baseHandle}`;
-      const initialBalance = isProduction() ? 0.00 : 250000.00;
 
       try {
-        let profile = await this.getProfile(userId);
-        if (!profile) {
-          let candidateTag = defaultTag;
-          let { data: insertedProfile, error: profErr } = await this.client
-            .from('profiles')
-            .upsert({
-              id: userId,
-              full_name: fullName,
-              email: user.email,
-              phone: phone,
-              tag: candidateTag,
-              kyc_tier: 2
-            }, { onConflict: 'id' })
-            .select('*')
-            .maybeSingle();
+        // Zero-Trust RPC ONLY: Server-side self-healing RPC (`ensure_my_profile_and_wallet`)
+        const { data: ensured, error: ensureErr } = await this.client.rpc('ensure_my_profile_and_wallet', {
+          p_full_name: fullName,
+          p_phone: phone
+        });
 
-          // Handle rare @tag uniqueness collision using Web Crypto CSPRNG suffix
-          if (profErr && profErr.code === '23505') {
-            candidateTag = `@${baseHandle}${String(csprngUint32() % 10000).padStart(4, '0')}`;
-            const retry = await this.client
-              .from('profiles')
-              .upsert({
-                id: userId,
-                full_name: fullName,
-                email: user.email,
-                phone: phone,
-                tag: candidateTag,
-                kyc_tier: 2
-              }, { onConflict: 'id' })
-              .select('*')
-              .maybeSingle();
-            insertedProfile = retry.data;
-          }
-          if (insertedProfile) profile = insertedProfile;
+        if (!ensureErr && ensured && ensured.profile && ensured.wallet) {
+          return {
+            profile: ensured.profile,
+            wallet: ensured.wallet,
+            emailConfirmed: ensured.email_confirmed !== undefined ? Boolean(ensured.email_confirmed) : Boolean(user.email_confirmed_at),
+            hasTransactionPin: Boolean(ensured.has_transaction_pin ?? ensured.profile?.has_transaction_pin)
+          };
         }
 
-        let wallet = await this.getWallet(userId);
-        if (!wallet) {
-          let uniqueNuban = null;
-          try {
-            const { data: rpcNuban, error: rpcErr } = await this.client.rpc('generate_unique_midepay_nuban');
-            if (!rpcErr && typeof rpcNuban === 'string' && /^\d{10}$/.test(rpcNuban)) {
-              uniqueNuban = rpcNuban;
-            }
-          } catch (_) {}
-          if (!uniqueNuban) {
-            uniqueNuban = generateSecureRandomNuban();
-          }
-
-          const { data: newW } = await this.client
-            .from('wallets')
-            .upsert({
-              user_id: userId,
-              currency: 'NGN',
-              balance: initialBalance,
-              ledger_balance: initialBalance,
-              nuban: uniqueNuban,
-              bank_name: 'MidePay / Providus Bank'
-            }, { onConflict: 'user_id,currency' })
-            .select('*')
-            .maybeSingle();
-          if (newW) wallet = newW;
-        } else if (!wallet.nuban || !/^\d{10}$/.test(wallet.nuban)) {
-          let backfillNuban = null;
-          try {
-            const { data: rpcNuban, error: rpcErr } = await this.client.rpc('generate_unique_midepay_nuban');
-            if (!rpcErr && typeof rpcNuban === 'string' && /^\d{10}$/.test(rpcNuban)) {
-              backfillNuban = rpcNuban;
-            }
-          } catch (_) {}
-          if (!backfillNuban) backfillNuban = generateSecureRandomNuban();
-
-          const { data: patchedW } = await this.client
-            .from('wallets')
-            .update({
-              nuban: backfillNuban,
-              bank_name: wallet.bank_name || 'MidePay / Providus Bank',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', wallet.id)
-            .select('*')
-            .maybeSingle();
-          if (patchedW) wallet = patchedW;
-        }
-
-        return { profile, wallet };
+        const [profile, wallet] = await Promise.all([
+          this.getProfile(userId),
+          this.getWallet(userId)
+        ]);
+        return {
+          profile,
+          wallet,
+          emailConfirmed: Boolean(user.email_confirmed_at),
+          hasTransactionPin: Boolean(profile?.has_transaction_pin)
+        };
       } catch (e) {
         console.warn('⚠️ [MidePay] ensureProfileAndWallet notice:', e.message);
         return null;
+      }
+    },
+
+    async recordVerifiedLoginSession(extraMeta = {}) {
+      if (!this.isConfigured() || !this.client) {
+        return { success: false, error: 'Authentication audit service unavailable.' };
+      }
+
+      const nav = (typeof window !== 'undefined' && window.navigator) ? window.navigator : {};
+      const scr = (typeof window !== 'undefined' && window.screen) ? window.screen : {};
+      let tz = 'Africa/Lagos';
+      try {
+        tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Lagos';
+      } catch (_) {}
+
+      const devicePayload = {
+        user_agent: String(nav.userAgent || 'MidePay Web Client').slice(0, 280),
+        platform: String(nav.platform || 'Web').slice(0, 64),
+        language: String(nav.language || 'en-NG').slice(0, 24),
+        timezone: tz,
+        viewport: scr.width && scr.height ? `${scr.width}x${scr.height}` : 'responsive',
+        client_timestamp: new Date().toISOString(),
+        ...extraMeta
+      };
+
+      try {
+        const { data, error } = await this.client.rpc('record_verified_login_session', {
+          p_device_metadata: devicePayload
+        });
+
+        if (error || data?.success === false) {
+          return {
+            success: false,
+            code: data?.code || null,
+            error: error?.message || data?.error || 'Unable to record verified login session.'
+          };
+        }
+
+        return {
+          success: true,
+          loginAt: data?.login_at || devicePayload.client_timestamp,
+          emailConfirmed: Boolean(data?.email_confirmed),
+          hasTransactionPin: Boolean(data?.has_transaction_pin),
+          device: devicePayload
+        };
+      } catch (err) {
+        return { success: false, error: err.message || 'Login session audit error.' };
       }
     },
 
@@ -647,93 +708,53 @@
     },
 
     /**
-     * Persist bcrypt-hashed 4-digit transaction PIN to `public.profiles`
+     * Configure or rotate 4-digit transaction PIN strictly via `set_user_transaction_pin` RPC
+     * (zero direct table `.update()` calls; server hashes with pgcrypto `gen_salt('bf', 10)`)
      */
-    async setUserPin(userId, pinPlainOrHash) {
-      if (!userId || !pinPlainOrHash) {
-        return { success: false, error: 'User ID and transaction PIN are required.' };
-      }
-
-      let finalHash = pinPlainOrHash;
-      if (/^\d{4}$/.test(String(pinPlainOrHash))) {
-        const bcrypt = getBcrypt();
-        if (!bcrypt || typeof bcrypt.hashSync !== 'function') {
-          return { success: false, error: 'Cryptographic PIN hashing module (bcryptjs) is unavailable.' };
-        }
-        finalHash = bcrypt.hashSync(String(pinPlainOrHash), 10);
-      } else if (isProduction() && !isBcryptHash(finalHash)) {
-        return { success: false, error: 'Production requires a valid bcryptjs PIN digest.' };
-      }
-
-      if (!isProduction()) {
-        localStorage.setItem(`midepay_pin_hash_${userId}`, finalHash);
+    async setUserPin(userId, pinPlainOrHash, currentPin = null) {
+      if (!userId || !/^\d{4}$/.test(String(pinPlainOrHash || ''))) {
+        return { success: false, error: 'Transaction PIN must be exactly 4 numeric digits.' };
       }
 
       if (this.isConfigured() && this.client && isValidUuid(userId)) {
         try {
-          const { error } = await this.client
-            .from('profiles')
-            .update({ pin_hash: finalHash, updated_at: new Date().toISOString() })
-            .eq('id', userId);
+          const { data: rpcPin, error: rpcPinErr } = await this.client.rpc('set_user_transaction_pin', {
+            p_new_pin: String(pinPlainOrHash),
+            p_current_pin: currentPin || null
+          });
 
-          if (error) {
-            if (isProduction()) {
-              return { success: false, error: error.message || 'Failed to save transaction PIN on server.' };
-            }
-            console.warn('⚠️ [MidePay] Failed to persist pin_hash to Supabase profiles:', error.message);
+          if (rpcPinErr) {
+            return { success: false, error: rpcPinErr.message || 'Failed to save transaction PIN on server.' };
           }
-          return { success: true, pinHash: finalHash };
+          if (rpcPin && rpcPin.success === false) {
+            return { success: false, error: rpcPin.error || 'Failed to configure Transaction PIN.' };
+          }
+          return { success: true };
         } catch (e) {
-          if (isProduction()) {
-            return { success: false, error: e.message || 'Network error saving transaction PIN.' };
-          }
-        }
-      } else if (isProduction()) {
-        return { success: false, error: 'Authenticated Supabase session required to configure PIN.' };
-      }
-
-      return { success: true, pinHash: finalHash };
-    },
-
-    /**
-     * Fetch user transaction PIN hash directly from Supabase `public.profiles`.
-     * Never reads or writes localStorage when ENV === 'production'.
-     */
-    async getUserPinHash(userId, forceRefresh = false) {
-      if (!userId) return null;
-
-      if (!isProduction() && !forceRefresh) {
-        const cached = localStorage.getItem(`midepay_pin_hash_${userId}`);
-        if (cached) return cached;
-      }
-
-      if (this.isConfigured() && this.client && isValidUuid(userId)) {
-        try {
-          const { data, error } = await this.client
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .maybeSingle();
-
-          if (!error && data?.pin_hash) {
-            if (!isProduction()) {
-              localStorage.setItem(`midepay_pin_hash_${userId}`, data.pin_hash);
-            }
-            return data.pin_hash;
-          }
-        } catch (e) {
-          console.warn('⚠️ [MidePay] getUserPinHash error:', e.message);
+          return { success: false, error: e.message || 'Network error saving transaction PIN.' };
         }
       }
 
       if (isProduction()) {
-        return null;
+        return { success: false, error: 'Authenticated Supabase session required to configure PIN.' };
       }
-      return localStorage.getItem(`midepay_pin_hash_${userId}`) || null;
+
+      const bcrypt = getBcrypt();
+      if (bcrypt && typeof bcrypt.hashSync === 'function') {
+        const digest = bcrypt.hashSync(String(pinPlainOrHash), 10);
+        localStorage.setItem(`midepay_pin_hash_${userId}`, digest);
+        return { success: true, pinHash: digest };
+      }
+      return { success: false, error: 'PIN service unavailable.' };
+    },
+
+    async getUserPinHash() {
+      return null;
     },
 
     /**
-     * Server-backed verification of 4-digit transaction PIN (bcryptjs) + `is_frozen` + `pin_locked_until`
+     * Server-backed verification of 4-digit transaction PIN (`verify_user_transaction_pin` RPC)
+     * Never compares PINs in JavaScript in production.
      */
     async verifyTransactionPin(userId, rawPin) {
       if (!userId || !/^\d{4}$/.test(String(rawPin || ''))) {
@@ -741,52 +762,30 @@
       }
 
       if (this.isConfigured() && this.client && isValidUuid(userId)) {
-        const { data: profile, error } = await this.client
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
+        try {
+          const { data: rpcVer, error: rpcVerErr } = await this.client.rpc('verify_user_transaction_pin', {
+            p_pin: String(rawPin)
+          });
 
-        if (error || !profile) {
-          if (isProduction()) {
-            return { valid: false, error: 'Unable to verify security profile from server.' };
+          if (rpcVerErr) {
+            return { valid: false, error: rpcVerErr.message || 'Unable to verify security PIN on server.' };
           }
-        } else {
-          if (profile.is_frozen === true) {
-            return {
-              valid: false,
-              isFrozen: true,
-              error: 'Account is frozen per CBN security directives. Outbound transactions are disabled.'
-            };
-          }
-
-          if (profile.pin_locked_until && new Date(profile.pin_locked_until) > new Date()) {
-            return {
-              valid: false,
-              error: `Transaction PIN is temporarily locked until ${new Date(profile.pin_locked_until).toLocaleTimeString('en-NG')}.`
-            };
-          }
-
-          if (!profile.pin_hash) {
-            return { valid: false, needsPinSetup: true };
-          }
-
-          const bcrypt = getBcrypt();
-          if (!bcrypt || typeof bcrypt.compareSync !== 'function') {
-            return { valid: false, error: 'Cryptographic PIN verifier (bcryptjs) is unavailable.' };
-          }
-
-          if (!isBcryptHash(profile.pin_hash)) {
-            if (isProduction()) {
-              return { valid: false, error: 'Stored PIN hash format is invalid; please reset your transaction PIN.' };
+          if (rpcVer && typeof rpcVer === 'object') {
+            if (rpcVer.needs_pin_setup) {
+              return { valid: false, needsPinSetup: true };
             }
-          } else {
-            const matched = bcrypt.compareSync(String(rawPin), profile.pin_hash);
+            if (rpcVer.valid === true) {
+              return { valid: true, error: null };
+            }
             return {
-              valid: matched,
-              error: matched ? null : 'Incorrect 4-digit transaction PIN.'
+              valid: false,
+              isFrozen: Boolean(rpcVer.is_frozen),
+              attemptsRemaining: rpcVer.attempts_remaining,
+              error: rpcVer.error || 'Incorrect 4-digit transaction PIN.'
             };
           }
+        } catch (err) {
+          return { valid: false, error: err.message || 'PIN verification network error.' };
         }
       }
 
@@ -794,11 +793,11 @@
         return { valid: false, error: 'Production PIN verification requires an active Supabase session.' };
       }
 
-      const fallbackHash = await this.getUserPinHash(userId);
-      if (!fallbackHash) return { valid: false, needsPinSetup: true };
+      const cached = localStorage.getItem(`midepay_pin_hash_${userId}`);
+      if (!cached) return { valid: false, needsPinSetup: true };
       const bcrypt = getBcrypt();
-      if (bcrypt && isBcryptHash(fallbackHash)) {
-        const ok = bcrypt.compareSync(String(rawPin), fallbackHash);
+      if (bcrypt && isBcryptHash(cached)) {
+        const ok = bcrypt.compareSync(String(rawPin), cached);
         return { valid: ok, error: ok ? null : 'Incorrect 4-digit transaction PIN.' };
       }
       return { valid: false, error: 'Unable to verify PIN.' };
@@ -808,18 +807,82 @@
     // ATOMIC LEDGER & TRANSFER OPERATIONS
     // =========================================================================
 
+    generateIdempotencyKey() {
+      return generateIdempotencyKey();
+    },
+
+    /**
+     * Execute Atomic P2P NUBAN Transfer via `execute_p2p_transfer` RPC
+     * (server-side pgcrypto PIN check, 5-strike lockout, FOR UPDATE locking & UUID idempotency)
+     */
+    async executeP2PTransfer({ recipientNuban, amount, pin, idempotencyKey = null, narration = 'MidePay Transfer' }) {
+      const cleanRecipient = String(recipientNuban || '').trim();
+      const amt = Math.round(Number(amount) * 100) / 100;
+      const idemKey = isValidUuid(idempotencyKey) ? idempotencyKey : generateIdempotencyKey();
+
+      if (!cleanRecipient) return { success: false, error: 'Recipient NUBAN or @tag is required.' };
+      if (!Number.isFinite(amt) || amt <= 0) return { success: false, error: 'Transfer amount must be greater than zero.' };
+      if (!/^\d{4}$/.test(String(pin || ''))) return { success: false, error: 'Valid 4-digit Transaction PIN is required.' };
+
+      if (this.isConfigured() && this.client) {
+        try {
+          const { data, error } = await this.client.rpc('execute_p2p_transfer', {
+            p_recipient_nuban: cleanRecipient,
+            p_amount: amt,
+            p_pin: String(pin),
+            p_idempotency_key: idemKey,
+            p_narration: narration || 'MidePay Transfer'
+          });
+
+          if (error) {
+            return { success: false, error: error.message || 'P2P transfer rejected by server.' };
+          }
+          if (data && (data.success === false || (data.status && !['success', 'duplicate'].includes(data.status)))) {
+            return { success: false, error: data.error || 'P2P transfer rejected by server.' };
+          }
+          return {
+            success: true,
+            status: data?.status || 'success',
+            data,
+            reference: data?.reference || `MDP-${String(100000000 + (csprngUint32() % 900000000))}`,
+            newBalance: data?.new_balance !== undefined ? Number(data.new_balance) : undefined
+          };
+        } catch (err) {
+          return { success: false, error: err.message || 'Transfer service connection failed.' };
+        }
+      }
+
+      if (isProduction()) {
+        return { success: false, error: 'Production P2P transfers require an active Supabase session.' };
+      }
+
+      const reference = 'MP-TRF-' + String(10000000 + (csprngUint32() % 90000000));
+      return { success: true, isDemo: true, reference, data: { success: true, reference, amount: amt } };
+    },
+
     /**
      * Execute Atomic Transfer Funds via Postgres SECURITY DEFINER RPC:
-     * transfer_funds(sender_id, recipient_id, amount, narration)
+     * transfer_funds(sender_id, recipient_id, amount, narration, p_pin, p_idempotency_key)
      */
-    async transferFunds({ senderId, recipientId, amount, narration }) {
+    async transferFunds({ senderId, recipientId, recipientNuban = null, amount, narration, pin = null, idempotencyKey = null }) {
       if (!senderId) return { success: false, error: 'Sender ID is required' };
-      if (!recipientId) return { success: false, error: 'Recipient ID is required' };
-      if (senderId === recipientId) return { success: false, error: 'Cannot transfer funds to yourself' };
+      if (!recipientId && !recipientNuban) return { success: false, error: 'Recipient ID or NUBAN is required' };
+      if (recipientId && senderId === recipientId) return { success: false, error: 'Cannot transfer funds to yourself' };
       if (!amount || Number(amount) <= 0) return { success: false, error: 'Transfer amount must be greater than zero' };
 
-      if (this.isConfigured() && this.client && isValidUuid(senderId) && isValidUuid(recipientId)) {
-        // Pre-flight server-side freeze check
+      const idemKey = isValidUuid(idempotencyKey) ? idempotencyKey : generateIdempotencyKey();
+
+      if (this.isConfigured() && this.client && isValidUuid(senderId) && (isValidUuid(recipientId) || recipientNuban)) {
+        if (recipientNuban && /^\d{4}$/.test(String(pin || ''))) {
+          return this.executeP2PTransfer({
+            recipientNuban,
+            amount,
+            pin,
+            idempotencyKey: idemKey,
+            narration
+          });
+        }
+
         const freezeCheck = await this.getAccountFreezeStatus(senderId);
         if (freezeCheck.isFrozen) {
           return {
@@ -829,16 +892,23 @@
         }
 
         try {
-          const { data, error } = await this.client.rpc('transfer_funds', {
+          const rpcPayload = {
             sender_id: senderId,
             recipient_id: recipientId,
             amount: Number(amount),
-            narration: narration || 'Transfer via MidePay'
-          });
+            narration: narration || 'Transfer via MidePay',
+            p_pin: pin || null,
+            p_idempotency_key: idemKey
+          };
+
+          const { data, error } = await this.client.rpc('transfer_funds', rpcPayload);
 
           if (error) {
             const msg = error.message || error.details || 'Transfer failed on server';
             return { success: false, error: msg };
+          }
+          if (data && data.success === false) {
+            return { success: false, error: data.error || 'Transfer rejected by server.' };
           }
 
           return {
@@ -885,9 +955,10 @@
     },
 
     /**
-     * Record External Bank NIP Outflow Transfer (validates freeze state & server wallet balance)
+     * Execute External Bank NIP Outflow Transfer strictly via `execute_external_bank_transfer` RPC
+     * (zero client-side balance math or direct table writes)
      */
-    async recordTransfer({ walletId, userId, amount, recipient, destinationBank, narration, fee = 0.00, reference = null }) {
+    async recordTransfer({ userId, amount, recipient, accountNumber = null, destinationBank, narration, fee = 0.00, reference = null, pin = null, idempotencyKey = null }) {
       if (!this.isConfigured() || !this.client) {
         if (isProduction()) {
           return { success: false, error: 'Ledger service unavailable in production.' };
@@ -899,60 +970,34 @@
         return { success: false, error: 'Valid authenticated user UUID is required.' };
       }
 
-      const freezeCheck = await this.getAccountFreezeStatus(userId);
-      if (freezeCheck.isFrozen) {
-        return { success: false, error: 'Account is frozen. Outbound NIP transfers are disabled.' };
-      }
-
-      const wallet = await this.getWallet(userId);
-      if (!wallet) {
-        return { success: false, error: 'Active NGN wallet not found for user.' };
-      }
-
-      const totalDebit = Number(amount) + Number(fee || 0);
-      if (Number(wallet.balance) < totalDebit) {
-        return {
-          success: false,
-          error: `Insufficient wallet balance on server (Available: ₦${Number(wallet.balance).toLocaleString('en-NG', { minimumFractionDigits: 2 })}).`
-        };
-      }
-
       const txRef = reference || ('MDP-' + String(100000000 + (csprngUint32() % 900000000)));
-      const newBalance = Number(wallet.balance) - totalDebit;
+      const idemKey = isValidUuid(idempotencyKey) ? idempotencyKey : generateIdempotencyKey();
 
-      const { error: walletErr } = await this.client
-        .from('wallets')
-        .update({
-          balance: newBalance,
-          ledger_balance: newBalance,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', wallet.id);
+      const { data: rpcRes, error: rpcErr } = await this.client.rpc('execute_external_bank_transfer', {
+        p_amount: Number(amount),
+        p_fee: Number(fee || 0),
+        p_recipient_name: recipient,
+        p_destination_bank: destinationBank,
+        p_account_number: accountNumber,
+        p_narration: narration || 'Transfer via MidePay',
+        p_reference: txRef,
+        p_pin: pin || null,
+        p_idempotency_key: idemKey
+      });
 
-      if (walletErr) {
-        return { success: false, error: walletErr.message || 'Unable to debit wallet on server.' };
+      if (rpcErr) {
+        return { success: false, error: rpcErr.message || 'Outbound bank transfer rejected by server.' };
+      }
+      if (!rpcRes || rpcRes.success === false) {
+        return { success: false, error: rpcRes?.error || 'Outbound bank transfer rejected by server.' };
       }
 
-      const { data: tx, error: txError } = await this.client
-        .from('transactions')
-        .insert({
-          wallet_id: wallet.id,
-          user_id: userId,
-          type: 'outflow',
-          category: 'transfer',
-          amount: Number(amount),
-          fee: Number(fee || 0),
-          status: 'successful',
-          counterparty_name: recipient,
-          counterparty_bank: destinationBank,
-          narration: narration || 'Transfer via MidePay',
-          reference: txRef
-        })
-        .select('*')
-        .maybeSingle();
-
-      if (txError) return { success: false, error: txError.message || 'Failed to record ledger entry.' };
-      return { success: true, transaction: tx, newBalance };
+      return {
+        success: true,
+        transaction: rpcRes.transaction || null,
+        reference: rpcRes.reference || txRef,
+        newBalance: Number(rpcRes.new_balance)
+      };
     },
 
     /**
@@ -1090,101 +1135,56 @@
     },
 
     /**
-     * Record Instant Direct Wallet Top-Up (Providus NUBAN / Live Supabase & Sandbox Credit)
-     * Operates cleanly with zero errors while external card gateways (Paystack/Flutterwave)
-     * await live key activation on Nov 30, 2026.
+     * Record Instant Direct Wallet Top-Up strictly via `concept_topup_wallet` RPC
+     * (zero client-side balance math or direct table writes)
      */
-    async recordDeposit({ walletId, userId, amount }) {
+    async recordDeposit({ userId, amount, idempotencyKey = null }) {
       const depositAmount = Number(amount);
       if (!Number.isFinite(depositAmount) || depositAmount <= 0) {
         return { success: false, error: 'Deposit amount must be greater than zero.' };
       }
 
       const reference = 'DEP-' + Date.now() + '-' + String(1000 + (csprngUint32() % 9000));
+      const idemKey = isValidUuid(idempotencyKey) ? idempotencyKey : generateIdempotencyKey();
 
       if (!this.isConfigured() || !this.client || !userId || !isValidUuid(userId)) {
+        if (isProduction()) {
+          return { success: false, error: 'Authenticated Supabase session required to fund wallet.' };
+        }
         return { success: true, isSandbox: true, reference };
       }
 
       try {
         const { data: authData } = await this.client.auth.getUser();
         if (!authData?.user || authData.user.id !== userId) {
+          if (isProduction()) {
+            return { success: false, error: 'Authenticated Supabase session required to fund wallet.' };
+          }
           return { success: true, isSandbox: true, reference };
         }
 
-        let wallet = await this.getWallet(userId);
-        let targetWalletId = wallet?.id || walletId;
+        const { data: rpcTopup, error: rpcTopupErr } = await this.client.rpc('concept_topup_wallet', {
+          p_amount: depositAmount,
+          p_reference: reference,
+          p_idempotency_key: idemKey
+        });
 
-        if (!wallet) {
-          let generatedNuban = null;
-          try {
-            const { data: rpcNuban, error: rpcErr } = await this.client.rpc('generate_unique_midepay_nuban');
-            if (!rpcErr && typeof rpcNuban === 'string' && /^\d{10}$/.test(rpcNuban)) {
-              generatedNuban = rpcNuban;
-            }
-          } catch (_) {}
-          if (!generatedNuban) generatedNuban = generateSecureRandomNuban();
-
-          const { data: createdW } = await this.client
-            .from('wallets')
-            .insert({
-              user_id: userId,
-              currency: 'NGN',
-              balance: depositAmount,
-              ledger_balance: depositAmount,
-              nuban: generatedNuban,
-              bank_name: 'MidePay / Providus Bank'
-            })
-            .select('*')
-            .maybeSingle();
-
-          if (createdW) {
-            wallet = createdW;
-            targetWalletId = createdW.id;
-          }
-        } else if (targetWalletId) {
-          const newBalance = Number(wallet.balance || 0) + depositAmount;
-          const { data: updatedW } = await this.client
-            .from('wallets')
-            .update({
-              balance: newBalance,
-              ledger_balance: newBalance,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', targetWalletId)
-            .select('*')
-            .maybeSingle();
-
-          if (updatedW) wallet = updatedW;
+        if (rpcTopupErr) {
+          return { success: false, error: rpcTopupErr.message || 'Wallet top-up rejected by server.' };
+        }
+        if (!rpcTopup || rpcTopup.success === false) {
+          return { success: false, error: rpcTopup?.error || 'Wallet top-up rejected by server.' };
         }
 
-        let txData = null;
-        if (targetWalletId) {
-          const { data: insertedTx } = await this.client
-            .from('transactions')
-            .insert({
-              wallet_id: targetWalletId,
-              user_id: userId,
-              type: 'inflow',
-              category: 'deposit',
-              amount: depositAmount,
-              fee: 0.00,
-              status: 'successful',
-              counterparty_name: 'Providus Bank Direct Top-Up',
-              counterparty_bank: 'Providus Bank',
-              counterparty_tag_or_nuban: wallet?.nuban || '9000000000',
-              narration: 'Instant Direct Wallet Top-Up (Providus NUBAN)',
-              reference
-            })
-            .select('*')
-            .maybeSingle();
-          txData = insertedTx || null;
-        }
-
-        return { success: true, wallet, transaction: txData, reference };
+        return {
+          success: true,
+          wallet: rpcTopup.wallet || null,
+          transaction: rpcTopup.transaction || null,
+          newBalance: Number(rpcTopup.new_balance ?? rpcTopup.wallet?.balance),
+          reference: rpcTopup.reference || reference
+        };
       } catch (err) {
-        console.warn('[MidePay] Direct top-up cloud sync notice:', err.message);
-        return { success: true, isSandbox: true, reference };
+        return { success: false, error: err.message || 'Direct top-up network error.' };
       }
     },
 
@@ -1279,12 +1279,13 @@
         return { success: true, isDemo: true };
       }
 
-      const { data, error } = await this.client
-        .from('waitlist')
-        .insert([{ email: email.trim().toLowerCase() }]);
+      const { data, error } = await this.client.rpc('join_waitlist', {
+        p_email: String(email || '').trim().toLowerCase(),
+        p_source: 'landing_page'
+      });
 
-      if (error && error.code !== '23505') {
-        return { success: false, error };
+      if (error || data?.success === false) {
+        return { success: false, error: error?.message || data?.error || 'Unable to join waitlist.' };
       }
       return { success: true, data };
     },
@@ -1365,25 +1366,21 @@
         }
 
         try {
-          const { data, error } = await this.client
-            .from('payment_requests')
-            .insert({
-              requester_id: requesterId,
-              payer_id: payerId,
-              amount: numAmount,
-              note: note || '',
-              status: 'pending'
-            })
-            .select('*')
-            .single();
+          const idemKey = generateIdempotencyKey();
+          const { data: rpcRes, error } = await this.client.rpc('create_payment_request', {
+            p_payer_id: payerId,
+            p_amount: numAmount,
+            p_note: note || '',
+            p_idempotency_key: idemKey
+          });
 
-          if (!error && data) {
-            const merged = { ...data, requester: requesterDetails, payer: payerDetails };
+          if (!error && rpcRes?.success && rpcRes.request) {
+            const merged = { ...rpcRes.request, requester: requesterDetails, payer: payerDetails };
             this._saveLocalPaymentRequest(merged);
             return { success: true, data: merged };
           }
-          if (error && isProduction()) {
-            return { success: false, error: error.message };
+          if (error || rpcRes?.success === false) {
+            return { success: false, error: error?.message || rpcRes?.error || 'Unable to create payment request.' };
           }
         } catch (err) {
           if (isProduction()) {
@@ -1486,76 +1483,27 @@
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user && authData.user.id === userId) {
-            let serverPan = creds.cardNumber;
-            try {
-              const { data: rpcPan, error: rpcErr } = await this.client.rpc('generate_unique_virtual_card_pan', {
-                p_prefix: '5399'
-              });
-              if (!rpcErr && typeof rpcPan === 'string' && rpcPan.replace(/\s+/g, '').length === 16) {
-                serverPan = rpcPan;
-              }
-            } catch (_) {}
+            const { data: issuedCard, error: issueErr } = await this.client.rpc('issue_virtual_card', {
+              p_currency: normCurrency,
+              p_card_type: normType,
+              p_card_label: normLabel,
+              p_card_holder_name: creds.cardHolderName,
+              p_spending_limit: defaultLimit
+            });
 
-            const cleanDigits = serverPan.replace(/\s+/g, '');
-            const maskedPan = `${cleanDigits.slice(0, 4)} •••• •••• ${cleanDigits.slice(12, 16)}`;
-
-            const insertPayload = {
-              user_id: userId,
-              wallet_id: isValidUuid(walletId) ? walletId : null,
-              card_type: normType,
-              currency: normCurrency,
-              card_label: normLabel,
-              card_holder_name: creds.cardHolderName,
-              card_number: serverPan,
-              masked_pan: maskedPan,
-              cvv: creds.cvv,
-              expiry_month: creds.expiryMonth,
-              expiry_year: creds.expiryYear,
-              card_balance: Math.max(0, Number(initialBalance) || 0),
-              spending_limit_monthly: defaultLimit,
-              is_frozen: false,
-              is_active: true
-            };
-
-            const { data, error } = await this.client
-              .from('virtual_cards')
-              .insert(insertPayload)
-              .select('*')
-              .single();
-
-            if (!error && data) {
-              return { success: true, card: data };
+            if (issueErr || !issuedCard) {
+              return { success: false, error: issueErr?.message || 'Unable to issue virtual card on server.' };
             }
 
-            // Compatibility fallback if migration 20261116020000 columns haven't been pushed yet
-            if (error && /column .* does not exist/i.test(error.message || '')) {
-              const legacyPayload = {
-                user_id: userId,
-                wallet_id: isValidUuid(walletId) ? walletId : null,
-                card_type: normType,
-                currency: normCurrency,
-                card_holder_name: creds.cardHolderName,
-                masked_pan: maskedPan,
-                expiry_month: creds.expiryMonth,
-                expiry_year: creds.expiryYear,
-                card_balance: Math.max(0, Number(initialBalance) || 0),
-                spending_limit_monthly: defaultLimit,
-                is_frozen: false
-              };
-              const retry = await this.client.from('virtual_cards').insert(legacyPayload).select('*').single();
-              if (!retry.error && retry.data) {
-                const enriched = { ...retry.data, card_number: serverPan, cvv: creds.cvv, card_label: normLabel };
-                return { success: true, card: enriched };
-              }
-            }
-
-            if (error) {
-              return { success: false, error: error.message || 'Unable to create virtual card on server.' };
-            }
+            return { success: true, card: issuedCard };
           }
         } catch (err) {
-          console.warn('[MidePay] createVirtualCard cloud notice:', err.message);
+          return { success: false, error: err.message || 'Unable to issue virtual card on server.' };
         }
+      }
+
+      if (isProduction()) {
+        return { success: false, error: 'Authenticated Supabase session required to issue virtual debit cards.' };
       }
 
       // Per-user isolated local card store when running without an authenticated Supabase JWT (e.g. local preview)
@@ -1632,27 +1580,24 @@
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user && authData.user.id === userId) {
-            const { data, error } = await this.client
-              .from('virtual_cards')
-              .update({
-                is_frozen: Boolean(isFrozen),
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', cardId)
-              .eq('user_id', userId)
-              .select('*')
-              .maybeSingle();
+            const { data: rpcCard, error: rpcErr } = await this.client.rpc('set_virtual_card_freeze', {
+              p_card_id: cardId,
+              p_is_frozen: Boolean(isFrozen)
+            });
 
-            if (!error && data) {
-              return { success: true, card: data };
+            if (rpcErr || !rpcCard) {
+              return { success: false, error: rpcErr?.message || 'Unable to update virtual card freeze state.' };
             }
-            if (error) {
-              return { success: false, error: error.message };
-            }
+
+            return { success: true, card: rpcCard };
           }
         } catch (err) {
-          console.warn('[MidePay] updateVirtualCardFreeze notice:', err.message);
+          return { success: false, error: err.message || 'Unable to update virtual card freeze state.' };
         }
+      }
+
+      if (isProduction()) {
+        return { success: false, error: 'Authenticated Supabase session required to freeze or unfreeze cards.' };
       }
 
       const localCards = this._readLocalVirtualCards(userId);
@@ -1676,27 +1621,24 @@
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user && authData.user.id === userId) {
-            const { data, error } = await this.client
-              .from('virtual_cards')
-              .update({
-                spending_limit_monthly: numLimit,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', cardId)
-              .eq('user_id', userId)
-              .select('*')
-              .maybeSingle();
+            const { data: rpcCard, error: rpcErr } = await this.client.rpc('set_virtual_card_limit', {
+              p_card_id: cardId,
+              p_spending_limit: numLimit
+            });
 
-            if (!error && data) {
-              return { success: true, card: data };
+            if (rpcErr || !rpcCard) {
+              return { success: false, error: rpcErr?.message || 'Unable to update monthly spending limit.' };
             }
-            if (error) {
-              return { success: false, error: error.message };
-            }
+
+            return { success: true, card: rpcCard };
           }
         } catch (err) {
-          console.warn('[MidePay] updateVirtualCardLimit notice:', err.message);
+          return { success: false, error: err.message || 'Unable to update monthly spending limit.' };
         }
+      }
+
+      if (isProduction()) {
+        return { success: false, error: 'Authenticated Supabase session required to update card spending limits.' };
       }
 
       const localCards = this._readLocalVirtualCards(userId);
@@ -1710,45 +1652,69 @@
       return { success: true, isSandbox: true };
     },
 
-    async updateVirtualCardBalance({ cardId, userId, newBalance }) {
-      const bal = Math.max(0, Number(newBalance) || 0);
-      if (!cardId || !userId) {
-        return { success: false, error: 'Card ID and User ID are required.' };
+    async logVirtualCardReveal({ cardId, field = 'PAN' }) {
+      if (!cardId || !this.isConfigured() || !this.client || !isValidUuid(cardId)) {
+        return { success: true, isSandbox: true };
+      }
+      try {
+        await this.client.rpc('log_virtual_card_reveal', {
+          p_card_id: cardId,
+          p_field: String(field || 'PAN').toUpperCase()
+        });
+      } catch (_) {}
+      return { success: true };
+    },
+
+    async updateVirtualCardBalance({ cardId, userId, fundIncrement = null, pin = null, idempotencyKey = null }) {
+      const creditAmt = Math.round(Number(fundIncrement) * 100) / 100;
+      if (!cardId || !userId || !Number.isFinite(creditAmt) || creditAmt <= 0) {
+        return { success: false, error: 'Valid card ID, user ID, and positive funding amount are required.' };
       }
 
       if (this.isConfigured() && this.client && isValidUuid(cardId) && isValidUuid(userId)) {
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user && authData.user.id === userId) {
-            const { data, error } = await this.client
-              .from('virtual_cards')
-              .update({
-                card_balance: bal,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', cardId)
-              .eq('user_id', userId)
-              .select('*')
-              .maybeSingle();
+            const { data: rpcFund, error: rpcFundErr } = await this.client.rpc('fund_virtual_card', {
+              p_card_id: cardId,
+              p_amount_card_currency: creditAmt,
+              p_pin: pin || null,
+              p_idempotency_key: isValidUuid(idempotencyKey) ? idempotencyKey : generateIdempotencyKey()
+            });
 
-            if (!error && data) {
-              return { success: true, card: data };
+            if (rpcFundErr) {
+              return { success: false, error: rpcFundErr.message || 'Card funding rejected by server.' };
             }
+            if (!rpcFund || rpcFund.success === false) {
+              return { success: false, error: rpcFund?.error || 'Card funding rejected by server.' };
+            }
+
+            return {
+              success: true,
+              card: rpcFund.card || null,
+              transaction: rpcFund.transaction || null,
+              newCardBalance: Number(rpcFund.new_card_balance ?? rpcFund.card?.card_balance),
+              newWalletBalance: Number(rpcFund.new_wallet_balance)
+            };
           }
         } catch (err) {
-          console.warn('[MidePay] updateVirtualCardBalance notice:', err.message);
+          return { success: false, error: err.message || 'Card funding network error.' };
         }
+      }
+
+      if (isProduction()) {
+        return { success: false, error: 'Authenticated Supabase session required to fund virtual cards.' };
       }
 
       const localCards = this._readLocalVirtualCards(userId);
       const target = localCards.find(c => c.id === cardId);
       if (target) {
-        target.card_balance = bal;
+        target.card_balance = Math.round((Number(target.card_balance || 0) + creditAmt) * 100) / 100;
         target.updated_at = new Date().toISOString();
         this._writeLocalVirtualCards(userId, localCards);
-        return { success: true, card: target, isSandbox: true };
+        return { success: true, card: target, newCardBalance: target.card_balance, isSandbox: true };
       }
-      return { success: true, isSandbox: true };
+      return { success: false, error: 'Virtual card not found.' };
     },
 
     async getPaymentRequests(userId) {
@@ -1791,23 +1757,22 @@
       return requests;
     },
 
-    async updatePaymentRequestStatus(requestId, status, userId = null) {
+    async updatePaymentRequestStatus(requestId, status) {
       if (!requestId || !status) return { success: false, error: 'Request ID and status required' };
 
-      if (this.isConfigured() && this.client) {
+      if (this.isConfigured() && this.client && isValidUuid(requestId)) {
         try {
-          const { error } = await this.client
-            .from('payment_requests')
-            .update({ status: status, updated_at: new Date().toISOString() })
-            .eq('id', requestId);
+          const { data: rpcRes, error } = await this.client.rpc('respond_payment_request', {
+            p_request_id: requestId,
+            p_status: String(status).toLowerCase()
+          });
 
-          if (error && isProduction()) {
-            return { success: false, error: error.message };
+          if (error || rpcRes?.success === false) {
+            return { success: false, error: error?.message || rpcRes?.error || 'Unable to update payment request.' };
           }
+          return { success: true, status: rpcRes?.status || status };
         } catch (e) {
-          if (isProduction()) {
-            return { success: false, error: e.message };
-          }
+          return { success: false, error: e.message || 'Payment request update error.' };
         }
       } else if (isProduction()) {
         return { success: false, error: 'Payment request service unavailable.' };
@@ -1891,31 +1856,28 @@
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user && authData.user.id === userId) {
-            const { data, error } = await this.client
-              .from('savings_vaults')
-              .insert({
-                user_id: userId,
-                title: cleanTitle,
-                category: String(category || 'General').trim(),
-                target_amount: targetNum,
-                current_balance: 0.00,
-                interest_rate_pa: rate,
-                lock_until: normLockUntil,
-                status: 'active'
-              })
-              .select('*')
-              .single();
+            const { data: rpcRes, error: rpcErr } = await this.client.rpc('manage_midesave_vault', {
+              p_action: 'create',
+              p_title: cleanTitle,
+              p_category: String(category || 'General').trim(),
+              p_target_amount: targetNum,
+              p_lock_until: normLockUntil,
+              p_interest_rate_pa: rate
+            });
 
-            if (!error && data) {
-              return { success: true, vault: data };
+            if (rpcErr || !rpcRes || rpcRes.success === false) {
+              return { success: false, error: rpcErr?.message || rpcRes?.error || 'Unable to create savings vault on server.' };
             }
-            if (error) {
-              return { success: false, error: error.message || 'Unable to create savings vault.' };
-            }
+
+            return { success: true, vault: rpcRes.vault || rpcRes };
           }
         } catch (err) {
-          console.warn('[MidePay] createSavingsVault notice:', err.message);
+          return { success: false, error: err.message || 'Unable to create savings vault on server.' };
         }
+      }
+
+      if (isProduction()) {
+        return { success: false, error: 'Authenticated Supabase session required to create MideSave vaults.' };
       }
 
       const localVault = {
@@ -1937,7 +1899,7 @@
       return { success: true, vault: localVault, isSandbox: true };
     },
 
-    async fundSavingsVault(vaultId, amount, userId = null) {
+    async fundSavingsVault(vaultId, amount, userId = null, options = {}) {
       const amt = Math.round(Number(amount) * 100) / 100;
       if (!vaultId || !Number.isFinite(amt) || amt <= 0) {
         return { success: false, error: 'Valid vault ID and positive deposit amount are required.' };
@@ -1947,11 +1909,21 @@
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user) {
-            const { data, error } = await this.client.rpc('fund_savings_vault', {
+            const idemKey = isValidUuid(options?.idempotencyKey) ? options.idempotencyKey : generateIdempotencyKey();
+            const { data, error } = await this.client.rpc('manage_midesave_vault', {
+              p_action: 'fund',
               p_vault_id: vaultId,
-              p_amount: amt
+              p_amount: amt,
+              p_pin: options?.pin || null,
+              p_idempotency_key: idemKey
             });
-            if (!error && data?.success) {
+            if (error) {
+              return { success: false, error: error.message || 'Failed to fund savings vault.' };
+            }
+            if (data && data.success === false) {
+              return { success: false, error: data.error || 'Failed to fund savings vault.' };
+            }
+            if (data) {
               return {
                 success: true,
                 vaultId: data.vault_id,
@@ -1961,42 +1933,16 @@
                 reference: data.reference
               };
             }
-            if (error) {
-              return { success: false, error: error.message || 'Failed to fund savings vault.' };
-            }
           }
         } catch (err) {
-          console.warn('[MidePay] fundSavingsVault notice:', err.message);
+          return { success: false, error: err.message || 'Failed to fund savings vault.' };
         }
       }
 
-      if (userId) {
-        const vaults = this._readLocalVaults(userId);
-        const target = vaults.find(v => v.id === vaultId);
-        if (!target) return { success: false, error: 'Savings vault not found.' };
-        target.current_balance = Math.round((Number(target.current_balance || 0) + amt) * 100) / 100;
-        if (target.lock_until && new Date(target.lock_until) <= new Date()) {
-          target.status = 'matured';
-        } else {
-          target.status = 'active';
-        }
-        target.updated_at = new Date().toISOString();
-        this._writeLocalVaults(userId, vaults);
-        const ref = `MDP-SAV-${Date.now()}-${String(1000 + (csprngUint32() % 9000))}`;
-        return {
-          success: true,
-          isSandbox: true,
-          vaultId: target.id,
-          vaultTitle: target.title,
-          vaultBalance: target.current_balance,
-          reference: ref
-        };
-      }
-
-      return { success: false, error: 'Authenticated session required to fund MideSave vault.' };
+      return { success: false, error: 'Authenticated Supabase session required to fund MideSave vault.' };
     },
 
-    async withdrawSavingsVault(vaultId, amount, userId = null) {
+    async withdrawSavingsVault(vaultId, amount, userId = null, options = {}) {
       const amt = Math.round(Number(amount) * 100) / 100;
       if (!vaultId || !Number.isFinite(amt) || amt <= 0) {
         return { success: false, error: 'Valid vault ID and positive withdrawal amount are required.' };
@@ -2006,11 +1952,21 @@
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user) {
-            const { data, error } = await this.client.rpc('withdraw_savings_vault', {
+            const idemKey = isValidUuid(options?.idempotencyKey) ? options.idempotencyKey : generateIdempotencyKey();
+            const { data, error } = await this.client.rpc('manage_midesave_vault', {
+              p_action: 'withdraw',
               p_vault_id: vaultId,
-              p_amount: amt
+              p_amount: amt,
+              p_pin: options?.pin || null,
+              p_idempotency_key: idemKey
             });
-            if (!error && data?.success) {
+            if (error) {
+              return { success: false, error: error.message || 'Failed to withdraw from savings vault.' };
+            }
+            if (data && data.success === false) {
+              return { success: false, error: data.error || 'Failed to withdraw from savings vault.' };
+            }
+            if (data) {
               return {
                 success: true,
                 vaultId: data.vault_id,
@@ -2024,48 +1980,13 @@
                 reference: data.reference
               };
             }
-            if (error) {
-              return { success: false, error: error.message || 'Failed to withdraw from savings vault.' };
-            }
           }
         } catch (err) {
-          console.warn('[MidePay] withdrawSavingsVault notice:', err.message);
+          return { success: false, error: err.message || 'Failed to withdraw from savings vault.' };
         }
       }
 
-      if (userId) {
-        const vaults = this._readLocalVaults(userId);
-        const target = vaults.find(v => v.id === vaultId);
-        if (!target) return { success: false, error: 'Savings vault not found.' };
-        const currentBal = Number(target.current_balance || 0);
-        if (currentBal < amt) {
-          return { success: false, error: 'Insufficient vault balance for requested withdrawal.' };
-        }
-        const isEarlyBreak = Boolean(target.lock_until && new Date(target.lock_until) > new Date());
-        const earlyBreakFee = isEarlyBreak ? Math.round(amt * 0.015 * 100) / 100 : 0.00;
-        const netCredited = Math.round((amt - earlyBreakFee) * 100) / 100;
-        target.current_balance = Math.round((currentBal - amt) * 100) / 100;
-        target.status = isEarlyBreak
-          ? 'broken'
-          : (target.lock_until && new Date(target.lock_until) <= new Date() ? 'matured' : target.status);
-        target.updated_at = new Date().toISOString();
-        this._writeLocalVaults(userId, vaults);
-        const ref = `MDP-WDR-${Date.now()}-${String(1000 + (csprngUint32() % 9000))}`;
-        return {
-          success: true,
-          isSandbox: true,
-          vaultId: target.id,
-          vaultTitle: target.title,
-          grossWithdrawn: amt,
-          earlyBreakFee,
-          netCredited,
-          vaultBalance: target.current_balance,
-          status: target.status,
-          reference: ref
-        };
-      }
-
-      return { success: false, error: 'Authenticated session required to withdraw from MideSave vault.' };
+      return { success: false, error: 'Authenticated Supabase session required to withdraw from MideSave vault.' };
     },
 
     // =========================================================================
@@ -2124,7 +2045,7 @@
       return this._readLocalBills(userId);
     },
 
-    async payUtilityBill({ userId, serviceType, provider, identifier, planName, amount, pinVerified = true }) {
+    async payUtilityBill({ userId, serviceType, provider, identifier, planName, amount, pinVerified = true, pin = null, idempotencyKey = null }) {
       const cleanService = String(serviceType || '').trim().toLowerCase();
       const amt = Math.round(Number(amount) * 100) / 100;
       if (!['airtime', 'data', 'electricity', 'cable'].includes(cleanService)) {
@@ -2136,7 +2057,7 @@
       if (!Number.isFinite(amt) || amt <= 0) {
         return { success: false, error: 'Bill payment amount must be greater than ₦0.00.' };
       }
-      if (!pinVerified) {
+      if (!pinVerified && !pin) {
         return { success: false, error: '4-digit Transaction PIN verification is required.' };
       }
 
@@ -2144,16 +2065,24 @@
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user && authData.user.id === userId) {
-            const { data, error } = await this.client.rpc('pay_utility_bill', {
+            const idemKey = isValidUuid(idempotencyKey) ? idempotencyKey : generateIdempotencyKey();
+            const { data, error } = await this.client.rpc('pay_vtu_bill', {
               p_service_type: cleanService,
               p_provider: String(provider).trim(),
               p_identifier: String(identifier).trim(),
               p_plan_name: String(planName || provider).trim(),
               p_amount: amt,
-              p_pin_verified: true
+              p_pin: pin || null,
+              p_idempotency_key: idemKey
             });
 
-            if (!error && data?.success) {
+            if (error) {
+              return { success: false, error: error.message || 'Utility bill payment rejected by server.' };
+            }
+            if (data && data.success === false) {
+              return { success: false, error: data.error || 'Utility bill payment rejected by server.' };
+            }
+            if (data) {
               return {
                 success: true,
                 billId: data.bill_id,
@@ -2162,43 +2091,13 @@
                 newBalance: Number(data.new_balance)
               };
             }
-            if (error) {
-              return { success: false, error: error.message || 'Utility bill payment rejected by server.' };
-            }
           }
         } catch (err) {
-          console.warn('[MidePay] payUtilityBill notice:', err.message);
+          return { success: false, error: err.message || 'Utility bill payment network error.' };
         }
       }
 
-      const token = cleanService === 'electricity' ? this.generateStsMeterToken() : null;
-      const reference = `MDP-BIL-${Date.now()}-${String(1000 + (csprngUint32() % 9000))}`;
-      const localRecord = {
-        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `bil-${Date.now()}`,
-        user_id: userId,
-        service_type: cleanService,
-        provider: String(provider).trim(),
-        customer_identifier: String(identifier).trim(),
-        plan_name: String(planName || provider).trim(),
-        amount: amt,
-        token_or_pin: token,
-        reference,
-        status: 'successful',
-        created_at: new Date().toISOString()
-      };
-      if (userId) {
-        const history = this._readLocalBills(userId);
-        history.unshift(localRecord);
-        this._writeLocalBills(userId, history);
-      }
-
-      return {
-        success: true,
-        isSandbox: true,
-        billId: localRecord.id,
-        reference,
-        token
-      };
+      return { success: false, error: 'Authenticated Supabase session required to pay utility bills.' };
     },
 
     // =========================================================================
@@ -2249,14 +2148,13 @@
       return this._readLocalPayroll(userId);
     },
 
-    async executeBusinessPayroll({ userId, businessId = null, title = 'Monthly Team Payroll', employees = [] }) {
+    async executeBusinessPayroll({ userId, businessId = null, title = 'Monthly Team Payroll', employees = [], pin = null, idempotencyKey = null }) {
       if (!userId) return { success: false, error: 'Employer user ID is required.' };
       if (!Array.isArray(employees) || employees.length === 0) {
         return { success: false, error: 'Add at least one staff member to execute batch payroll.' };
       }
 
       const normalizedItems = [];
-      let totalPayroll = 0;
 
       for (const emp of employees) {
         const ident = String(emp.identifier || emp.nuban || emp.tag || '').trim();
@@ -2270,20 +2168,28 @@
           role: String(emp.role || 'Staff').trim(),
           amount: amt
         });
-        totalPayroll = Math.round((totalPayroll + amt) * 100) / 100;
       }
 
       if (this.isConfigured() && this.client && isValidUuid(userId)) {
         try {
           const { data: authData } = await this.client.auth.getUser();
           if (authData?.user && authData.user.id === userId) {
-            const { data, error } = await this.client.rpc('execute_business_payroll', {
+            const idemKey = isValidUuid(idempotencyKey) ? idempotencyKey : generateIdempotencyKey();
+            const { data, error } = await this.client.rpc('execute_payroll_batch', {
               p_business_id: isValidUuid(businessId) ? businessId : null,
               p_title: String(title || 'Monthly Team Payroll').trim(),
-              p_items: normalizedItems
+              p_items: normalizedItems,
+              p_pin: pin || null,
+              p_idempotency_key: idemKey
             });
 
-            if (!error && data?.success) {
+            if (error) {
+              return { success: false, error: error.message || 'Batch payroll execution failed on server.' };
+            }
+            if (data && data.success === false) {
+              return { success: false, error: data.error || 'Batch payroll execution failed on server.' };
+            }
+            if (data) {
               return {
                 success: true,
                 payrollRunId: data.payroll_run_id,
@@ -2293,48 +2199,13 @@
                 newBalance: Number(data.new_balance)
               };
             }
-            if (error) {
-              return { success: false, error: error.message || 'Batch payroll execution failed on server.' };
-            }
           }
         } catch (err) {
-          console.warn('[MidePay] executeBusinessPayroll notice:', err.message);
+          return { success: false, error: err.message || 'Batch payroll network error.' };
         }
       }
 
-      const reference = `MDP-PAY-${Date.now()}-${String(1000 + (csprngUint32() % 9000))}`;
-      const localRun = {
-        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `pay-${Date.now()}`,
-        user_id: userId,
-        business_id: businessId,
-        title: String(title || 'Monthly Team Payroll').trim(),
-        total_amount: totalPayroll,
-        total_fee: 0.00,
-        employee_count: normalizedItems.length,
-        reference,
-        status: 'successful',
-        created_at: new Date().toISOString(),
-        payroll_items: normalizedItems.map(it => ({
-          employee_name: it.name,
-          employee_role: it.role,
-          recipient_identifier: it.identifier,
-          amount: it.amount,
-          status: 'successful',
-          tx_reference: `MDP-PYD-${String(1000 + (csprngUint32() % 9000))}`
-        }))
-      };
-      const existing = this._readLocalPayroll(userId);
-      existing.unshift(localRun);
-      this._writeLocalPayroll(userId, existing);
-
-      return {
-        success: true,
-        isSandbox: true,
-        payrollRunId: localRun.id,
-        reference,
-        totalAmount: totalPayroll,
-        employeeCount: normalizedItems.length
-      };
+      return { success: false, error: 'Authenticated Supabase session required to disburse payroll.' };
     }
   };
 

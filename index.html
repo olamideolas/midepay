@@ -1028,6 +1028,15 @@
         <span><strong>Offline Mode:</strong> Viewing cached wallet data. Live transfers & sync will resume automatically once mobile data reconnects.</span>
       </div>
 
+      <!-- Verified Session Login Security Alert Banner -->
+      <div class="login-security-alert-banner hidden" id="login-security-alert-banner" role="status" aria-live="polite">
+        <div class="login-security-alert-main">
+          <span class="login-security-shield" aria-hidden="true">🛡️</span>
+          <span id="login-security-alert-text">Verified login recorded in security audit ledger.</span>
+        </div>
+        <button type="button" class="btn-pwa-dismiss" id="btn-dismiss-login-alert" aria-label="Dismiss security alert">✕</button>
+      </div>
+
       <!-- Install MidePay App (PWA) Prompt Banner -->
       <div class="pwa-install-banner liquid-glass hidden" data-liquid-glass="rounded" data-liquid-theme="emerald" id="pwa-install-banner" role="region" aria-label="Install MidePay Mobile App">
         <div class="pwa-install-info">
@@ -3418,6 +3427,121 @@
       <!-- Active Vaults List -->
       <div class="midesave-modal-list" id="midesave-modal-vaults-list">
         <!-- Populated dynamically by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: 6-DIGIT EMAIL OTP VERIFICATION                         -->
+  <!-- ============================================================= -->
+  <div class="modal-overlay hidden" id="modal-otp-verification" role="dialog" aria-modal="true" aria-labelledby="otp-modal-title">
+    <div class="modal-box otp-modal-box">
+      <div class="modal-header">
+        <div class="modal-title-with-badge">
+          <h3 class="modal-title" id="otp-modal-title">Verify Your Email</h3>
+          <span class="badge-emerald-sm">6-Digit OTP</span>
+        </div>
+      </div>
+
+      <p class="otp-modal-subtitle">
+        Enter the 6-digit security code sent to <strong id="otp-target-email">member@midepay.ng</strong> to activate your NUBAN wallet.
+      </p>
+
+      <div class="auth-alert hidden" id="otp-feedback-alert" role="alert"></div>
+
+      <form id="otp-verify-form" class="modal-form" novalidate>
+        <div class="otp-inputs-grid" role="group" aria-label="6-digit verification code">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="otp-digit-1" class="otp-digit-input" aria-label="Digit 1" autocomplete="one-time-code" required>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="otp-digit-2" class="otp-digit-input" aria-label="Digit 2" autocomplete="off" required>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="otp-digit-3" class="otp-digit-input" aria-label="Digit 3" autocomplete="off" required>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="otp-digit-4" class="otp-digit-input" aria-label="Digit 4" autocomplete="off" required>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="otp-digit-5" class="otp-digit-input" aria-label="Digit 5" autocomplete="off" required>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" id="otp-digit-6" class="otp-digit-input" aria-label="Digit 6" autocomplete="off" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full btn-lg" id="btn-verify-otp">
+          Verify 6-Digit Code
+        </button>
+      </form>
+
+      <div class="otp-resend-bar">
+        <span id="otp-resend-timer" class="otp-resend-timer">Resend code in 60s</span>
+        <button type="button" class="auth-switch-link" id="btn-resend-otp" disabled>
+          Resend OTP
+        </button>
+      </div>
+
+      <div class="otp-modal-footer">
+        <button type="button" class="back-link-btn" id="btn-otp-back-to-login">
+          <span>← Back to Sign In / Use another email</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- MODAL: MANDATORY POST-OTP 4-DIGIT TRANSACTION PIN ONBOARDING  -->
+  <!-- ============================================================= -->
+  <div class="modal-overlay modal-mandatory-lock hidden" id="modal-pin-onboarding" data-mandatory-lock="true" role="dialog" aria-modal="true" aria-labelledby="pin-onboarding-title">
+    <div class="modal-box pin-onboarding-box">
+      <div class="modal-header">
+        <div class="modal-title-with-badge">
+          <h3 class="modal-title" id="pin-onboarding-title">Create Your 4-Digit Transaction PIN</h3>
+          <span class="badge-emerald-sm">Required Lock</span>
+        </div>
+      </div>
+
+      <p class="otp-modal-subtitle">
+        To protect your NUBAN wallet against unauthorized transfers, configure your encrypted 4-digit Transaction PIN before accessing your dashboard.
+      </p>
+
+      <div class="pin-onboarding-meta" id="pin-onboarding-login-meta">
+        🔒 Verified Session • Server-Side pgcrypto Bcrypt Vault (5-Strike Lockout)
+      </div>
+
+      <div class="auth-alert error hidden" id="pin-onboarding-error" role="alert"></div>
+
+      <form id="pin-onboarding-form" class="modal-form" novalidate>
+        <div class="form-group">
+          <label for="pin-onboarding-new" class="form-label">New 4-Digit Transaction PIN</label>
+          <input
+            type="password"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="4"
+            id="pin-onboarding-new"
+            class="form-input pin-onboarding-input"
+            placeholder="••••"
+            autocomplete="new-password"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="pin-onboarding-confirm" class="form-label">Confirm 4-Digit Transaction PIN</label>
+          <input
+            type="password"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="4"
+            id="pin-onboarding-confirm"
+            class="form-input pin-onboarding-input"
+            placeholder="••••"
+            autocomplete="new-password"
+            required
+          >
+          <span class="form-hint">Never share your 4-digit PIN. MidePay staff will never ask for it.</span>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full btn-lg" id="btn-submit-pin-onboarding">
+          Encrypt PIN &amp; Unlock Wallet
+        </button>
+      </form>
+
+      <div class="otp-modal-footer">
+        <button type="button" class="back-link-btn" id="btn-pin-onboarding-logout">
+          <span>Sign out &amp; switch account</span>
+        </button>
       </div>
     </div>
   </div>
