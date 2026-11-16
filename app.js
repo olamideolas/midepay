@@ -5157,6 +5157,46 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   const btnCancelCardLimit = document.getElementById('btn-cancel-card-limit');
   const cardSpentSubtext = document.getElementById('card-spent-subtext');
   const cardProgressFill = document.querySelector('.limit-progress-fill');
+  const cardMiniTxList = document.getElementById('card-mini-tx-list');
+
+  function renderCardSubscriptions(currency, cardBalance = 0) {
+    if (!cardMiniTxList) return;
+    const subs = (typeof window.getCardSubscriptions === 'function')
+      ? window.getCardSubscriptions(currency, cardBalance)
+      : [];
+
+    if (!subs || subs.length === 0) {
+      cardMiniTxList.innerHTML = `
+        <div class="mini-tx-empty" style="padding: 0.9rem 0.75rem; text-align: center; font-size: 0.8rem; color: var(--text-muted); background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 10px;">
+          No active ${escapeHtml(currency)} card charges yet. Click <strong>+ Fund Card</strong> to top up from your main wallet.
+        </div>
+      `;
+      return;
+    }
+
+    const iconForMerchant = (merchant) => {
+      const m = String(merchant || '').toLowerCase();
+      if (m.includes('dstv')) return '📺';
+      if (m.includes('spectranet')) return '📡';
+      if (m.includes('spotify')) return '🎵';
+      if (m.includes('amazon') || m.includes('aws')) return '☁️';
+      if (m.includes('netflix')) return '🎬';
+      return '💳';
+    };
+
+    cardMiniTxList.innerHTML = subs.map((item) => `
+      <div class="mini-tx-item">
+        <div class="mini-tx-left">
+          <span class="mini-tx-icon">${iconForMerchant(item.merchant)}</span>
+          <div>
+            <div class="mini-tx-title">${escapeHtml(item.merchant)}</div>
+            <div class="mini-tx-date">${escapeHtml(item.date)}</div>
+          </div>
+        </div>
+        <div class="mini-tx-amount negative">${escapeHtml(item.amount)}</div>
+      </div>
+    `).join('');
+  }
 
   function formatCardCurrency(amount, currency) {
     const num = Number(amount || 0);
@@ -5200,6 +5240,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       if (cardPanDisplay) cardPanDisplay.textContent = '5399 •••• •••• ••••';
       if (cardCvvVal) cardCvvVal.textContent = '•••';
       if (cardBalanceDisplay) cardBalanceDisplay.textContent = isUsd ? '$0.00' : '₦0.00';
+      renderCardSubscriptions(virtualCardState.activeCurrency, 0);
       return;
     }
 
@@ -5276,6 +5317,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     if (cardLimitVal) cardLimitVal.textContent = `${limStr} / month`;
     if (cardSpentSubtext) cardSpentSubtext.textContent = `${balStr} available • ${limStr} monthly spending cap`;
     if (cardProgressFill) cardProgressFill.style.width = `${pct}%`;
+    renderCardSubscriptions(card.currency, card.balanceNum);
   }
 
   async function openCardsModal() {
@@ -5477,10 +5519,24 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       }
       if (!card) return;
 
+      if (card.isFrozen) {
+        showToast('Unfreeze this card before funding it from your main wallet.', 'error');
+        return;
+      }
+
+      const isProdEnv = (
+        window.MIDEPAY_SUPABASE_CONFIG?.ENV === 'production' ||
+        window.MIDEPAY_SUPABASE_CONFIG?.env === 'production'
+      );
+
       const last4 = card.fullPan.slice(-4);
       if (card.currency === 'USD') {
         const ngnCost = 77500; // $50 @ ₦1,550/$1
         if (ngnCost > state.dashBalance) {
+          if (isProdEnv) {
+            showToast(`Insufficient main wallet balance (${formatNaira(ngnCost)} needed for $50.00). Click Add Money first.`, 'error');
+            return;
+          }
           await topUpDemoBalance(Math.max(100000, ngnCost));
         }
         state.dashBalance = Math.max(0, state.dashBalance - ngnCost);
@@ -5521,6 +5577,10 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       } else {
         const fundNgn = 25000;
         if (fundNgn > state.dashBalance) {
+          if (isProdEnv) {
+            showToast(`Insufficient main wallet balance (${formatNaira(fundNgn)} needed). Click Add Money first.`, 'error');
+            return;
+          }
           await topUpDemoBalance(Math.max(50000, fundNgn * 2));
         }
         state.dashBalance = Math.max(0, state.dashBalance - fundNgn);
@@ -7170,3 +7230,67 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     renderMideSaveVaults();
   }
 });
+
+/* === MidePay v4.4 Dashboard Polish Patch === */
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 1. Dynamic Payroll Cycle Title (replaces hardcoded month/year)
+  const payrollInput = document.getElementById('payroll-run-title')
+    || document.querySelector('input[value*="Team Salary Run"]');
+  if (payrollInput) {
+    const currentMonthYear = new Date().toLocaleDateString('en-NG', {
+      month: 'long',
+      year: 'numeric'
+    });
+    payrollInput.value = `${currentMonthYear} Team Salary Run`;
+  }
+
+  // 2. Hide "+ Fund ₦50k (Demo)" button when running in production
+  const isProd = (
+    window.MIDEPAY_SUPABASE_CONFIG?.ENV === 'production' ||
+    window.MIDEPAY_SUPABASE_CONFIG?.env === 'production'
+  );
+  if (isProd) {
+    const demoTopupBtn = document.getElementById('btn-dash-quick-topup');
+    if (demoTopupBtn) demoTopupBtn.style.display = 'none';
+    document.querySelectorAll('button').forEach((btn) => {
+      if (btn.textContent && btn.textContent.includes('(Demo)')) {
+        btn.style.display = 'none';
+      }
+    });
+  }
+
+  // 3. Enable "+ Fund Card" button so users can fund USD/NGN cards from main wallet
+  const fundCardModalBtn = document.getElementById('btn-fund-card-modal');
+  if (fundCardModalBtn) {
+    fundCardModalBtn.disabled = false;
+    fundCardModalBtn.style.opacity = '1';
+    fundCardModalBtn.style.cursor = 'pointer';
+  }
+  document.querySelectorAll('button').forEach((btn) => {
+    if (btn.textContent && btn.textContent.includes('Fund Card')) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+    }
+  });
+});
+
+// 4. Currency-aware Virtual Card Subscriptions (prevents USD items showing on NGN card)
+function getCardSubscriptions(currency, cardBalance = 0) {
+  if (Number(cardBalance) <= 0) {
+    return []; // Show clean empty state when card balance is 0.00
+  }
+  if (currency === 'NGN') {
+    return [
+      { merchant: 'DSTV Compact Plus', amount: '-₦29,500.00', date: 'Auto-debit • Active' },
+      { merchant: 'Spectranet Fiber 4G', amount: '-₦18,500.00', date: 'Monthly • Active' }
+    ];
+  }
+  return [
+    { merchant: 'Spotify Premium Family', amount: '-$9.99', date: 'Monthly • Active' },
+    { merchant: 'Amazon Web Services', amount: '-$42.50', date: 'Cloud • Active' },
+    { merchant: 'Netflix International', amount: '-$12.00', date: 'Monthly • Active' }
+  ];
+}
+window.getCardSubscriptions = getCardSubscriptions;
