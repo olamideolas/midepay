@@ -6101,3 +6101,55 @@ select.form-input option {
     grid-template-columns: 1fr;
   }
 }
+
+/* === MidePay v4.4 Landing & Header Polish === */
+
+/* 1. Prevent navbar links and badges from wrapping onto 2 lines */
+header nav,
+header nav a,
+.nav-menu,
+.nav-link,
+.nav-links a,
+.cbn-compliance-header-tag,
+.trust-badge,
+.badge-concept,
+.concept-badge {
+  white-space: nowrap;
+}
+
+/* 2. Give the CONCEPT badge breathing room from the first nav link */
+.badge-concept,
+.concept-badge,
+header .badge {
+  margin-right: 16px;
+}
+
+/* 3. Tighten Hero H1 so primary CTAs sit 100% above the fold on laptops */
+.hero h1,
+.hero-title,
+main section:first-of-type h1 {
+  font-size: clamp(2.25rem, 3.8vw, 3.4rem);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  max-width: 14ch;
+}
+
+.hero,
+.hero-section,
+main section:first-of-type {
+  padding-top: clamp(2.5rem, 5vh, 4rem);
+  padding-bottom: clamp(2.5rem, 5vh, 4rem);
+}
+
+/* 4. Prevent phone mockup activity titles from wrapping awkwardly */
+.phone-frame .preview-tx-info {
+  min-width: 0;
+}
+
+.phone-frame .tx-title,
+.phone-mockup .activity-title,
+.mockup-card .tx-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
