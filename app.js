@@ -1492,10 +1492,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const navFeaturesLink = document.getElementById('nav-features-link');
   const navBusinessLink = document.getElementById('nav-business-link');
   if (navFeaturesLink) {
-    navFeaturesLink.addEventListener('click', () => switchFeatures('personal'));
+    navFeaturesLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchFeatures('personal');
+      document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+    });
   }
   if (navBusinessLink) {
-    navBusinessLink.addEventListener('click', () => switchFeatures('business'));
+    navBusinessLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchFeatures('business');
+      document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+    });
   }
 
   // -------------------------------------------------------------

@@ -6102,54 +6102,160 @@ select.form-input option {
   }
 }
 
-/* === MidePay v4.4 Landing & Header Polish === */
+/* ==========================================================================
+   MidePay v4.4 — Navbar, Above-the-Fold Hero & Footer Polish Patch
+   ========================================================================== */
 
-/* 1. Prevent navbar links and badges from wrapping onto 2 lines */
-header nav,
-header nav a,
-.nav-menu,
-.nav-link,
-.nav-links a,
-.cbn-compliance-header-tag,
-.trust-badge,
-.badge-concept,
+/* 1. Single-line crisp navigation with proper badge separation */
+.navbar,
+header {
+  width: 100%;
+}
+
+.navbar .nav-inner,
+header .container,
+header nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 1.25rem;
+}
+
+.header-container.nav-inner {
+  justify-content: flex-start;
+}
+
+.nav-concept-pill,
+header .badge,
 .concept-badge {
+  display: inline-flex;
+  align-items: center;
   white-space: nowrap;
+  margin-left: 0.5rem;
+  margin-right: 1rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
 }
 
-/* 2. Give the CONCEPT badge breathing room from the first nav link */
-.badge-concept,
-.concept-badge,
-header .badge {
-  margin-right: 16px;
+.nav-links,
+header nav ul {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-/* 3. Tighten Hero H1 so primary CTAs sit 100% above the fold on laptops */
-.hero h1,
-.hero-title,
-main section:first-of-type h1 {
-  font-size: clamp(2.25rem, 3.8vw, 3.4rem);
-  line-height: 1.08;
-  letter-spacing: -0.025em;
-  max-width: 14ch;
+.nav-right-cluster {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
 }
 
+.nav-links a,
+header nav a,
+.nav-actions button,
+.nav-actions a {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 2. Tighten Hero H1 & vertical padding so CTAs sit 100% above the fold */
 .hero,
-.hero-section,
-main section:first-of-type {
-  padding-top: clamp(2.5rem, 5vh, 4rem);
-  padding-bottom: clamp(2.5rem, 5vh, 4rem);
+main > section:first-of-type {
+  padding-top: clamp(2rem, 4.5vh, 3.5rem) !important;
+  padding-bottom: clamp(2rem, 4.5vh, 3.5rem) !important;
 }
 
-/* 4. Prevent phone mockup activity titles from wrapping awkwardly */
-.phone-frame .preview-tx-info {
+.hero h1,
+main > section:first-of-type h1 {
+  font-size: clamp(2.2rem, 3.7vw, 3.35rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.025em !important;
+  margin-bottom: 1rem !important;
+  max-width: 15ch;
+}
+
+.hero p,
+main > section:first-of-type p {
+  font-size: clamp(0.98rem, 1.15vw, 1.1rem) !important;
+  line-height: 1.55 !important;
+  margin-bottom: 1.5rem !important;
+  max-width: 52ch;
+}
+
+.hero-section .hero-cta-group {
+  margin-bottom: 0;
+}
+
+/* 3. Clean trust strip directly beneath Hero CTAs */
+.hero-trust-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 1.15rem;
+  margin-bottom: 1.65rem;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+[data-theme="light"] .hero-trust-strip {
+  color: var(--text-secondary);
+}
+
+.mockup-greeting {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* 4. Prevent phone mockup activity labels from wrapping onto 2 lines */
+.phone-mockup .preview-tx-info {
   min-width: 0;
 }
 
-.phone-frame .tx-title,
+.phone-mockup .activity-item,
+.phone-mockup .tx-row,
+.phone-mockup .preview-tx-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .phone-mockup .activity-title,
-.mockup-card .tx-title {
+.phone-mockup .tx-title,
+.phone-mockup strong {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 5. Responsive collapse for tablets & mobile (< 1024px) */
+@media (max-width: 1024px) {
+  .nav-links,
+  header nav ul {
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 860px) {
+  .nav-links,
+  .nav-actions {
+    display: none; /* Handled by your mobile menu drawer */
+  }
+  .mobile-toggle {
+    display: flex;
+  }
+  .hero h1,
+  main > section:first-of-type h1 {
+    max-width: 100%;
+  }
 }

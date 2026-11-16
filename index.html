@@ -30,108 +30,101 @@
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <!-- NAVIGATION BAR (Global) -->
-  <header class="site-header" id="site-header">
-    <div class="header-container">
-      <a href="#" class="brand-logo" id="brand-logo-btn" aria-label="MidePay Home">
+  <header class="site-header navbar" id="site-header">
+    <div class="header-container container nav-inner">
+      <a href="#" class="brand-logo brand" id="brand-logo-btn" aria-label="MidePay Home">
         <img src="midepay-icon.png" width="36" height="36" alt="Midepay" class="brand-logo-mark">
-        <div class="brand-text-wrap">
+        <span class="brand-text-wrap brand-text">
           <span class="brand-text-name">Mide<span class="brand-text-pay">pay</span></span>
-          <span class="brand-text-sub">FINTECH SOLUTIONS</span>
-        </div>
-        <span class="badge-concept">Concept</span>
+          <small class="brand-text-sub">FINTECH SOLUTIONS</small>
+        </span>
       </a>
+      <span class="badge-concept nav-concept-pill">CONCEPT</span>
 
       <!-- Desktop Nav Links (Visible in Landing) -->
-      <nav class="nav-menu" id="landing-nav-links">
-        <a href="#features" class="nav-link" id="nav-features-link">Personal</a>
-        <a href="#features" class="nav-link" id="nav-business-link">Business</a>
+      <nav class="nav-menu nav-links" id="landing-nav-links" aria-label="Primary Navigation">
+        <a href="#personal" class="nav-link" id="nav-features-link">Personal</a>
+        <a href="#business" class="nav-link" id="nav-business-link">Business</a>
         <a href="#how-it-works" class="nav-link">How It Works</a>
         <a href="#security" class="nav-link">Security</a>
         <a href="#faq" class="nav-link">FAQ</a>
       </nav>
 
-      <!-- Auth Action Buttons -->
-      <div class="nav-actions" id="landing-nav-actions">
-        <div class="cbn-compliance-header-tag" title="Central Bank of Nigeria Regulatory Standard">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>CBN Licensed • NDIC Insured</span>
-        </div>
-        <button class="btn btn-outline-xs hidden" id="nav-landing-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          <span>Executive Portal</span>
-        </button>
-        <button class="btn btn-ghost" id="nav-login-btn">Log in</button>
-        <button class="btn btn-primary" id="nav-register-btn">Get started</button>
-      </div>
-
-      <!-- Logged-in Header Controls -->
-      <div class="nav-dashboard-actions hidden" id="dashboard-nav-actions">
-        <div class="cbn-compliance-header-tag" title="Central Bank of Nigeria Regulatory Standard">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>CBN Tier 2 Verified</span>
-        </div>
-
-        <!-- Notification Bell with Pending Requests Badge -->
-        <div class="nav-notification-wrapper" id="nav-notification-wrapper">
-          <button type="button" class="btn-notification-bell" id="btn-notification-bell" aria-label="Notifications" title="Payment Requests & Alerts">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>
-            <span class="notification-badge hidden" id="notification-badge">0</span>
+      <div class="nav-right-cluster">
+        <!-- Auth Action Buttons -->
+        <div class="nav-actions" id="landing-nav-actions">
+          <button type="button" class="btn btn-outline-xs hidden" id="nav-landing-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span>Executive Portal</span>
           </button>
-          
-          <!-- Dropdown Flyout for Pending Payment Requests -->
-          <div class="notifications-dropdown hidden" id="notifications-dropdown">
-            <div class="notifications-dropdown-header">
-              <h4>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                <span>Payment Requests</span>
-              </h4>
-              <span class="badge-pending-count" id="pending-requests-count-tag">0 pending</span>
-            </div>
-            <div class="notifications-dropdown-list" id="notifications-list">
-              <!-- Populated dynamically by JS -->
+          <button type="button" class="btn btn-ghost" id="nav-login-btn" data-auth="login">Log in</button>
+          <button type="button" class="btn btn-primary" id="nav-register-btn" data-auth="signup">Get started</button>
+        </div>
+
+        <!-- Logged-in Header Controls -->
+        <div class="nav-dashboard-actions hidden" id="dashboard-nav-actions">
+          <!-- Notification Bell with Pending Requests Badge -->
+          <div class="nav-notification-wrapper" id="nav-notification-wrapper">
+            <button type="button" class="btn-notification-bell" id="btn-notification-bell" aria-label="Notifications" title="Payment Requests & Alerts">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span class="notification-badge hidden" id="notification-badge">0</span>
+            </button>
+            
+            <!-- Dropdown Flyout for Pending Payment Requests -->
+            <div class="notifications-dropdown hidden" id="notifications-dropdown">
+              <div class="notifications-dropdown-header">
+                <h4>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                  <span>Payment Requests</span>
+                </h4>
+                <span class="badge-pending-count" id="pending-requests-count-tag">0 pending</span>
+              </div>
+              <div class="notifications-dropdown-list" id="notifications-list">
+                <!-- Populated dynamically by JS -->
+              </div>
             </div>
           </div>
+
+          <div class="user-pill" id="nav-user-pill" style="cursor: pointer;" title="Open Dashboard">
+            <span class="user-avatar-circle" id="nav-user-initials">M</span>
+            <span class="user-pill-name" id="nav-user-name">User</span>
+          </div>
+          <button type="button" class="btn btn-outline-xs hidden" id="nav-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            <span>Executive Portal</span>
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="nav-goto-dashboard-btn" onclick="showView('dashboard')" style="padding: 0.4rem 0.9rem; font-size: 0.84rem;">Dashboard</button>
+          <button type="button" class="btn btn-outline-sm" id="nav-logout-btn" onclick="handleLogout()">Log out</button>
         </div>
 
-        <div class="user-pill" id="nav-user-pill" style="cursor: pointer;" title="Open Dashboard">
-          <span class="user-avatar-circle" id="nav-user-initials">M</span>
-          <span class="user-pill-name" id="nav-user-name">User</span>
-        </div>
-        <button class="btn btn-outline-xs hidden" id="nav-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          <span>Executive Portal</span>
+        <!-- Theme Switcher (Dark & White Mode System-Compatible) -->
+        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle color theme" title="Switch between Light and Dark mode">
+          <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
         </button>
-        <button class="btn btn-primary btn-sm" id="nav-goto-dashboard-btn" onclick="showView('dashboard')" style="padding: 0.4rem 0.9rem; font-size: 0.84rem;">Dashboard</button>
-        <button class="btn btn-outline-sm" id="nav-logout-btn" onclick="handleLogout()">Log out</button>
+
+        <!-- Mobile Menu Toggle Button -->
+        <button class="mobile-toggle" id="mobile-menu-toggle" aria-label="Toggle navigation menu">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
       </div>
-
-      <!-- Theme Switcher (Dark & White Mode System-Compatible) -->
-      <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle color theme" title="Switch between Light and Dark mode">
-        <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="5"></circle>
-          <line x1="12" y1="1" x2="12" y2="3"></line>
-          <line x1="12" y1="21" x2="12" y2="23"></line>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-          <line x1="1" y1="12" x2="3" y2="12"></line>
-          <line x1="21" y1="12" x2="23" y2="12"></line>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-        </svg>
-        <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-        </svg>
-      </button>
-
-      <!-- Mobile Menu Toggle Button -->
-      <button class="mobile-toggle" id="mobile-menu-toggle" aria-label="Toggle navigation menu">
-        <span class="hamburger-bar"></span>
-        <span class="hamburger-bar"></span>
-        <span class="hamburger-bar"></span>
-      </button>
     </div>
 
     <!-- Mobile Drawer -->
@@ -216,6 +209,12 @@
             </button>
           </div>
 
+          <div class="hero-trust-strip">
+            <span>🔒 Bank-Grade 256-Bit Encryption</span>
+            <span>•</span>
+            <span>⚡ Instant NUBAN &amp; NIP Settlement Architecture</span>
+          </div>
+
           <div class="hero-stats">
             <div class="stat-item">
               <div class="stat-number">99.9%</div>
@@ -236,7 +235,7 @@
 
         <!-- HERO INTERACTIVE PHONE MOCKUP -->
         <div class="hero-mockup-wrapper">
-          <div class="phone-frame">
+          <div class="phone-frame phone-mockup">
             <!-- Screen Header / Status Bar -->
             <div class="phone-notch"></div>
             <div class="phone-status-bar">
@@ -263,7 +262,7 @@
                 <div class="phone-user-info">
                   <div class="phone-avatar">AO</div>
                   <div>
-                    <div class="phone-greeting">Good evening 👋</div>
+                    <span class="mockup-greeting">Good morning ☀️</span>
                     <div class="phone-username">Amina Okonjo</div>
                   </div>
                 </div>
