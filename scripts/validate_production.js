@@ -409,11 +409,12 @@ if (!fs.existsSync(manifestPath)) {
 const swTxt = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
 const hasSwAssets = ['index.html', 'style.css', 'liquid-glass.css', 'loading-animation.css', '/vendor/supabase.js', 'app.js', 'liquid-glass.js', 'midepay-icon.png', 'favicon.svg']
   .every(asset => swTxt.includes(asset));
-const hasBumpedSwCache = /CACHE_NAME\s*=\s*['"]midepay-pwa-static-v4\.7\.1['"]/.test(swTxt);
+const cacheVersion = swTxt.match(/CACHE_NAME\s*=\s*['"]midepay-pwa-static-v(\d+)\.(\d+)(?:\.(\d+))?(?:-[a-z0-9-]+)?['"]/);
+const hasBumpedSwCache = !!cacheVersion && (Number(cacheVersion[1]) > 4 || (Number(cacheVersion[1]) === 4 && Number(cacheVersion[2]) >= 8)) && swTxt.includes('/ui-polish.css') && swTxt.includes('/ui-polish.js');
 if (!hasSwAssets || !hasBumpedSwCache || !appJs.includes("serviceWorker.register('sw.js')")) {
-  fail('sw.js missing required cached assets (/vendor/supabase.js), bumped v4.7.1 CACHE_NAME, or app.js missing serviceWorker.register("sw.js").');
+  fail('sw.js missing required cached assets (/vendor/supabase.js), versioned UI CACHE_NAME, or app.js missing serviceWorker.register("sw.js").');
 } else {
-  pass('sw.js cache version bump (midepay-pwa-static-v4.7.1), self-hosted vendor/supabase.js, cache-first static assets & network-first routing verified.');
+  pass('sw.js UI cache version and new presentation assets, self-hosted vendor/supabase.js, cache-first static assets & network-first routing verified.');
 }
 
 if (

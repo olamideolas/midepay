@@ -20,8 +20,9 @@
   <link rel="stylesheet" href="liquid-glass.css?v=4.0">
   <link rel="stylesheet" href="style.css?v=4.0">
   <link rel="stylesheet" href="loading-animation.css?v=4.0">
+  <link rel="stylesheet" href="ui-polish.css?v=1">
 </head>
-<body>
+<body class="midepay-ui">
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
@@ -35,7 +36,7 @@
           <small class="brand-text-sub">FINTECH SOLUTIONS</small>
         </span>
       </a>
-      <span class="badge-concept nav-concept-pill">CONCEPT</span>
+      <span class="badge-concept nav-concept-pill">Preview</span>
 
       <!-- Desktop Nav Links (Visible in Landing) -->
       <nav class="nav-menu nav-links" id="landing-nav-links" aria-label="Primary Navigation">
@@ -177,21 +178,21 @@
         <div class="hero-content">
           <div class="hero-badge">
             <span class="badge-dot"></span>
-            <span class="badge-tag">🇳🇬 NIGERIAN DIGITAL WALLET</span>
-            <span class="badge-gold">Zero Hidden Fees</span>
+            <span class="badge-tag">MADE FOR YOUR EVERYDAY</span>
+            <span class="badge-gold">Product preview</span>
           </div>
 
           <h1 class="hero-title">
-            Modern digital banking for ambitious <span class="gradient-text">Nigerians</span> & growing businesses.
+            Your money.<br>A <span class="gradient-text">clearer view.</span>
           </h1>
 
           <p class="hero-description">
-            Experience lightning-fast NIP bank transfers, instant virtual dollar & naira cards, automated savings vaults, and effortless business checkout — without the queues or bank fees.
+            A simpler place to see your wallet, keep track of payments, and plan what comes next. Explore MidePay with secure sign-in and Paystack test payments.
           </p>
 
           <div class="hero-cta-group">
             <button class="btn btn-primary btn-lg" id="hero-get-started-btn">
-              <span>Open Free Wallet</span>
+              <span>Create your wallet</span>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>
@@ -201,30 +202,30 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
-              <span>Explore Platform</span>
+              <span>Take a look around</span>
             </button>
           </div>
 
           <div class="hero-trust-strip">
-            <span>🔒 Bank-Grade 256-Bit Encryption</span>
+            <span>Email verification &amp; transaction PIN</span>
             <span>•</span>
-            <span>⚡ Instant NUBAN &amp; NIP Settlement Architecture</span>
+            <span>Test payments. No real money.</span>
           </div>
 
           <div class="hero-stats">
             <div class="stat-item">
-              <div class="stat-number">99.9%</div>
-              <div class="stat-label">Transfer Uptime</div>
+              <div class="stat-number">NGN</div>
+              <div class="stat-label">A familiar currency</div>
             </div>
             <div class="stat-divider"></div>
             <div class="stat-item">
-              <div class="stat-number">₦0</div>
-              <div class="stat-label">SMS Alert Charges</div>
+              <div class="stat-number">One view</div>
+              <div class="stat-label">Your wallet &amp; activity</div>
             </div>
             <div class="stat-divider"></div>
             <div class="stat-item">
-              <div class="stat-number">&lt; 3s</div>
-              <div class="stat-label">Settlement Speed</div>
+              <div class="stat-number">Your pace</div>
+              <div class="stat-label">Simple, clear controls</div>
             </div>
           </div>
         </div>
@@ -262,7 +263,7 @@
                     <div class="phone-username">Amina Okonjo</div>
                   </div>
                 </div>
-                <div class="phone-tier-tag">Tier 2 Verified</div>
+                <div class="phone-tier-tag">Example wallet</div>
               </div>
 
               <!-- Interactive Balance Card -->
@@ -780,7 +781,7 @@
           </div>
 
           <h2 class="auth-title">Create your digital wallet</h2>
-          <p class="auth-subtitle">Get your personal NUBAN and virtual card in seconds.</p>
+          <p class="auth-subtitle">Start with your email. We’ll help you verify it and set up your wallet.</p>
         </div>
 
         <!-- Inline error alert -->
@@ -802,7 +803,7 @@
                 autocomplete="name"
               >
             </div>
-            <span class="form-hint">Matches your BVN or government-issued ID</span>
+            <span class="form-hint">Use the name you want to see on your account.</span>
           </div>
 
           <!-- Email -->
@@ -988,7 +989,7 @@
           </svg>
         </div>
         <div class="banner-text">
-          <strong>Account Protected:</strong> End-to-end 256-bit encrypted banking session active. Your digital wallet and transactions are secured.
+          <strong>You’re in the test environment.</strong> Explore Paystack test payments here. No real money is held in this wallet.
         </div>
       </div>
 
@@ -997,7 +998,7 @@
         <div class="user-greeting-box">
           <h1 class="dash-greeting" id="dash-greeting-text">Welcome back 👋</h1>
           <div class="dash-meta-row">
-            <span class="badge-gold-sm">Tier 2 Verified</span>
+            <span class="badge-gold-sm">Personal wallet</span>
             <span class="meta-tag" id="dash-email-tag">wallet@midepay.ng</span>
           </div>
         </div>
@@ -1052,12 +1053,12 @@
       <div class="dash-workspace-switcher" id="dash-workspace-switcher" role="tablist" aria-label="Workspace Switcher">
         <button type="button" class="workspace-switch-btn active" id="dash-workspace-personal" role="tab" aria-selected="true">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <span>Personal Wallet &amp; MideSave</span>
+          <span>Personal</span>
         </button>
         <button type="button" class="workspace-switch-btn" id="dash-workspace-business" role="tab" aria-selected="false">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-          <span>Business Suite &amp; Team Payroll</span>
-          <span class="badge-emerald-sm" style="margin-left:0.35rem; font-size:0.65rem;">₦0 Batch Fee</span>
+          <span>Business</span>
+          <span class="badge-emerald-sm" style="margin-left:0.35rem; font-size:0.65rem;">Preview</span>
         </button>
       </div>
 
@@ -1076,7 +1077,7 @@
                 <span class="brand-chip">MidePay Personal</span>
                 <button type="button" class="cbn-tier-badge" id="btn-open-kyc-tier" title="CBN KYC Verification Status & Limits">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                  <span id="card-kyc-tier-text">Tier 2 Verified</span>
+                  <span id="card-kyc-tier-text">Test wallet</span>
                 </button>
               </div>
               <button class="balance-toggle-btn" id="dash-balance-toggle" aria-label="Toggle balance visibility" title="Show/Hide Balance">
@@ -1092,7 +1093,7 @@
             </div>
 
             <div class="dash-balance-body">
-              <div class="dash-balance-caption">Available NGN Balance</div>
+              <div class="dash-balance-caption">Available test balance</div>
               <div class="dash-balance-value-row">
                 <span class="dash-balance-amount" id="dash-balance-display">₦0.00</span>
                 <span class="currency-tag">NGN</span>
@@ -1102,10 +1103,10 @@
             <!-- CBN Daily Limit Meter -->
             <div class="cbn-limit-meter" id="cbn-limit-meter" title="CBN Mandated Daily Transaction Limit">
               <div class="cbn-limit-header">
-                <span>Daily Spend (CBN Tier 2): <strong id="cbn-limit-usage">₦45,000 / ₦200,000</strong></span>
-                <button type="button" class="btn-upgrade-tier" id="btn-quick-upgrade-tier">Upgrade Tier</button>
+                <span>Wallet status <strong id="cbn-limit-usage">Live transfers unavailable</strong></span>
+                <button type="button" class="btn-upgrade-tier" id="btn-quick-upgrade-tier">Learn more</button>
               </div>
-              <div class="cbn-progress-track">
+              <div class="cbn-progress-track hidden">
                 <div class="cbn-progress-fill" id="cbn-progress-bar" style="width: 22.5%;"></div>
               </div>
             </div>
@@ -1121,10 +1122,10 @@
 
             <div class="dash-account-details">
               <div class="acc-detail-item">
-                <span class="acc-detail-label">Virtual Account (Providus)</span>
+                <span class="acc-detail-label">Internal test wallet ID</span>
                 <div class="acc-number-row">
                   <span class="acc-number" id="dash-nuban-text">9000 0000 00</span>
-                  <button class="btn-copy-acc" id="copy-nuban-btn" title="Copy account number">
+                  <button class="btn-copy-acc" id="copy-nuban-btn" title="Copy test wallet ID">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -1176,7 +1177,7 @@
 
           <!-- Quick Actions Grid -->
           <div class="dash-quick-section">
-            <h3 class="dash-section-title">Quick Actions</h3>
+            <h3 class="dash-section-title">Explore your wallet</h3>
             <div class="dash-action-grid">
               <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-transfer" title="Send Money">
                 <div class="qa-icon-wrap emerald">
@@ -1209,7 +1210,7 @@
                   </svg>
                 </div>
                 <span class="qa-title">Airtime & Data</span>
-                <span class="qa-desc">3% Cashback</span>
+                <span class="qa-desc">Coming soon</span>
               </button>
 
               <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-bills">
@@ -1230,7 +1231,7 @@
                   </svg>
                 </div>
                 <span class="qa-title">Virtual Cards</span>
-                <span class="qa-desc">Active USD & NGN</span>
+                <span class="qa-desc">Cards preview</span>
               </button>
 
               <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-kyc" title="CBN KYC Tier & Limits">
@@ -1240,8 +1241,8 @@
                     <path d="M9 12l2 2 4-4"></path>
                   </svg>
                 </div>
-                <span class="qa-title">KYC Limits</span>
-                <span class="qa-desc" id="qa-kyc-sub">Tier 2 Verified</span>
+                <span class="qa-title">Verification</span>
+                <span class="qa-desc" id="qa-kyc-sub">Not connected yet</span>
               </button>
 
               <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-midesave" title="MideSave Goal-Based Savings Vaults (14.5% p.a.)">
@@ -1252,7 +1253,7 @@
                   </svg>
                 </div>
                 <span class="qa-title">MideSave</span>
-                <span class="qa-desc">14.5% p.a. Vaults</span>
+                <span class="qa-desc">Savings preview</span>
               </button>
 
               <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="teal" id="qa-payroll" title="Business Suite Batch Team Payroll">
@@ -1265,7 +1266,7 @@
                   </svg>
                 </div>
                 <span class="qa-title">Team Payroll</span>
-                <span class="qa-desc">Batch Salaries</span>
+                <span class="qa-desc">Business preview</span>
               </button>
 
               <button class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="obsidian" id="qa-panic-freeze" title="Emergency Account Freeze">
@@ -1275,8 +1276,8 @@
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                   </svg>
                 </div>
-                <span class="qa-title" id="qa-freeze-title">Freeze Switch</span>
-                <span class="qa-desc" id="qa-freeze-sub">Instant Panic Lock</span>
+                <span class="qa-title" id="qa-freeze-title">Account lock</span>
+                <span class="qa-desc" id="qa-freeze-sub">Security controls</span>
               </button>
             </div>
           </div>
@@ -1287,7 +1288,7 @@
               <div>
                 <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                   <h3 class="dash-section-title" style="margin:0;">MideSave Goal Vaults</h3>
-                  <span class="badge-emerald-sm">14.5% p.a. APY</span>
+                  <span class="badge-emerald-sm">Preview</span>
                 </div>
                 <p class="midesave-widget-sub">Total Saved: <strong id="midesave-total-saved">₦0.00</strong> • <span id="midesave-active-count">0</span> active goals</p>
               </div>
@@ -1307,7 +1308,7 @@
           <div class="dash-tx-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian">
             <div class="tx-card-header">
               <div class="tx-header-top-row">
-                <h3 class="dash-section-title">Transactions</h3>
+                <h3 class="dash-section-title">Recent activity</h3>
                 <div class="statement-menu-wrapper" id="statement-menu-wrapper">
                   <button type="button" class="btn btn-outline-xs btn-download-statement" id="btn-download-statement" aria-haspopup="true" aria-expanded="false" title="Download Official Account Statement">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1315,7 +1316,7 @@
                       <polyline points="7 10 12 15 17 10"></polyline>
                       <line x1="12" y1="15" x2="12" y2="3"></line>
                     </svg>
-                    <span>Download Statement</span>
+                    <span>Statement</span>
                   </button>
                   <div class="statement-dropdown-menu hidden" id="statement-dropdown-menu" role="menu">
                     <button type="button" class="statement-dropdown-item" id="btn-export-statement-csv" role="menuitem">
@@ -1337,8 +1338,8 @@
               </div>
               <div class="tx-filter-pills" role="tablist">
                 <button class="tx-filter-pill active" data-filter="all">All</button>
-                <button class="tx-filter-pill" data-filter="inflow">Inflow</button>
-                <button class="tx-filter-pill" data-filter="outflow">Outflow</button>
+                <button class="tx-filter-pill" data-filter="inflow">Money in</button>
+                <button class="tx-filter-pill" data-filter="outflow">Money out</button>
                 <button class="tx-filter-pill" data-filter="requests" id="tx-filter-requests">Requests</button>
               </div>
             </div>
@@ -1395,7 +1396,7 @@
                 </div>
                 <div class="form-group" style="margin:0;">
                   <label for="payroll-staff-salary" class="form-label">Monthly Salary (NGN)</label>
-                  <input type="number" id="payroll-staff-salary" class="form-input" placeholder="250000" min="500" step="any" value="150000" required>
+                  <input type="number" id="payroll-staff-salary" class="form-input" placeholder="250000" min="500" step="0.01" value="150000" required>
                 </div>
                 <div style="display:flex; align-items:flex-end;">
                   <button type="submit" class="btn btn-primary" id="btn-payroll-add-staff" style="white-space:nowrap;">+ Add Staff</button>
@@ -1729,12 +1730,12 @@
     <div class="cbn-footer-inner">
       <div class="footer-trust-badges">
         <div class="footer-trust-card">
-          <strong>256-Bit TLS &amp; AES Encryption</strong>
-          <span>End-to-end encrypted wallet ledger &amp; session security</span>
+          <strong>Your account, protected</strong>
+          <span>Email verification, transaction PINs and balance privacy</span>
         </div>
         <div class="footer-trust-card">
-          <strong>Partner Bank Settlement Ready</strong>
-          <span>Concept architecture engineered for NUBAN &amp; NIP rails</span>
+          <strong>Built for clear payments</strong>
+          <span>Paystack sandbox checkout and a clear payment history</span>
         </div>
       </div>
 
@@ -1809,7 +1810,7 @@
                 placeholder="5000" 
                 value="5000"
                 min="50" 
-                step="any"
+                step="0.01"
                 required
               >
             </div>
@@ -2120,7 +2121,7 @@
                 placeholder="5000" 
                 value="5000"
                 min="50" 
-                step="any"
+                step="0.01"
                 required
               >
             </div>
@@ -2352,16 +2353,16 @@
     <div class="modal-box">
       <div class="modal-header">
         <div class="modal-title-with-badge">
-          <h3 class="modal-title" id="add-modal-title">Fund NGN Wallet</h3>
-          <span class="badge-emerald-sm">Zero Fee Top-Up</span>
+          <h3 class="modal-title" id="add-modal-title">Add money</h3>
+          <span class="badge-emerald-sm">Test mode</span>
         </div>
         <button class="modal-close-btn" id="close-add-modal-btn" aria-label="Close modal">✕</button>
       </div>
 
       <div class="funding-options">
         <div class="funding-nuban-box">
-          <div class="fund-label">Transfer from any Nigerian Bank app:</div>
-          <div class="fund-bank-name">Providus Bank</div>
+          <div class="fund-label">Your internal test wallet ID</div>
+          <div class="fund-bank-name">Not a bank account. Do not send bank transfers to this number.</div>
           <div class="fund-nuban-row">
             <span class="fund-nuban-code" id="modal-nuban-copy">9000000000</span>
             <button type="button" class="btn-copy-acc" id="modal-copy-btn">Copy</button>
@@ -2369,7 +2370,7 @@
           <div class="fund-beneficiary">Beneficiary: <strong id="modal-user-beneficiary">Account Holder</strong></div>
         </div>
 
-        <div class="divider-text">INSTANT WALLET TOP-UP</div>
+        <div class="divider-text">PAYSTACK TEST CHECKOUT</div>
 
         <form class="modal-form" id="add-funds-form">
           <input type="hidden" id="topup-gateway-provider" value="direct">
@@ -2404,7 +2405,7 @@
                 </span>
                 <span class="gateway-option-copy">
                   <strong class="gateway-option-title">Paystack</strong>
-                  <span class="gateway-coming-badge">Coming Nov 30</span>
+                  <span class="gateway-coming-badge">Coming later</span>
                 </span>
               </button>
 
@@ -2417,7 +2418,7 @@
                 </span>
                 <span class="gateway-option-copy">
                   <strong class="gateway-option-title">Flutterwave</strong>
-                  <span class="gateway-coming-badge">Coming Nov 30</span>
+                  <span class="gateway-coming-badge">Coming later</span>
                 </span>
               </button>
             </div>
@@ -2431,11 +2432,11 @@
                 type="number" 
                 id="topup-amount" 
                 class="form-input currency-field" 
-                placeholder="10000" 
-                value="10000"
+                placeholder="1000"
+                value="1000"
                 min="100" 
                 max="5000000" 
-                step="any"
+                step="0.01"
                 required
               >
             </div>
@@ -2558,7 +2559,7 @@
                 type="number" 
                 id="airtime-amount" 
                 class="form-input currency-field" 
-                placeholder="1000" 
+                placeholder="1000"
                 min="50" 
                 max="50000" 
                 value="1000"
@@ -2732,10 +2733,10 @@
                 type="number" 
                 id="electricity-amount-input" 
                 class="form-input currency-field" 
-                placeholder="10000" 
+                placeholder="1000"
                 min="500" 
                 max="500000" 
-                value="10000"
+                value="1000"
               >
             </div>
             <div class="quick-amount-tags">
@@ -2961,7 +2962,7 @@
           </div>
         </div>
         <div class="vcard-limit-editor hidden" id="card-limit-editor">
-          <input type="number" id="card-limit-input" class="form-input" min="10" step="any" placeholder="Enter monthly limit" style="padding:0.45rem 0.7rem; font-size:0.85rem;">
+          <input type="number" id="card-limit-input" class="form-input" min="10" step="0.01" placeholder="Enter monthly limit" style="padding:0.45rem 0.7rem; font-size:0.85rem;">
           <button type="button" class="btn btn-primary-sm" id="btn-save-card-limit">Save</button>
           <button type="button" class="btn btn-outline-sm" id="btn-cancel-card-limit">Cancel</button>
         </div>
@@ -3127,24 +3128,13 @@
     <div class="modal-box" style="max-width: 580px;">
       <div class="modal-header">
         <div class="modal-title-with-badge">
-          <h3 class="modal-title" id="kyc-modal-title">CBN KYC Status & Limits</h3>
+          <h3 class="modal-title" id="kyc-modal-title">Account verification</h3>
           <span class="badge-emerald-sm">CBN Compliant</span>
         </div>
         <button class="modal-close-btn" id="close-kyc-modal-btn" aria-label="Close modal">✕</button>
       </div>
 
-      <!-- Identity Verification Banner (2024 CBN BVN/NIN Mandate) -->
-      <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:12px; padding:0.85rem 1rem; margin-bottom:1.25rem;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
-          <span style="font-size:0.8rem; font-weight:700; color:#F8FAFC;">Verified Biometric Identifiers (NIBSS / NIMC)</span>
-          <span style="font-size:0.7rem; color:#34D399; font-weight:700;">100% Verified</span>
-        </div>
-        <div style="display:flex; gap:1.5rem; font-size:0.78rem; color:#94A3B8;">
-          <div>BVN: <strong style="color:#F1F5F9;">222••••8491</strong> <span style="color:#34D399;">✓ Verified</span></div>
-          <div>NIN: <strong style="color:#F1F5F9;">593••••1024</strong> <span style="color:#34D399;">✓ Verified</span></div>
-        </div>
-      </div>
-
+      <p class="ui-verification-note">Identity checks are not connected in this preview. No BVN or NIN verification has been completed. You can use email verification and a transaction PIN to test your wallet.</p>
       <!-- CBN 3-Tier Grid -->
       <div class="kyc-tier-grid">
         <!-- Tier 1 -->
@@ -3364,7 +3354,7 @@
       <div class="modal-header">
         <div class="modal-title-with-badge">
           <h3 class="modal-title" id="midesave-modal-title">MideSave Goal Vaults</h3>
-          <span class="badge-emerald-sm">14.5% p.a. Yield</span>
+          <span class="badge-emerald-sm">Preview</span>
         </div>
         <button type="button" class="modal-close-btn" id="close-midesave-modal-btn" aria-label="Close modal">✕</button>
       </div>
@@ -3404,13 +3394,13 @@
             </div>
             <div class="form-group">
               <label for="vault-target-input" class="form-label">Target Amount (NGN)</label>
-              <input type="number" id="vault-target-input" class="form-input" placeholder="500000" min="1000" step="any" value="500000" required>
+              <input type="number" id="vault-target-input" class="form-input" placeholder="500000" min="1000" step="0.01" value="500000" required>
             </div>
           </div>
           <div class="form-group">
             <label for="vault-lock-date-input" class="form-label">Lock Until Date (Optional — Leave blank for Flexible Vault)</label>
             <input type="date" id="vault-lock-date-input" class="form-input">
-            <span class="form-hint">Locked SafeBox vaults earn 14.5% p.a.; early withdrawal before maturity incurs a 1.5% early-break fee.</span>
+            <span class="form-hint">Real savings and interest are not available in this preview.</span>
           </div>
           <div style="display:flex; gap:0.65rem; justify-content:flex-end;">
             <button type="button" class="btn btn-outline-sm" id="btn-cancel-create-vault">Cancel</button>
@@ -3431,7 +3421,7 @@
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
             <div class="form-group">
               <label for="midesave-action-amount" class="form-label">Amount (NGN)</label>
-              <input type="number" id="midesave-action-amount" class="form-input" placeholder="25000" min="100" step="any" value="25000" required>
+              <input type="number" id="midesave-action-amount" class="form-input" placeholder="25000" min="100" step="0.01" value="25000" required>
             </div>
             <div class="form-group">
               <label for="midesave-action-pin" class="form-label">4-Digit Transaction PIN</label>
@@ -3578,5 +3568,6 @@
   <script src="config.js?v=4.7"></script>
   <script src="supabaseClient.js?v=4.7"></script>
   <script src="app.js?v=4.7"></script>
+  <script src="ui-polish.js?v=1"></script>
 </body>
 </html>

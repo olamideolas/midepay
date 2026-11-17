@@ -1,0 +1,169 @@
+/* MidePay interface refinement. Uses the existing theme and behavior hooks. */
+:root,[data-theme="dark"]{
+ --bg-main:#0a101a;--bg-surface:#111b29;--bg-surface-elevated:#192536;
+ --bg-input:#101a29;--bg-input-focus:#152235;--text-primary:#eff5f8;
+ --text-secondary:#a4b5c6;--text-muted:#8b9daf;--primary-emerald:#25c79c;
+ --primary-emerald-hover:#48d7af;--border-subtle:rgba(166,192,213,.13);
+ --border-medium:rgba(166,192,213,.23);--header-bg:rgba(10,16,26,.94);
+ --modal-bg:#111b29;--ui-panel:#111b29;--ui-soft:#152130;
+ --ui-shadow:0 8px 30px rgba(0,0,0,.12);--ui-wallet:linear-gradient(125deg,#133f37,#102e2c);
+ --font-heading:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ --font-body:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+[data-theme="light"]{
+ --bg-main:#f3f6f6;--bg-surface:#fff;--bg-surface-elevated:#f1f5f4;
+ --bg-input:#f9fbfb;--bg-input-focus:#fff;--text-primary:#142e2b;
+ --text-secondary:#526b69;--text-muted:#657d7a;--primary-emerald:#087f61;
+ --primary-emerald-hover:#06694f;--border-subtle:#dce6e3;--border-medium:#c7d7d2;
+ --header-bg:rgba(255,255,255,.96);--modal-bg:#fff;--ui-panel:#fff;--ui-soft:#f3f7f5;
+ --ui-shadow:0 6px 24px rgba(19,52,44,.045);--ui-wallet:linear-gradient(125deg,#e5f4eb,#e9f6f2);
+}
+.midepay-ui{line-height:1.55;letter-spacing:-.012em}
+.midepay-ui .container{width:min(1200px,calc(100% - 64px));max-width:1200px}
+.midepay-ui .site-header{position:sticky;top:0;height:80px;min-height:80px;background:var(--header-bg);border-bottom:1px solid var(--border-subtle);box-shadow:none;backdrop-filter:blur(16px)}
+.midepay-ui .header-container{height:100%;gap:20px;min-width:0}
+.midepay-ui .brand-logo{gap:9px;flex-shrink:0}
+.midepay-ui .brand-logo-mark{width:32px;height:32px}
+.midepay-ui .brand-text-name{font-size:25px;letter-spacing:-1px}
+.midepay-ui .brand-text-sub{font-size:8px;letter-spacing:1.8px}
+.midepay-ui .nav-concept-pill{font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:none;padding:5px 10px;border-color:var(--border-subtle);background:var(--ui-soft);color:var(--text-secondary)}
+.midepay-ui .nav-menu{gap:24px}.midepay-ui .nav-link{font-size:13px;font-weight:550}
+.midepay-ui .nav-dashboard-actions,.midepay-ui .nav-right-cluster{gap:10px;min-width:0}
+.midepay-ui .user-pill{padding:5px 11px 5px 5px;background:var(--ui-soft);border-color:var(--border-subtle)}
+.midepay-ui .user-pill-name{font-size:12px}.midepay-ui .user-avatar-circle{width:29px;height:29px;font-size:12px}
+.midepay-ui .theme-toggle-btn,.midepay-ui .btn-notification-bell{width:38px;height:38px;min-width:38px;border-color:var(--border-subtle);box-shadow:none}
+.midepay-ui .btn{border-radius:10px;font-size:13px;font-weight:650;box-shadow:none;transition:background .18s,transform .18s,border-color .18s}
+.midepay-ui .btn-primary{background:var(--primary-emerald);color:var(--text-inverse);border:1px solid transparent;box-shadow:none}
+.midepay-ui .btn-primary:hover{background:var(--primary-emerald-hover);box-shadow:0 3px 12px rgba(15,145,107,.14)}
+.midepay-ui .btn-outline,.midepay-ui .btn-outline-sm,.midepay-ui .btn-outline-xs{background:transparent;border-color:var(--border-medium);color:var(--text-primary)}
+.midepay-ui :is(button,a,input,select,textarea):focus-visible{outline:3px solid var(--primary-emerald);outline-offset:3px}
+.midepay-ui .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.midepay-ui .hero-section{padding:76px 0 68px;overflow:hidden}
+.midepay-ui .hero-container{gap:70px;align-items:center}
+.midepay-ui .hero-title{font-size:clamp(42px,4.5vw,68px);font-weight:750;line-height:1.07;letter-spacing:-.055em;margin:24px 0;max-width:650px}
+.midepay-ui .hero-description{font-size:16px;line-height:1.85;max-width:510px;color:var(--text-secondary)}
+.midepay-ui .hero-badge{background:var(--ui-soft);border:1px solid var(--border-subtle);box-shadow:none}
+.midepay-ui .badge-tag{font-size:10px;letter-spacing:1.2px}.midepay-ui .badge-gold{font-size:10px;color:var(--text-secondary)}
+.midepay-ui .hero-cta-group{gap:12px;margin:28px 0 24px}.midepay-ui .btn-lg{padding:14px 21px;min-height:49px;font-size:14px}
+.midepay-ui .hero-trust-strip{font-size:11px;gap:9px;flex-wrap:wrap;max-width:510px}
+.midepay-ui .hero-stats{gap:30px;padding-top:26px;margin-top:28px;border-top:1px solid var(--border-subtle);max-width:510px}
+.midepay-ui .stat-number{font-size:21px;font-weight:700;letter-spacing:-.03em}.midepay-ui .stat-label{font-size:11px}
+.midepay-ui .hero-mockup-wrapper{min-width:0;max-width:100%}.midepay-ui .phone-frame{max-width:100%;box-shadow:var(--ui-shadow)}
+.midepay-ui .hero-glow-drift,.midepay-ui .hero-glow-secondary{opacity:.25}
+.midepay-ui .section-header{max-width:660px;margin:0 auto 36px}.midepay-ui .section-title{font-size:clamp(26px,3vw,38px);letter-spacing:-.04em}
+.midepay-ui .feature-card,.midepay-ui .security-card,.midepay-ui .waitlist-card{border:1px solid var(--border-subtle);box-shadow:var(--ui-shadow);border-radius:18px}
+.midepay-ui .dashboard-container{display:flex;flex-direction:column;padding-top:32px;padding-bottom:44px}
+.midepay-ui .dashboard-header-bar{order:-3;margin:0 0 20px;gap:12px;min-width:0}
+.midepay-ui .dash-greeting{font-size:28px;letter-spacing:-.04em;line-height:1.2;font-weight:700;margin-bottom:8px}
+.midepay-ui .dash-meta-row{gap:10px;flex-wrap:wrap}.midepay-ui .meta-tag{font-size:12px;overflow-wrap:anywhere}
+.midepay-ui .dashboard-header-bar .dash-header-actions{display:none}
+.midepay-ui .dashboard-demo-banner{order:-2;margin:0 0 18px;border-radius:10px;padding:11px 15px;background:var(--ui-soft);border:1px solid var(--border-subtle)}
+.midepay-ui .dashboard-demo-banner .banner-text{font-size:12px;color:var(--text-secondary)}
+.midepay-ui .dashboard-demo-banner .banner-text strong{color:var(--text-primary);font-weight:650}
+.midepay-ui .dashboard-demo-banner .banner-icon svg{width:17px;height:17px}
+.midepay-ui .dash-workspace-switcher{order:-1;align-self:flex-start;margin:0 0 24px;padding:4px;gap:3px;background:var(--ui-soft);border-color:var(--border-subtle);border-radius:11px;max-width:100%}
+.midepay-ui .workspace-switch-btn{font-size:12px;min-height:35px;padding:8px 17px;border-radius:8px;white-space:nowrap}
+.midepay-ui .workspace-switch-btn.active{background:var(--ui-panel);color:var(--text-primary);box-shadow:0 1px 5px rgba(0,0,0,.08)}
+.midepay-ui .dashboard-grid{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:24px;align-items:start}
+.midepay-ui .dash-main-col,.midepay-ui .dash-side-col{min-width:0;width:100%}
+.midepay-ui .dash-side-col{position:sticky;top:104px}
+.midepay-ui .dash-balance-card{padding:27px 28px 24px;background:var(--ui-wallet);border:1px solid var(--border-emerald);border-radius:20px;margin-bottom:28px;box-shadow:none}
+.midepay-ui .card-glow-bg{opacity:.3}.midepay-ui .dash-card-header{margin-bottom:24px;gap:10px}
+.midepay-ui .card-brand-label{gap:10px;flex-wrap:wrap}.midepay-ui .brand-chip{font-size:12px;font-weight:600}
+.midepay-ui .cbn-tier-badge{padding:4px 9px;font-size:10px;border-radius:6px;background:rgba(26,167,122,.12);box-shadow:none}
+.midepay-ui .dash-balance-caption{font-size:12px;margin-bottom:5px;color:var(--text-secondary)}
+.midepay-ui .dash-balance-amount{font-size:clamp(34px,3.5vw,48px);font-weight:650;letter-spacing:-.055em;font-variant-numeric:tabular-nums}
+.midepay-ui .dash-balance-value-row{margin-bottom:20px;gap:12px}.midepay-ui .currency-tag{font-size:11px;padding:4px 7px}
+.midepay-ui .cbn-limit-meter{padding:10px 0 12px;margin-bottom:0;background:transparent;border:0;border-bottom:1px solid var(--border-subtle);border-radius:0}
+.midepay-ui .cbn-limit-header{font-size:10px;gap:12px;line-height:1.6}.midepay-ui .cbn-limit-header strong{display:block;font-size:11px;font-weight:500;color:var(--text-secondary)}
+.midepay-ui .btn-upgrade-tier{font-size:11px;font-weight:600;white-space:nowrap}
+.midepay-ui .dash-account-details{padding:15px 0;margin-bottom:18px;gap:14px;border-top:0;border-color:var(--border-subtle);grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+.midepay-ui .acc-detail-label{font-size:10px;color:var(--text-secondary)}.midepay-ui .acc-number-row{gap:8px;flex-wrap:wrap}
+.midepay-ui .acc-number,.midepay-ui #dash-nuban-text{font-size:14px;letter-spacing:.03em}.midepay-ui .acc-tag{font-size:14px;color:var(--primary-emerald);overflow-wrap:anywhere}
+.midepay-ui .btn-copy-acc{font-size:10px;min-height:28px;padding:4px 7px;background:var(--ui-soft);border:1px solid var(--border-subtle);color:var(--text-secondary);border-radius:6px}
+.midepay-ui .dash-card-buttons{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:9px}
+.midepay-ui .dash-card-buttons .btn{padding:12px 10px;min-height:45px;background:transparent;border:1px solid var(--border-medium);color:var(--text-primary);font-size:12px;white-space:nowrap}
+.midepay-ui #btn-open-add-modal{order:-1;background:var(--primary-emerald);border-color:var(--primary-emerald);color:var(--text-inverse)}
+.midepay-ui .dash-section-title{font-size:17px;letter-spacing:-.025em;font-weight:650;margin-bottom:16px}
+.midepay-ui .dash-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.midepay-ui #qa-transfer,.midepay-ui #qa-request{display:none}
+.midepay-ui .dash-action-card{min-width:0;display:grid;grid-template-columns:34px minmax(0,1fr);column-gap:11px;row-gap:3px;text-align:left;align-content:center;min-height:76px;padding:14px;border-radius:12px;background:var(--ui-panel);border:1px solid var(--border-subtle);box-shadow:none}
+.midepay-ui .dash-action-card:hover{transform:translateY(-2px);border-color:var(--border-emerald);background:var(--ui-soft)}
+.midepay-ui .qa-icon-wrap{grid-row:span 2;width:34px;height:34px;border-radius:10px;margin:0;align-self:center}.midepay-ui .qa-icon-wrap svg{width:17px;height:17px}
+.midepay-ui .qa-title{font-size:12px;line-height:1.3;align-self:end;min-width:0}.midepay-ui .qa-desc{font-size:10px;line-height:1.4;color:var(--text-muted);align-self:start}
+.midepay-ui .dash-quick-section{margin-bottom:24px}
+.midepay-ui .dash-tx-card,.midepay-ui .midesave-widget-card,.midepay-ui .business-suite-hero,.midepay-ui .payroll-main-card{background:var(--ui-panel);border:1px solid var(--border-subtle);box-shadow:var(--ui-shadow);border-radius:18px;padding:23px}
+.midepay-ui .tx-card-header{margin-bottom:18px;padding-bottom:0}.midepay-ui .tx-header-top-row{gap:10px;align-items:center;justify-content:space-between}
+.midepay-ui .tx-header-top-row .dash-section-title{margin:0}.midepay-ui .btn-download-statement{font-size:10px;min-height:32px;padding:6px 10px}
+.midepay-ui .tx-filter-pills{display:flex;gap:3px;margin-top:18px;padding:4px;background:var(--ui-soft);border-radius:9px;max-width:100%}
+.midepay-ui .tx-filter-pill{font-size:10px;flex:1;white-space:nowrap;padding:7px 9px;min-height:31px}.midepay-ui .tx-filter-pill.active{background:var(--ui-panel);color:var(--text-primary);box-shadow:none}
+.midepay-ui .dash-tx-list{max-height:620px;min-height:150px;overflow:auto}.midepay-ui .dash-tx-item{border:0;border-bottom:1px solid var(--border-subtle);border-radius:0;background:transparent;padding:16px 0;gap:12px;margin:0}
+.midepay-ui .dash-tx-item:last-child{border-bottom:0}.midepay-ui .dash-tx-left{min-width:0;gap:12px}.midepay-ui .dash-tx-details{min-width:0}
+.midepay-ui .dash-tx-title{font-size:12px;line-height:1.4}.midepay-ui .dash-tx-meta{font-size:10px;color:var(--text-muted);line-height:1.5}
+.midepay-ui .dash-tx-val{font-size:13px;font-weight:650;white-space:nowrap}.midepay-ui .dash-tx-right{flex-shrink:0}.midepay-ui .tx-badge-icon{width:32px;height:32px;min-width:32px;border-radius:10px}
+.midepay-ui .midesave-widget-card{padding:19px;margin-top:0}.midepay-ui .midesave-widget-header{gap:12px;flex-wrap:wrap}.midepay-ui .midesave-widget-header .dash-section-title{font-size:15px}
+.midepay-ui .midesave-widget-sub{font-size:11px}.midepay-ui .midesave-vaults-preview{font-size:11px}.midepay-ui .midesave-empty-state{padding:18px;font-size:11px}
+.midepay-ui .auth-page-wrapper{padding:44px 16px 56px;min-height:calc(100svh - 80px);align-items:center;background:radial-gradient(ellipse at 50% 15%,rgba(25,164,120,.055),transparent 65%)}
+.midepay-ui .auth-card{max-width:456px;padding:32px 34px;border-radius:20px;box-shadow:var(--ui-shadow);border-color:var(--border-subtle)}
+.midepay-ui .auth-header{margin-bottom:26px}.midepay-ui .auth-title{font-size:27px;letter-spacing:-.04em;line-height:1.2;margin-bottom:10px}
+.midepay-ui .auth-subtitle{font-size:13px;line-height:1.7}.midepay-ui .auth-brand-center{margin-bottom:22px}.midepay-ui .back-link-btn{font-size:12px;margin-bottom:25px}
+.midepay-ui .form-group{margin-bottom:18px}.midepay-ui .form-label{font-size:12px;font-weight:600;margin-bottom:7px}
+.midepay-ui .form-input{height:49px;min-height:49px;padding:12px 14px;border-radius:10px;font-size:14px;border-color:var(--border-medium);box-shadow:none;background:var(--bg-input)}
+.midepay-ui textarea.form-input{height:auto;min-height:92px}.midepay-ui .form-input:focus{background:var(--bg-input-focus);box-shadow:0 0 0 3px rgba(26,167,122,.12)}
+.midepay-ui .form-hint{font-size:10px;line-height:1.5}.midepay-ui .auth-footer{font-size:12px;margin-top:22px}.midepay-ui .auth-alert{font-size:12px;padding:11px 13px;border-radius:9px}
+.midepay-ui .phone-prefix{font-size:12px}.midepay-ui .phone-input-group{min-width:0}
+.midepay-ui .modal-overlay{padding:24px;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+.midepay-ui .modal-box{width:min(100%,520px);max-width:520px;max-height:calc(100dvh - 48px);padding:26px;border:1px solid var(--border-subtle);border-radius:20px;box-shadow:0 24px 90px rgba(0,0,0,.25);background:var(--modal-bg);overscroll-behavior:contain}
+.midepay-ui .modal-box-wide{max-width:820px;width:min(100%,820px)}
+.midepay-ui .modal-header{gap:14px;margin-bottom:23px;align-items:flex-start}.midepay-ui .modal-title{font-size:21px;letter-spacing:-.03em}.midepay-ui .modal-title-with-badge{gap:9px;flex-wrap:wrap}
+.midepay-ui .modal-close-btn{width:34px;height:34px;min-width:34px;display:grid;place-items:center;background:var(--ui-soft);border-radius:9px;border:1px solid var(--border-subtle);font-size:17px;color:var(--text-secondary)}
+.midepay-ui .badge-emerald-sm,.midepay-ui .badge-gold-sm{font-size:10px;letter-spacing:0;font-weight:600;border-radius:6px;padding:4px 8px}
+.midepay-ui .funding-nuban-box{background:var(--ui-soft);border:1px solid var(--border-subtle);padding:15px;border-radius:12px}.midepay-ui .fund-label{font-size:11px;color:var(--text-secondary)}
+.midepay-ui .fund-bank-name{font-size:11px;color:var(--text-muted);font-weight:400;margin:5px 0 10px;line-height:1.6}.midepay-ui .fund-nuban-code{font-size:21px}.midepay-ui .fund-beneficiary{font-size:11px}
+.midepay-ui .divider-text{font-size:9px;letter-spacing:1.2px;margin:24px 0 19px;color:var(--text-muted)}
+.midepay-ui .gateway-selector-grid{grid-template-columns:1fr;gap:9px}.midepay-ui .gateway-option-btn{border:1px solid var(--border-medium);border-radius:11px;padding:13px;background:var(--ui-soft);box-shadow:none}
+.midepay-ui .gateway-option-btn.active{border-color:var(--primary-emerald);background:rgba(27,163,117,.06)}.midepay-ui .gateway-option-title{font-size:13px}.midepay-ui .gateway-coming-badge{font-size:10px;font-weight:500;color:var(--text-secondary)}
+.midepay-ui .quick-amount-tags{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.midepay-ui .amount-tag-btn{padding:8px 4px;font-size:11px;border-radius:7px}
+.midepay-ui #pending-deposit-tools{padding:17px 0 0;margin-top:20px;border-top:1px solid var(--border-subtle)}.midepay-ui #pending-deposit-tools p{font-size:11px;line-height:1.7;color:var(--text-secondary);margin:0 0 12px}
+.midepay-ui #pending-deposit-status{margin:12px 0 0;color:var(--primary-emerald)}.midepay-ui #verify-latest-deposit-btn{min-height:42px;font-size:12px}
+.midepay-ui .otp-modal-box{max-width:470px}.midepay-ui .otp-digit-input{min-width:0;height:54px;font-size:23px;border-radius:10px}.midepay-ui .otp-inputs-grid{gap:9px}
+.midepay-ui .toast-container{max-width:min(390px,calc(100vw - 32px));right:16px;top:94px}.midepay-ui .toast{font-size:12px;border-radius:12px;padding:14px 16px;box-shadow:var(--ui-shadow)}
+.midepay-ui .cbn-site-footer{padding:25px 0;background:transparent;border-top:1px solid var(--border-subtle)}.midepay-ui .cbn-footer-inner{width:min(1200px,calc(100% - 64px));margin:auto}
+.midepay-ui .footer-trust-badges{display:none}.midepay-ui .footer-disclaimer{font-size:10px;line-height:1.8;color:var(--text-muted);padding:0;border:0;text-align:center;max-width:820px;margin:auto}
+.midepay-ui .liquid-glass{box-shadow:var(--ui-shadow)}.midepay-ui .liquid-glass::before,.midepay-ui .liquid-glass::after{opacity:.2;pointer-events:none}
+.midepay-ui .login-security-alert-banner{font-size:11px;padding:10px 13px;box-shadow:none}
+.midepay-ui #modal-cbn-kyc .kyc-tier-grid{display:none}.midepay-ui .ui-verification-note{font-size:13px;line-height:1.85;color:var(--text-secondary);padding:17px;background:var(--ui-soft);border:1px solid var(--border-subtle);border-radius:12px;margin-bottom:20px}
+.midepay-ui .payroll-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px}.midepay-ui .payroll-grid>*{min-width:0}
+@media(min-width:1200px){.midepay-ui .dash-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1020px){.midepay-ui .hero-container{gap:35px}.midepay-ui .dashboard-grid{grid-template-columns:minmax(0,1fr)}.midepay-ui .dash-side-col{position:static;order:0}.midepay-ui .dash-action-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.midepay-ui .nav-menu{gap:15px}.midepay-ui .nav-link{font-size:12px}}
+@media(max-width:720px){
+ .midepay-ui .container{width:calc(100% - 32px)}.midepay-ui .site-header{height:68px;min-height:68px}.midepay-ui .header-container{gap:10px;width:calc(100% - 28px)}
+ .midepay-ui .brand-logo-mark{width:28px;height:28px}.midepay-ui .brand-text-name{font-size:23px}.midepay-ui .brand-text-sub{display:none}.midepay-ui .brand-logo{gap:7px}
+ .midepay-ui .nav-right-cluster{margin-left:auto;gap:8px}.midepay-ui .nav-dashboard-actions{gap:7px}.midepay-ui .user-pill{padding:3px;background:transparent;border:0}.midepay-ui .user-pill-name{display:none}
+ .midepay-ui .theme-toggle-btn,.midepay-ui .btn-notification-bell{width:33px;height:33px;min-width:33px}.midepay-ui #nav-logout-btn{padding:7px 9px;min-width:0;font-size:10px}
+ .midepay-ui:has(#view-dashboard:not(.hidden)) .nav-concept-pill,.midepay-ui:has(#view-admin:not(.hidden)) .nav-concept-pill{display:none}
+ .midepay-ui .hero-section{padding:48px 0}.midepay-ui .hero-container{gap:42px}.midepay-ui .hero-title{font-size:46px;line-height:1.06;margin:21px 0}.midepay-ui .hero-description{font-size:14px;line-height:1.8}
+ .midepay-ui .hero-stats{gap:22px}.midepay-ui .hero-trust-strip{font-size:10px}.midepay-ui .hero-cta-group{gap:9px;flex-wrap:wrap}.midepay-ui .hero-cta-group .btn{font-size:12px;padding:13px 16px}
+ .midepay-ui .dashboard-container{padding-top:25px;padding-bottom:30px}.midepay-ui .dashboard-header-bar{margin-bottom:16px}.midepay-ui .dash-greeting{font-size:25px;margin-bottom:8px}
+ .midepay-ui .dashboard-demo-banner{padding:10px 12px;align-items:flex-start;gap:9px;margin-bottom:16px}.midepay-ui .dashboard-demo-banner .banner-text{font-size:10px;line-height:1.7}.midepay-ui .dashboard-demo-banner .banner-text strong{display:block}
+ .midepay-ui .dash-workspace-switcher{margin-bottom:20px}.midepay-ui .dashboard-grid{gap:22px}.midepay-ui .dash-balance-card{padding:21px;margin-bottom:24px;border-radius:17px}
+ .midepay-ui .dash-card-header{margin-bottom:22px}.midepay-ui .brand-chip{font-size:11px}.midepay-ui .card-brand-label{gap:7px}.midepay-ui .cbn-tier-badge{font-size:9px}
+ .midepay-ui .dash-balance-amount{font-size:40px}.midepay-ui .dash-account-details{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:10px;padding:14px 0}.midepay-ui .acc-number-row{gap:5px}.midepay-ui #dash-nuban-text{font-size:12px}
+ .midepay-ui .dash-card-buttons{grid-template-columns:1.1fr 1fr 1fr;gap:7px}.midepay-ui .dash-card-buttons .btn{font-size:10px;padding:10px 5px;min-height:43px;gap:5px}.midepay-ui .dash-card-buttons svg{width:15px;height:15px}
+ .midepay-ui .dash-action-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.midepay-ui .dash-action-card{padding:12px;min-height:72px;grid-template-columns:29px minmax(0,1fr);column-gap:8px}
+ .midepay-ui .qa-icon-wrap{width:29px;height:29px}.midepay-ui .qa-title{font-size:11px}.midepay-ui .qa-desc{font-size:9px}.midepay-ui .dash-section-title{font-size:16px;margin-bottom:13px}
+ .midepay-ui .dash-tx-card{padding:18px;border-radius:16px}.midepay-ui .tx-header-top-row{flex-wrap:nowrap}.midepay-ui .tx-filter-pill{font-size:9px;padding:6px}.midepay-ui .dash-tx-title{font-size:11px}
+ .midepay-ui .dash-tx-meta{font-size:9px}.midepay-ui .dash-tx-val{font-size:12px}.midepay-ui .dash-tx-left{gap:9px}.midepay-ui .dash-tx-item{gap:8px}.midepay-ui .dash-tx-right .status-pill{font-size:9px}
+ .midepay-ui .auth-page-wrapper{min-height:calc(100svh - 68px);padding:25px 16px 36px}.midepay-ui .auth-card{padding:25px 23px;border-radius:17px}.midepay-ui .auth-title{font-size:26px}.midepay-ui .auth-subtitle{font-size:12px}
+ .midepay-ui .form-input{font-size:16px;height:48px}.midepay-ui .auth-header{margin-bottom:23px}.midepay-ui .auth-brand-center{margin-bottom:19px}.midepay-ui .back-link-btn{margin-bottom:24px}
+ .midepay-ui .modal-overlay{padding:12px}.midepay-ui .modal-box{padding:21px;border-radius:17px;max-height:calc(100dvh - 24px)}.midepay-ui .modal-title{font-size:20px}.midepay-ui .modal-header{margin-bottom:20px}
+ .midepay-ui .otp-digit-input{height:48px;font-size:21px}.midepay-ui .otp-inputs-grid{gap:7px}.midepay-ui .modal-title-with-badge{gap:7px}.midepay-ui .quick-amount-tags{gap:5px}
+ .midepay-ui .payroll-grid{grid-template-columns:minmax(0,1fr)}.midepay-ui .business-suite-hero{padding:20px;gap:18px;flex-wrap:wrap}.midepay-ui .cbn-footer-inner{width:calc(100% - 32px)}
+}
+@media(max-width:380px){.midepay-ui .nav-notification-wrapper{display:none}.midepay-ui .hero-title{font-size:40px}.midepay-ui .dash-balance-card{padding:18px}.midepay-ui .dash-card-buttons .btn{font-size:9px}.midepay-ui .dash-account-details{grid-template-columns:minmax(0,1fr) minmax(0,.8fr)}}
+@media(prefers-reduced-motion:reduce){.midepay-ui *,.midepay-ui *::before,.midepay-ui *::after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+
+.midepay-ui .brand-text-name{color:var(--text-primary)}
+.midepay-ui .form-label{color:var(--text-primary)}
+.midepay-ui:has(.modal-overlay:not(.hidden)){overflow:hidden}
+.midepay-ui .vault-actions .btn-text{color:var(--primary-emerald)}

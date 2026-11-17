@@ -15,7 +15,7 @@ const state = {
   transactions: [],
   // CBN 100% Regulatory Compliance State
   kycTier: 2, // 1 (Basic), 2 (Standard), 3 (Premium / Full KYC)
-  dailySpent: 45000.00,
+  dailySpent: 0.00,
   dailyLimit: 200000.00,
   isAccountFrozen: false
 };
@@ -173,8 +173,8 @@ const FEATURE_DATA = {
   personal: [
     {
       title: 'Instant P2P Transfers',
-      desc: 'Send money instantly to any MideTag or Nigerian commercial bank account with ₦0 transfer fees.',
-      tag: '₦0 Transfer Fees',
+      desc: 'Explore transfers by MideTag. Live transfers and bank payouts are unavailable in this preview.',
+      tag: 'Transfers preview',
       iconSvg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"></line>
         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
@@ -182,8 +182,8 @@ const FEATURE_DATA = {
     },
     {
       title: 'Virtual Dollar & Naira Cards',
-      desc: 'Create secure multi-currency virtual cards for Spotify, Apple Music, AWS, Coursera, and international travel.',
-      tag: 'Zero Decline Rate',
+      desc: 'Preview the card experience. Real virtual cards are not issued in this environment.',
+      tag: 'Cards preview',
       iconSvg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
         <line x1="1" y1="10" x2="23" y2="10"></line>
@@ -191,8 +191,8 @@ const FEATURE_DATA = {
     },
     {
       title: 'Automated Target Vaults',
-      desc: 'Lock funds towards rent, school fees, or vacation. Earn simulated interest rates up to 14% p.a.',
-      tag: 'Up to 14% p.a.',
+      desc: 'Explore goals for rent, school fees, or a holiday. Preview balances earn no interest.',
+      tag: 'Savings preview',
       iconSvg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
         <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -200,8 +200,8 @@ const FEATURE_DATA = {
     },
     {
       title: 'Smart Utilities & Cashback',
-      desc: 'Pay for electricity (IKEDC, EKEDC), cable TV (DSTV, GOTV), and buy airtime with guaranteed 3% instant cashback.',
-      tag: '3% Cashback',
+      desc: 'Explore the planned airtime, electricity, and cable payment screens. Live bill payments are coming later.',
+      tag: 'Coming soon',
       iconSvg: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
       </svg>`
@@ -1069,7 +1069,7 @@ function syncUserToDashboard() {
 
   // Top header greeting
   const greetingEl = document.getElementById('dash-greeting-text');
-  if (greetingEl) greetingEl.textContent = `Welcome back, ${displayName} 👋`;
+  if (greetingEl) greetingEl.textContent = `Good to see you, ${displayName.split(/\s+/)[0]}`;
 
   // Email meta
   const emailEl = document.getElementById('dash-email-tag');
@@ -2695,6 +2695,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const limitUsage = document.getElementById('cbn-limit-usage');
     const progressBar = document.getElementById('cbn-progress-bar');
     const qaKycSub = document.getElementById('qa-kyc-sub');
+
+    // A numeric test tier is not proof of real-world identity verification.
+    if (isProductionEnv()) {
+      if (cardKycText) cardKycText.textContent = 'Test wallet';
+      if (qaKycSub) qaKycSub.textContent = 'Not connected yet';
+      if (limitUsage) limitUsage.textContent = 'Live transfers unavailable';
+      if (progressBar) progressBar.style.width = '0%';
+      return;
+    }
 
     if (cardKycText) {
       cardKycText.textContent = state.kycTier === 3 ? 'Tier 3 (Unlimited)' : `Tier ${state.kycTier} Verified`;
@@ -7000,7 +7009,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       if (vaults.length === 0) {
         elMideSaveVaultsPreview.innerHTML = `
           <div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.84rem; border:1px dashed var(--border-subtle); border-radius:10px;">
-            Earn <strong>14.5% p.a.</strong> on Rent, Emergency Funds, or Business Restock goals. Tap <strong>+ Create Vault</strong> to start saving.
+            A little space for your next big goal. Savings tools are available to explore in this preview; no interest is earned here.
           </div>
         `;
       } else {
@@ -7013,7 +7022,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       if (vaults.length === 0) {
         elMideSaveModalList.innerHTML = `
           <div style="padding:1.6rem; text-align:center; color:var(--text-muted); font-size:0.86rem;">
-            No MideSave vaults created yet. Click <strong>+ Create New Vault</strong> above to open your first 14.5% p.a. goal vault.
+            No savings goals yet. You can explore how a goal would look here. Real savings and interest are not available in this preview.
           </div>
         `;
       } else {
