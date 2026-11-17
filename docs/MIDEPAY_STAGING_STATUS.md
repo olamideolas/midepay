@@ -27,7 +27,7 @@ Security Advisor findings remain for intentional default-deny tables without pol
 - Added a staging-only packaging command with target checks, safe output handling, staging CSP and fixed disabled financial configuration.
 - Removed embedded member accounts/passwords, contact/bank identifiers, transaction fixtures and waitlist leads from the preview artifact. Regression checks also verify JavaScript syntax after removal. Source prototype fixtures still exist in app.js; ordinary Git-based deployment does not sanitize them and must not be promoted to production.
 
-The preview was uploaded as a generated staging artifact from the feature checkout, with dirty metadata against base commit 26892bb. It is not an exact Git-source deployment. The generator and fixes are saved on the feature branch for reproducibility; production configuration files in the source checkout were not retargeted.
+The preview was uploaded as a generated staging artifact from the feature checkout, with dirty metadata against base commit 26892bb. It is not an exact Git-source deployment. The generator and fixes are saved on the feature branch for reproducibility; production database settings in the source checkout were not retargeted. Automatic Vercel Git deployments are disabled specifically for `fix-v46-migration-repair`, so pushing this branch does not upload the unsanitized prototype or use its production CSP. Other branches are unchanged. This uses Vercel's documented [branch deployment control](https://vercel.com/docs/project-configuration/git-configuration).
 
 ## Actual automated tests
 

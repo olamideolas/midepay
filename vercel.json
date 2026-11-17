@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "git": {
+    "deploymentEnabled": {
+      "fix-v46-migration-repair": false
+    }
+  },
   "cleanUrls": true,
   "buildCommand": "node build.js",
   "outputDirectory": ".",
