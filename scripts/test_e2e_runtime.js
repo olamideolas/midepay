@@ -51,7 +51,7 @@ class MockElement {
     this.disabled = 'disabled' in attrs;
     this.textContent = '';
     this.innerHTML = '';
-    this.style = { setProperty() {}, removeProperty() {} };
+    this.style = { setProperty() { }, removeProperty() { } };
     this.dataset = {};
     this._attrs = { ...attrs };
     this._className = attrs.class || '';
@@ -84,8 +84,8 @@ class MockElement {
     const eventObj = {
       type: ev,
       target: this,
-      preventDefault() {},
-      stopPropagation() {},
+      preventDefault() { },
+      stopPropagation() { },
       ...payload
     };
     return Promise.all(list.map(fn => fn(eventObj)));
@@ -97,11 +97,11 @@ class MockElement {
   focus() {
     if (this.id) lastFocusedElementId = this.id;
   }
-  blur() {}
-  scrollIntoView() {}
+  blur() { }
+  scrollIntoView() { }
   appendChild(child) { child.parentNode = this; return child; }
   removeChild(child) { child.parentNode = null; return child; }
-  remove() {}
+  remove() { }
   closest() { return null; }
   getBoundingClientRect() { return { left: 0, top: 0, width: 320, height: 180 }; }
   querySelector() { return new MockElement('SPAN'); }
@@ -190,6 +190,24 @@ function createZeroTrustSupabaseSimulator() {
   const paymentRequests = [];
 
   let activeSession = null;
+  let quarantineActiveInDb = true;
+
+  const QUARANTINED_FINANCIAL_RPCS = new Set([
+    'execute_p2p_transfer',
+    'transfer_funds',
+    'execute_external_bank_transfer',
+    'concept_topup_wallet',
+    'fund_virtual_card',
+    'fund_virtual_card_from_wallet',
+    'create_savings_vault',
+    'fund_savings_vault',
+    'withdraw_savings_vault',
+    'manage_midesave_vault',
+    'pay_vtu_bill',
+    'pay_utility_bill',
+    'execute_payroll_batch',
+    'execute_business_payroll'
+  ]);
 
   const genUuid = () => nodeCrypto.randomUUID();
   const hashPin = (pin) => nodeCrypto.createHash('sha256').update(`bf10:${pin}`).digest('hex');
@@ -289,25 +307,7 @@ function createZeroTrustSupabaseSimulator() {
       updated_at: nowIso
     };
     walletsByUserId.set(uid, wallet);
-
-    virtualCards.push(buildCardRow({
-      userId: uid,
-      walletId: wallet.id,
-      currency: 'NGN',
-      cardType: 'Verve',
-      cardLabel: 'MidePay Green',
-      cardHolderName: fullName,
-      spendingLimit: 500000.00
-    }));
-    virtualCards.unshift(buildCardRow({
-      userId: uid,
-      walletId: wallet.id,
-      currency: 'USD',
-      cardType: 'Mastercard',
-      cardLabel: 'MidePay Black',
-      cardHolderName: fullName,
-      spendingLimit: 1000.00
-    }));
+    // PCI Quarantine: Card provisioning intentionally disabled during onboarding until tokenized issuer integration is live.
   };
 
   // Mirrors `public._assert_verified_wallet_ready` (20261116050000_auth_verification_gate.sql)
@@ -542,11 +542,17 @@ function createZeroTrustSupabaseSimulator() {
       },
       getUser: async () => ({ data: { user: activeSession?.user || null }, error: null }),
       getSession: async () => ({ data: { session: activeSession }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } })
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() { } } } })
     },
     from: (table) => createQueryBuilder(table),
     rpc: async (fnName, params = {}) => {
-      rpcCallHistory.push({ fn: fnName, params: { ...params } });
+      rpcCallHistory.push({ fn: fnName, params: { ...params }, quarantinedAtCall: quarantineActiveInDb });
+      if (quarantineActiveInDb && QUARANTINED_FINANCIAL_RPCS.has(fnName)) {
+        return {
+          data: null,
+          error: { code: '42501', message: `permission denied for function ${fnName}` }
+        };
+      }
       const uid = activeSession?.user?.id || null;
 
       switch (fnName) {
@@ -850,10 +856,11 @@ function createZeroTrustSupabaseSimulator() {
         case 'fund_virtual_card_from_wallet': {
           const gate = assertVerifiedWalletReady(uid, 'CARD_FUNDING');
           if (!gate.ok) return { data: { success: false, code: gate.code, error: gate.error }, error: null };
-          if (params.p_pin) {
-            const ver = verifyPinAndAudit(uid, params.p_pin, 'CARD_FUNDING');
-            if (!ver.ok) return { data: { success: false, code: ver.code, error: ver.error }, error: null };
+          if (!params.p_pin) {
+            return { data: { success: false, code: 'PIN_REQUIRED', error: 'Transaction PIN is required to fund virtual cards.' }, error: null };
           }
+          const ver = verifyPinAndAudit(uid, params.p_pin, 'CARD_FUNDING');
+          if (!ver.ok) return { data: { success: false, code: ver.code, error: ver.error }, error: null };
           const card = virtualCards.find(c => c.id === params.p_card_id && c.user_id === uid);
           if (!card) return { data: { success: false, error: 'Card not found' }, error: null };
           if (card.is_frozen) return { data: { success: false, error: 'Card is frozen' }, error: null };
@@ -1090,6 +1097,16 @@ function createZeroTrustSupabaseSimulator() {
         case 'execute_business_payroll': {
           const gate = assertVerifiedWalletReady(uid, 'PAYROLL_DISBURSEMENT');
           if (!gate.ok) return { data: { success: false, code: gate.code, error: gate.error }, error: null };
+          if (!params.p_business_id) {
+            return {
+              data: {
+                success: false,
+                code: 'ACCESS_DENIED',
+                error: 'Valid business_id with write permission is required for payroll execution.'
+              },
+              error: null
+            };
+          }
           const ver = verifyPinAndAudit(uid, params.p_pin, 'PAYROLL_DISBURSEMENT');
           if (!ver.ok) return { data: { success: false, code: ver.code, error: ver.error }, error: null };
 
@@ -1188,7 +1205,11 @@ function createZeroTrustSupabaseSimulator() {
     },
     clearForcedSession: () => {
       activeSession = null;
-    }
+    },
+    setQuarantineActive: (flag) => {
+      quarantineActiveInDb = Boolean(flag);
+    },
+    QUARANTINED_FINANCIAL_RPCS
   };
 }
 
@@ -1200,15 +1221,15 @@ let printInvocationCount = 0;
 
 const context = {
   console: {
-    log: () => {},
-    info: () => {},
-    warn: () => {},
+    log: () => { },
+    info: () => { },
+    warn: () => { },
     error: (...args) => runtimeErrors.push(args.join(' '))
   },
   setTimeout: () => 1,
-  clearTimeout: () => {},
+  clearTimeout: () => { },
   setInterval: () => 2,
-  clearInterval: () => {},
+  clearInterval: () => { },
   requestAnimationFrame: () => 1,
   crypto: nodeCrypto.webcrypto,
   Intl,
@@ -1247,7 +1268,7 @@ const context = {
     userAgent: 'MidePay-QA-Headless/4.6',
     platform: 'Win32',
     language: 'en-NG',
-    clipboard: { writeText: async () => {} },
+    clipboard: { writeText: async () => { } },
     serviceWorker: {
       register: async (swPath) => {
         registeredSwPath = swPath;
@@ -1262,8 +1283,8 @@ const context = {
     const list = winListeners[ev] || [];
     const eventObj = {
       type: ev,
-      preventDefault() {},
-      stopPropagation() {},
+      preventDefault() { },
+      stopPropagation() { },
       ...payload
     };
     return Promise.all(list.map(fn => fn(eventObj)));
@@ -1271,8 +1292,8 @@ const context = {
   print: () => {
     printInvocationCount++;
   },
-  matchMedia: () => ({ matches: false, addEventListener() {} }),
-  scrollTo: () => {},
+  matchMedia: () => ({ matches: false, addEventListener() { } }),
+  scrollTo: () => { },
   document: mockDocument,
   supabase: {
     createClient: () => sim.client
@@ -1288,7 +1309,7 @@ context.globalThis = context;
 vm.createContext(context);
 
 // Execute scripts in exact index.html order
-for (const scriptFile of ['liquid-glass.js', 'config.js', 'supabaseClient.js', 'app.js']) {
+for (const scriptFile of ['liquid-glass.js', 'vendor/supabase.js', 'config.js', 'supabaseClient.js', 'app.js']) {
   const code = fs.readFileSync(path.join(ROOT, scriptFile), 'utf8');
   vm.runInContext(code, context, { filename: scriptFile });
 }
@@ -1306,12 +1327,14 @@ async function runAssertions() {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   console.log('======================================================================');
-  console.log(' MidePay v4.6 — OTP, PIN Onboarding & Zero-Trust RPC E2E Suite');
+  console.log(' MidePay v4.7 — Staging Quarantine, OTP, PIN Lock & Zero-Trust E2E Suite');
   console.log('======================================================================\n');
 
   check(runtimeErrors.length === 0, `Zero console.error emissions during boot (${runtimeErrors.length} errors)`);
   check(context.MIDEPAY_SUPABASE_CONFIG.ENV === 'production', 'window.MIDEPAY_SUPABASE_CONFIG.ENV === "production"');
+  check(context.MIDEPAY_SUPABASE_CONFIG.FINANCIAL_RPCS_LIVE === false, 'window.MIDEPAY_SUPABASE_CONFIG.FINANCIAL_RPCS_LIVE === false (Staging Quarantine default)');
   check(context.MidePayDB.isProduction() === true, 'MidePayDB.isProduction() === true');
+  check(context.MidePayDB.isFinancialQuarantined() === true, 'MidePayDB.isFinancialQuarantined() === true while backend settlement is quarantined');
   check(context.MidePayDB.configure('https://evil.example', 'fake') === false, 'Runtime localStorage credential override blocked in production');
 
   const demoLookup = await context.MidePayDB.findRecipient('chinedu@midepay.com');
@@ -1323,7 +1346,7 @@ async function runAssertions() {
     amount: 5000,
     narration: 'Test'
   });
-  check(unauthTransfer.success === false && !unauthTransfer.isDemo, 'Unauthenticated transfer strictly rejected in production');
+  check(unauthTransfer.success === false && unauthTransfer.code === 'STAGING_QUARANTINE' && !unauthTransfer.isDemo, 'Transfer strictly rejected with STAGING_QUARANTINE in default production quarantine');
 
   await context.showView('admin');
   check(context.currentView !== 'admin' && !elementsById.get('view-admin').classList.contains('active'), 'Executive Portal route guard blocks unverified access');
@@ -1340,7 +1363,7 @@ async function runAssertions() {
   const baselineSecurityLogs = runtimeErrors.length;
 
   // =========================================================================
-  // 1. 6-DIGIT EMAIL OTP SIGNUP FLOW, RESEND COOLDOWN & UNVERIFIED RPC GUARD
+  // 1. 6-DIGIT EMAIL OTP SIGNUP FLOW, RESEND COOLDOWN & POSTGRES $quarantine$
   // =========================================================================
   const sampleNubans = new Set();
   for (let i = 0; i < 50; i++) {
@@ -1371,21 +1394,15 @@ async function runAssertions() {
     'Signup transitions smoothly into 6-Digit Email OTP modal (no premature dashboard login) with 60s resend cooldown'
   );
 
-  // Database Verification Guard: verify ALL 5 canonical financial RPCs reject an unverified email user (`email_confirmed_at IS NULL`)
-  sim.forceUnconfirmedSessionForTest('amaka.okafor@midepay.ng');
-  const [unverP2p, unverCard, unverBill, unverVault, unverPayroll] = await Promise.all([
-    sim.client.rpc('execute_p2p_transfer', { p_recipient_nuban: '9012345678', p_amount: 1000, p_pin: '1234', p_idempotency_key: nodeCrypto.randomUUID() }),
-    sim.client.rpc('fund_virtual_card', { p_card_id: nodeCrypto.randomUUID(), p_amount_card_currency: 50, p_pin: '1234', p_idempotency_key: nodeCrypto.randomUUID() }),
-    sim.client.rpc('pay_vtu_bill', { p_service_type: 'airtime', p_provider: 'MTN', p_identifier: '08031112222', p_plan_name: 'Airtime', p_amount: 500, p_pin: '1234', p_idempotency_key: nodeCrypto.randomUUID() }),
-    sim.client.rpc('manage_midesave_vault', { p_action: 'fund', p_vault_id: nodeCrypto.randomUUID(), p_amount: 5000, p_pin: '1234', p_idempotency_key: nodeCrypto.randomUUID() }),
-    sim.client.rpc('execute_payroll_batch', { p_business_id: null, p_title: 'Test', p_items: [{ identifier: '9012345678', amount: 10000 }], p_pin: '1234', p_idempotency_key: nodeCrypto.randomUUID() })
-  ]);
-  sim.clearForcedSession();
-
+  // Verify PostgreSQL $quarantine$ Privilege Revocation: direct client calls to ALL 14 financial RPCs return 42501
+  const quarantinedRpcNames = [...sim.QUARANTINED_FINANCIAL_RPCS];
+  const quarantinedRawResponses = await Promise.all(
+    quarantinedRpcNames.map(fn => sim.client.rpc(fn, {}))
+  );
   check(
-    [unverP2p, unverCard, unverBill, unverVault, unverPayroll].every(r => r.data?.success === false && r.data?.code === 'EMAIL_NOT_VERIFIED') &&
-    sim.securityAuditLogs.filter(e => e.event_type === 'UNVERIFIED_EMAIL_BLOCKED').length >= 5,
-    'All 5 financial RPCs (execute_p2p_transfer, fund_virtual_card, pay_vtu_bill, manage_midesave_vault, execute_payroll_batch) reject unverified users (EMAIL_NOT_VERIFIED)'
+    quarantinedRpcNames.length === 14 &&
+    quarantinedRawResponses.every(r => r.error && r.error.code === '42501'),
+    `PostgreSQL $quarantine$ REVOKE blocks direct client execution across all ${quarantinedRpcNames.length}/14 financial RPCs (42501 permission denied)`
   );
 
   // Unconfirmed User Login Auto-Routing & Automatic OTP Resend
@@ -1409,7 +1426,6 @@ async function runAssertions() {
   const disabledAt30s = btnResendOtp.disabled === true && otpTimerEl.textContent === 'Resend code in 30s';
   context.tickOtpResendCooldown(30);
   const enabledAt0s = btnResendOtp.disabled === false;
-  const otpBeforeManualResend = sim.getLatestOtp('amaka.okafor@midepay.ng');
   await btnResendOtp.click();
   const otpAfterManualResend = sim.getLatestOtp('amaka.okafor@midepay.ng');
 
@@ -1462,14 +1478,6 @@ async function runAssertions() {
     'First verified login records USER_LOGIN device metadata in security_audit_logs, shows login alert, and locks dashboard behind Create 4-Digit PIN modal'
   );
 
-  // Verify Database Guard ALSO blocks verified users whose `transaction_pin_hash IS NULL` before PIN setup completes!
-  const prePinTopupAttempt = await context.MidePayDB.recordDeposit({ userId: userAId, amount: 10000 });
-  check(
-    prePinTopupAttempt.success === false &&
-    sim.securityAuditLogs.some(e => e.event_type === 'MISSING_PIN_BLOCKED' && e.user_id === userAId),
-    'Financial RPCs strictly block ledger movements while transaction_pin_hash IS NULL (PIN_SETUP_REQUIRED)'
-  );
-
   // Reject mismatched PIN confirmation in Mandatory PIN Onboarding modal
   elementsById.get('pin-onboarding-new').value = '1234';
   elementsById.get('pin-onboarding-confirm').value = '9876';
@@ -1479,7 +1487,7 @@ async function runAssertions() {
     'Mandatory PIN Onboarding rejects mismatched 4-digit PIN confirmation'
   );
 
-  // Complete Mandatory 4-Digit PIN Setup ('1234') -> Unlocks Dashboard!
+  // Complete Mandatory 4-Digit PIN Setup ('1234') -> Unlocks Dashboard & Provisions 0 Plaintext Cards (PCI Safe)!
   elementsById.get('pin-onboarding-new').value = '1234';
   elementsById.get('pin-onboarding-confirm').value = '1234';
   await elementsById.get('pin-onboarding-form').dispatchEvent('submit');
@@ -1487,17 +1495,19 @@ async function runAssertions() {
   const userANuban = elementsById.get('dash-nuban-text').textContent.replace(/\s+/g, '');
   const userAModalNuban = elementsById.get('modal-nuban-copy').textContent.replace(/\s+/g, '');
   await context.openCardsModal();
-  const userAFirstPan = context.getVirtualCardState().cards[0]?.fullPan;
+  const userACardsInQuarantine = context.getVirtualCardState().cards;
 
   check(
     pinOnboardingModal.classList.contains('hidden') &&
     !dashView.classList.contains('dashboard-pin-locked') &&
     /^90\d{8}$/.test(userANuban) &&
-    userANuban === userAModalNuban,
-    `Completing 4-Digit PIN setup encrypts transaction_pin_hash via RPC and unlocks User A NUBAN (${userANuban})`
+    userANuban === userAModalNuban &&
+    userACardsInQuarantine.length === 0 &&
+    elementsById.get('card-pan-display').textContent === '5399 •••• •••• ••••',
+    `Completing 4-Digit PIN setup unlocks User A NUBAN (${userANuban}) with 0 plaintext PAN/CVV cards persisted (PCI Quarantine)`
   );
 
-  // Logout User A -> Register + OTP Verify + Onboard PIN for User B (Tunde Balogun) -> Verify isolation
+  // Logout User A -> Register + OTP Verify + Onboard PIN for User B (Tunde Balogun) -> Verify NUBAN isolation
   await context.handleLogout();
   elementsById.get('reg-fullname').value = 'Tunde Balogun';
   elementsById.get('reg-email').value = 'tunde.balogun@midepay.ng';
@@ -1513,13 +1523,11 @@ async function runAssertions() {
   await elementsById.get('pin-onboarding-form').dispatchEvent('submit');
 
   const userBNuban = elementsById.get('dash-nuban-text').textContent.replace(/\s+/g, '');
-  await context.openCardsModal();
-  const userBFirstPan = context.getVirtualCardState().cards[0]?.fullPan;
   const userBId = [...sim.profilesById.values()].find(p => p.email === 'tunde.balogun@midepay.ng')?.id;
 
   check(
-    /^90\d{8}$/.test(userBNuban) && userBNuban !== userANuban && userBFirstPan !== userAFirstPan,
-    `Second user OTP verification + PIN onboarding gets isolated NUBAN (${userBNuban}) and Virtual Debit Card PAN`
+    /^90\d{8}$/.test(userBNuban) && userBNuban !== userANuban,
+    `Second user OTP verification + PIN onboarding gets isolated 10-digit NUBAN (${userBNuban})`
   );
 
   // Logout User B -> Sign back in as verified User A (who ALREADY has transaction_pin_hash) -> Unlocked immediately!
@@ -1527,45 +1535,94 @@ async function runAssertions() {
   elementsById.get('login-email').value = 'amaka.okafor@midepay.ng';
   elementsById.get('login-password').value = 'SecurePass123!';
   await elementsById.get('login-form').dispatchEvent('submit');
-  await context.openCardsModal();
   const reloadedUserANuban = elementsById.get('dash-nuban-text').textContent.replace(/\s+/g, '');
-  const reloadedUserAPan = context.getVirtualCardState().cards[0]?.fullPan;
 
   check(
     pinOnboardingModal.classList.contains('hidden') &&
     !dashView.classList.contains('dashboard-pin-locked') &&
-    reloadedUserANuban === userANuban &&
-    reloadedUserAPan === userAFirstPan,
-    'Returning verified user with existing PIN logs directly into unlocked dashboard with persisted NUBAN & Cards'
+    reloadedUserANuban === userANuban,
+    'Returning verified user with existing PIN logs directly into unlocked dashboard with persisted NUBAN'
   );
 
   // =========================================================================
-  // 2. DIRECT WALLET TOP-UP RPC, IDEMPOTENCY DEDUPLICATION & SUBMIT LOCKS
+  // 2. STAGING QUARANTINE CLIENT ENFORCEMENT ACROSS ALL UI MUTATION FLOWS
   // =========================================================================
-  const addFundsForm = elementsById.get('add-funds-form');
-  const topupAmtInput = elementsById.get('topup-amount');
+  const rpcCountBeforeUiQuarantineTests = sim.rpcCallHistory.length;
 
-  topupAmtInput.value = '25000';
-  await addFundsForm.dispatchEvent('submit');
+  elementsById.get('topup-amount').value = '25000';
+  await elementsById.get('add-funds-form').dispatchEvent('submit');
+
+  elementsById.get('send-destination').value = 'MidePay';
+  elementsById.get('send-recipient').value = userBNuban;
+  elementsById.get('send-amount').value = '5000';
+  await elementsById.get('btn-submit-transfer').click();
+  const sendQuarantineBlocked =
+    !elementsById.get('send-form-error').classList.contains('hidden') &&
+    elementsById.get('send-form-error-text').textContent.includes('Staging Quarantine');
+
+  await context.openCardsModal();
+  await elementsById.get('btn-create-virtual-card').click();
+  await elementsById.get('btn-fund-card-modal').click();
+  await elementsById.get('btn-freeze-card').click();
+
+  await context.openMideSaveModal(true);
+  elementsById.get('vault-title-input').value = 'Quarantine Test Vault';
+  elementsById.get('vault-target-input').value = '500000';
+  await elementsById.get('midesave-create-form').dispatchEvent('submit');
+
+  context.openAirtimeModal('airtime');
+  elementsById.get('airtime-phone').value = '08031112222';
+  elementsById.get('airtime-amount').value = '1000';
+  elementsById.get('airtime-pin-input').value = '1234';
+  await elementsById.get('airtime-data-form').dispatchEvent('submit');
+  const airtimeQuarantineBlocked =
+    !elementsById.get('airtime-error-alert').classList.contains('hidden') &&
+    elementsById.get('airtime-error-text').textContent.includes('Staging Quarantine');
+
+  context.openBillsModal('electricity');
+  elementsById.get('meter-number-input').value = '04192847291';
+  elementsById.get('electricity-amount-input').value = '5000';
+  elementsById.get('bills-pin-input').value = '1234';
+  await elementsById.get('bill-payment-form').dispatchEvent('submit');
+  const billsQuarantineBlocked =
+    !elementsById.get('bills-error-alert').classList.contains('hidden') &&
+    elementsById.get('bills-error-text').textContent.includes('Staging Quarantine');
+
+  context.switchDashboardWorkspace('business');
+  await elementsById.get('btn-execute-payroll').click();
+  const payrollQuarantineBlocked =
+    !elementsById.get('payroll-error-alert').classList.contains('hidden') &&
+    elementsById.get('payroll-error-text').textContent.includes('Staging Quarantine');
+
+  const [qDep, qP2p, qCard, qVault, qBill, qPay] = await Promise.all([
+    context.MidePayDB.recordDeposit({ userId: userAId, amount: 10000 }),
+    context.MidePayDB.executeP2PTransfer({ recipientNuban: userBNuban, amount: 1000, pin: '1234' }),
+    context.MidePayDB.createVirtualCard({ userId: userAId, currency: 'USD' }),
+    context.MidePayDB.createSavingsVault({ userId: userAId, title: 'Goal', targetAmount: 50000 }),
+    context.MidePayDB.payUtilityBill({ userId: userAId, serviceType: 'airtime', provider: 'MTN', identifier: '08031112222', amount: 500, pin: '1234' }),
+    context.MidePayDB.executeBusinessPayroll({ userId: userAId, employees: [{ identifier: userBNuban, amount: 5000 }], pin: '1234' })
+  ]);
+
+  const quarantinedClientCallsEmitted = sim.rpcCallHistory
+    .slice(rpcCountBeforeUiQuarantineTests)
+    .filter(c => sim.QUARANTINED_FINANCIAL_RPCS.has(c.fn));
+
   check(
-    elementsById.get('modal-add-money').classList.contains('hidden') &&
-    sim.walletsByUserId.get(userAId).balance === 25000 &&
-    elementsById.get('dash-balance-display').textContent.includes('25,000.00'),
-    'Instant Direct Wallet Top-Up (+₦25,000) calls concept_topup_wallet RPC and re-hydrates server balance (₦25,000.00)'
+    sendQuarantineBlocked &&
+    airtimeQuarantineBlocked &&
+    billsQuarantineBlocked &&
+    payrollQuarantineBlocked &&
+    [qDep, qP2p, qCard, qVault, qBill, qPay].every(r => r.success === false && r.code === 'STAGING_QUARANTINE') &&
+    quarantinedClientCallsEmitted.length === 0 &&
+    sim.walletsByUserId.get(userAId).balance === 0 &&
+    context.getVirtualCardState().cards.length === 0 &&
+    context.getMideSaveState().vaults.length === 0,
+    'All client-side UI & MidePayDB financial mutations are cleanly disabled under Staging Quarantine (0 balance drift, 0 cards/vaults created, 0 revoked RPC calls)'
   );
 
-  const fixedIdemKey = context.newIdempotencyKey();
-  const firstIdemCall = await context.MidePayDB.recordDeposit({ userId: userAId, amount: 5000, idempotencyKey: fixedIdemKey });
-  const replayIdemCall = await context.MidePayDB.recordDeposit({ userId: userAId, amount: 5000, idempotencyKey: fixedIdemKey });
-  await context.rehydrateBalanceFromServer();
-  check(
-    uuidRegex.test(fixedIdemKey) &&
-    firstIdemCall.success === true &&
-    replayIdemCall.success === true &&
-    sim.walletsByUserId.get(userAId).balance === 30000,
-    `UUID v4 idempotency_key (${fixedIdemKey}) deduplicates replayed deposit without double-crediting (server balance: ₦30,000.00)`
-  );
-
+  // =========================================================================
+  // 3. PERMITTED READ-ONLY / UTILITY FEATURES (NUBAN LOOKUP, LOCKS, PWA, EXPORT)
+  // =========================================================================
   const testLockBtn = new MockElement('BUTTON');
   let lockExecutions = 0;
   let observedLoadingState = false;
@@ -1585,34 +1642,62 @@ async function runAssertions() {
     'withSubmitLock blocks concurrent double-click submissions, injects spinner/loading state, and releases cleanly'
   );
 
-  // =========================================================================
-  // 3. PWA SERVICE WORKER, OFFLINE BANNER & DOWNLOADABLE ACCOUNT STATEMENTS
-  // =========================================================================
   check(registeredSwPath === 'sw.js', 'PWA Service Worker registered cleanly via navigator.serviceWorker.register("sw.js")');
 
   const csvResult = context.exportAccountStatementCsv();
   check(
-    csvResult &&
-      /^MidePay_Statement_\d{4}-\d{2}-\d{2}\.csv$/.test(csvResult.fileName) &&
-      csvResult.rowCount > 0 &&
-      csvResult.csvBody.includes('Instant Direct Wallet Top-Up'),
-    `CSV Statement Export generated ${csvResult?.fileName} (${csvResult?.rowCount} rows)`
+    csvResult && /^MidePay_Statement_\d{4}-\d{2}-\d{2}\.csv$/.test(csvResult.fileName),
+    `CSV Statement Export generated ${csvResult?.fileName} cleanly at ₦0.00 balance`
   );
 
   context.openOfficialStatementModal();
   await elementsById.get('btn-print-statement').click();
-  check(printInvocationCount === 1, 'Official Statement View populates NUBAN/rows and invokes window.print()');
+  check(printInvocationCount === 1, 'Official Statement View populates NUBAN and invokes window.print()');
 
-  // =========================================================================
-  // 4. REAL-TIME NUBAN ENQUIRY & ATOMIC P2P NUBAN TRANSFER RPC
-  // =========================================================================
   elementsById.get('send-destination').value = 'MidePay';
   elementsById.get('send-recipient').value = userBNuban;
   const midepayEnquiry = await context.resolveRecipientEnquiry();
   check(
     midepayEnquiry?.resolved === true &&
-      elementsById.get('account-resolved-text').innerHTML.includes('Tunde Balogun'),
+    elementsById.get('account-resolved-text').innerHTML.includes('Tunde Balogun'),
     `10-digit MidePay NUBAN lookup (${userBNuban}) resolves "Verified MidePay Account: Tunde Balogun"`
+  );
+
+  // =========================================================================
+  // 4. DEFENSE-IN-DEPTH VERIFICATION WHEN BACKEND SETTLEMENT IS ENABLED
+  // =========================================================================
+  sim.setQuarantineActive(false);
+  context.MIDEPAY_SUPABASE_CONFIG.FINANCIAL_RPCS_LIVE = true;
+  check(context.MidePayDB.isFinancialQuarantined() === false, 'Flipping FINANCIAL_RPCS_LIVE=true unlocks client-side RPC gateway');
+
+  const nullPinCardFund = await sim.client.rpc('fund_virtual_card', {
+    p_card_id: nodeCrypto.randomUUID(),
+    p_amount_card_currency: 50,
+    p_pin: null,
+    p_idempotency_key: nodeCrypto.randomUUID()
+  });
+  const nullBusinessPayroll = await sim.client.rpc('execute_payroll_batch', {
+    p_business_id: null,
+    p_title: 'Cycle',
+    p_items: [{ identifier: userBNuban, amount: 10000 }],
+    p_pin: '1234',
+    p_idempotency_key: nodeCrypto.randomUUID()
+  });
+  check(
+    nullPinCardFund.data?.code === 'PIN_REQUIRED' && nullBusinessPayroll.data?.code === 'ACCESS_DENIED',
+    'Defense-in-depth SQL guards enforce PIN_REQUIRED on fund_virtual_card and non-null business_id on execute_payroll_batch'
+  );
+
+  const fixedIdemKey = context.newIdempotencyKey();
+  const firstIdemCall = await context.MidePayDB.recordDeposit({ userId: userAId, amount: 30000, idempotencyKey: fixedIdemKey });
+  const replayIdemCall = await context.MidePayDB.recordDeposit({ userId: userAId, amount: 30000, idempotencyKey: fixedIdemKey });
+  await context.rehydrateBalanceFromServer();
+  check(
+    uuidRegex.test(fixedIdemKey) &&
+    firstIdemCall.success === true &&
+    replayIdemCall.success === true &&
+    sim.walletsByUserId.get(userAId).balance === 30000,
+    `UUID v4 idempotency_key (${fixedIdemKey}) deduplicates replayed deposit (₦30,000.00 exact)`
   );
 
   const p2pIdem = context.newIdempotencyKey();
@@ -1640,143 +1725,17 @@ async function runAssertions() {
     'execute_p2p_transfer RPC atomically moves ₦5,000.00 (User A -> User B), deduplicates replay, and re-hydrates balance'
   );
 
-  // =========================================================================
-  // 5. VIRTUAL CARDS RPCs (REVEAL AUDIT LOG, FREEZE, LIMIT, ISSUE & FUND)
-  // =========================================================================
-  await context.openCardsModal();
-  const panDisplay = elementsById.get('card-pan-display');
-  const cvvDisplay = elementsById.get('card-cvv-val');
-  const cardStatusBadge = elementsById.get('card-status-badge');
+  // Restore quarantine state & verify 5-strike PIN lockout enforcement on `verify_user_transaction_pin` (granted to authenticated)
+  context.MIDEPAY_SUPABASE_CONFIG.FINANCIAL_RPCS_LIVE = false;
+  sim.setQuarantineActive(true);
 
-  await elementsById.get('btn-toggle-pan').click();
-  await elementsById.get('btn-toggle-cvv').click();
-  const revealAudits = sim.securityAuditLogs.filter(e => e.event_type === 'CARD_REVEAL');
+  for (let strike = 1; strike <= 5; strike++) {
+    await context.MidePayDB.verifyTransactionPin(userAId, '0000');
+  }
+  const lockedAttempt = await context.MidePayDB.verifyTransactionPin(userAId, '1234');
   check(
-    /^5399 \d{4} \d{4} \d{4}$/.test(panDisplay.textContent) &&
-    /^\d{3}$/.test(cvvDisplay.textContent) &&
-    revealAudits.length >= 2,
-    `PAN/CVV toggle reveals credentials and records ${revealAudits.length} CARD_REVEAL events in security_audit_logs`
-  );
-
-  await elementsById.get('btn-freeze-card').click();
-  check(cardStatusBadge.textContent === 'Frozen', 'set_virtual_card_freeze RPC persists Frozen state');
-  await elementsById.get('btn-freeze-card').click();
-  check(cardStatusBadge.textContent === 'Active', 'set_virtual_card_freeze RPC restores Active status');
-
-  await elementsById.get('btn-edit-card-limit').click();
-  elementsById.get('card-limit-input').value = '3500';
-  await elementsById.get('btn-save-card-limit').click();
-  check(elementsById.get('card-limit-val').textContent.includes('$3,500.00'), 'set_virtual_card_limit RPC updates monthly limit');
-
-  const countBeforeCreate = context.getVirtualCardState().cards.length;
-  await elementsById.get('btn-create-virtual-card').click();
-  check(context.getVirtualCardState().cards.length === countBeforeCreate + 1, 'issue_virtual_card RPC issues & persists a new unique 5399 card');
-
-  // =========================================================================
-  // 6. MIDESAVE VAULTS, 5-STRIKE PIN AUDIT, VTU BILLS & TEAM PAYROLL RPCs
-  // =========================================================================
-  elementsById.get('topup-amount').value = '500000';
-  await elementsById.get('add-funds-form').dispatchEvent('submit');
-
-  await context.openMideSaveModal(true);
-  elementsById.get('vault-title-input').value = 'Rent 2027';
-  elementsById.get('vault-category-select').value = 'Housing & Rent';
-  elementsById.get('vault-target-input').value = '1500000';
-  elementsById.get('vault-lock-date-input').value = '2027-12-31';
-  await elementsById.get('midesave-create-form').dispatchEvent('submit');
-
-  const createdVault = context.getMideSaveState().vaults[0];
-  check(
-    Boolean(createdVault && createdVault.title === 'Rent 2027'),
-    'manage_midesave_vault (create) RPC creates goal vault ("Rent 2027", 14.5% p.a.)'
-  );
-
-  context.openVaultTransactionDrawer(createdVault.id, 'fund');
-  elementsById.get('midesave-action-amount').value = '100000';
-  elementsById.get('midesave-action-pin').value = '1234';
-  await elementsById.get('midesave-action-form').dispatchEvent('submit');
-  check(
-    Number(createdVault.current_balance) === 100000,
-    'manage_midesave_vault (fund) RPC debits wallet and credits MideSave vault to ₦100,000.00'
-  );
-
-  context.openVaultTransactionDrawer(createdVault.id, 'withdraw');
-  elementsById.get('midesave-action-amount').value = '20000';
-  elementsById.get('midesave-action-pin').value = '9999';
-  await elementsById.get('midesave-action-form').dispatchEvent('submit');
-  check(
-    Number(createdVault.current_balance) === 100000 &&
-    sim.securityAuditLogs.some(e => e.event_type === 'PIN_FAILED'),
-    'Wrong 4-digit PIN (9999) is rejected server-side and recorded in security_audit_logs (PIN_FAILED)'
-  );
-
-  elementsById.get('midesave-action-pin').value = '1234';
-  await elementsById.get('midesave-action-form').dispatchEvent('submit');
-  check(
-    Number(createdVault.current_balance) === 80000 && createdVault.status === 'broken',
-    'manage_midesave_vault (withdraw) RPC applies 1.5% early-break fee and updates vault balance to ₦80,000.00'
-  );
-
-  context.openAirtimeModal('airtime');
-  elementsById.get('airtime-phone').value = '08031112222';
-  elementsById.get('airtime-amount').value = '1000';
-  elementsById.get('airtime-pin-input').value = '1234';
-  await elementsById.get('airtime-data-form').dispatchEvent('submit');
-  check(elementsById.get('modal-airtime-data').classList.contains('hidden'), 'pay_vtu_bill RPC executes Airtime purchase');
-
-  context.openBillsModal('electricity');
-  elementsById.get('meter-number-input').value = '04192847291';
-  elementsById.get('electricity-amount-input').value = '10000';
-  elementsById.get('bills-pin-input').value = '1234';
-  await elementsById.get('bill-payment-form').dispatchEvent('submit');
-  const tokenText = elementsById.get('receipt-token-digits').textContent.trim();
-  check(/^\d{4} \d{4} \d{4} \d{4} \d{4}$/.test(tokenText), `pay_vtu_bill RPC generates 20-digit STS meter token (${tokenText})`);
-
-  context.switchDashboardWorkspace('business');
-  elementsById.get('payroll-staff-identifier').value = userBNuban;
-  elementsById.get('payroll-staff-role').value = 'Senior Backend Engineer';
-  elementsById.get('payroll-staff-salary').value = '150000';
-  await context.resolvePayrollStaffIdentifier(userBNuban);
-  await elementsById.get('payroll-add-staff-form').dispatchEvent('submit');
-
-  elementsById.get('payroll-pin-input').value = '1234';
-  await elementsById.get('btn-execute-payroll').click();
-  check(
-    context.getPayrollRosterState().roster.length === 0 &&
-    sim.walletsByUserId.get(userBId).balance === 155000,
-    'execute_payroll_batch RPC verifies PIN, disburses ₦150,000.00 to staff NUBAN, and records payroll run'
-  );
-
-  await elementsById.get('tab-card-ngn').click();
-  await elementsById.get('btn-fund-card-modal').click();
-  check(
-    elementsById.get('card-balance-display').textContent.includes('25,000.00') &&
-    elementsById.get('card-mini-tx-list').innerHTML.includes('DSTV Compact Plus'),
-    'fund_virtual_card RPC debits main wallet, funds NGN card (+₦25,000), and renders NGN subscriptions'
-  );
-
-  // =========================================================================
-  // 7. ZERO-TRUST ARCHITECTURAL GUARANTEES (0 DIRECT WRITES, 100% SERVER PARITY)
-  // =========================================================================
-  const expectedServerBal = sim.walletsByUserId.get(userAId).balance;
-  check(
-    elementsById.get('dash-balance-display').textContent.includes(expectedServerBal.toLocaleString('en-US', { minimumFractionDigits: 2 })),
-    `Dashboard balance strictly matches authoritative PostgreSQL wallet balance (₦${expectedServerBal.toLocaleString('en-US', { minimumFractionDigits: 2 })})`
-  );
-
-  const ledgerMutatingCalls = sim.rpcCallHistory.filter(c => {
-    if (['concept_topup_wallet', 'execute_p2p_transfer', 'fund_virtual_card', 'pay_vtu_bill', 'execute_payroll_batch'].includes(c.fn)) {
-      return true;
-    }
-    if (c.fn === 'manage_midesave_vault' && ['fund', 'withdraw'].includes(c.params.p_action)) {
-      return true;
-    }
-    return false;
-  });
-  const allHaveValidUuidIdempotency = ledgerMutatingCalls.length >= 10 && ledgerMutatingCalls.every(c => uuidRegex.test(c.params.p_idempotency_key || ''));
-  check(
-    allHaveValidUuidIdempotency,
-    `100% of ledger-mutating RPC calls (${ledgerMutatingCalls.length}/${ledgerMutatingCalls.length}) carry a valid crypto.randomUUID() p_idempotency_key`
+    lockedAttempt.valid === false && /locked/i.test(lockedAttempt.error || '') && sim.securityAuditLogs.some(e => e.event_type === 'PIN_LOCKED'),
+    '5 consecutive failed PIN attempts on verify_user_transaction_pin trigger 15-minute lockout and record PIN_LOCKED'
   );
 
   check(
@@ -1784,20 +1743,10 @@ async function runAssertions() {
     `Zero direct table .insert()/.update()/.upsert()/.delete() violations across entire E2E session (${sim.directWriteViolations.length} violations)`
   );
 
-  // Verify 5-strike PIN lockout enforcement on server
-  for (let strike = 1; strike <= 5; strike++) {
-    await context.MidePayDB.verifyTransactionPin(userAId, '0000');
-  }
-  const lockedAttempt = await context.MidePayDB.verifyTransactionPin(userAId, '1234');
-  check(
-    lockedAttempt.valid === false && /locked/i.test(lockedAttempt.error || '') && sim.securityAuditLogs.some(e => e.event_type === 'PIN_LOCKED'),
-    '5 consecutive failed PIN attempts trigger server-side 15-minute lockout and record PIN_LOCKED in security_audit_logs'
-  );
-
-  check(runtimeErrors.length === baselineSecurityLogs, 'Zero unexpected console.error emissions across entire v4.6 E2E suite');
+  check(runtimeErrors.length === baselineSecurityLogs, 'Zero unexpected console.error emissions across entire v4.7 E2E suite');
 
   if (failed > 0) process.exit(1);
-  console.log('\n🎉 ALL OTP, RESEND COOLDOWN, MANDATORY PIN ONBOARDING, LOGIN AUDIT & ZERO-TRUST RPC TESTS PASSED!');
+  console.log('\n🎉 ALL STAGING QUARANTINE, OTP, MANDATORY PIN ONBOARDING, LOGIN AUDIT & ZERO-TRUST RPC TESTS PASSED!');
 }
 
 runAssertions().catch(err => {

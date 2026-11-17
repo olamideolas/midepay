@@ -7,6 +7,7 @@
 
 BEGIN;
 
+CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================================
@@ -16,7 +17,7 @@ CREATE OR REPLACE FUNCTION public.generate_unique_midepay_nuban()
 RETURNS VARCHAR(10)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
   v_bytes BYTEA;
@@ -111,7 +112,7 @@ CREATE OR REPLACE FUNCTION public.generate_unique_virtual_card_pan(p_prefix TEXT
 RETURNS VARCHAR(19)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
   v_clean_prefix TEXT := COALESCE(NULLIF(regexp_replace(p_prefix, '[^0-9]', '', 'g'), ''), '5399');
@@ -182,7 +183,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user_provisioning()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
   v_full_name TEXT;

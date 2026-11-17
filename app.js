@@ -296,7 +296,7 @@ function showToast(message, type = 'success') {
   toast.className = `toast toast-${type}`;
   toast.innerHTML = `
     <span class="toast-icon">${type === 'success' ? '✓' : 'ℹ'}</span>
-    <span class="toast-message">${message}</span>
+    <span class="toast-message">${escapeHtml(message)}</span>
   `;
   container.appendChild(toast);
 
@@ -1440,6 +1440,14 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           return;
         }
+        const proof = await window.MidePayDB.client.rpc('get_email_verification_status');
+        if (proof.error || !proof.data?.verified) {
+          showView('login');
+          const sent=await window.MidePayDB.requestEmailVerification(supaUser.email);
+          window.openOtpVerificationModal({email:supaUser.email,challengeKind:'email',cooldown:sent.success?60:0,
+            notice:sent.success?'Verify the fresh email code before restoring your session.':'Email verification required. Use Resend code to retry.'});
+          return;
+        }
         const provisioned = await window.MidePayDB.ensureProfileAndWallet(supaUser);
         const profile = provisioned?.profile || await window.MidePayDB.getProfile(supaUser.id);
         const wallet = provisioned?.wallet || await window.MidePayDB.getWallet(supaUser.id);
@@ -1729,7 +1737,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       waitlistFeedback.className = 'form-feedback success';
-      waitlistFeedback.innerHTML = `🎉 <strong>You're in!</strong> You've been assigned priority slot #15,249. We'll email <em>${email}</em> upon our CBN-partnered launch.`;
+      waitlistFeedback.innerHTML = `🎉 <strong>You're in!</strong> You've been assigned priority slot #15,249. We'll email <em>${escapeHtml(email)}</em> upon our CBN-partnered launch.`;
       waitlistFeedback.classList.remove('hidden');
       waitlistInput.value = '';
       showToast('Waitlist confirmation recorded!');
@@ -1809,6 +1817,7 @@ document.addEventListener('DOMContentLoaded', () => {
     email: '',
     fullName: '',
     phone: '',
+    challengeKind: 'signup',
     cooldownRemaining: 0,
     timerId: null
   };
@@ -1874,7 +1883,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function startOtpResendCooldown(seconds = 60) {
     stopOtpResendTimer();
-    otpFlowState.cooldownRemaining = Math.max(0, Number(seconds) || 60);
+    otpFlowState.cooldownRemaining = Number.isFinite(Number(seconds)) ? Math.max(0, Number(seconds)) : 60;
     syncOtpResendUi();
     if (otpFlowState.cooldownRemaining > 0 && typeof setInterval === 'function') {
       otpFlowState.timerId = setInterval(() => {
@@ -1932,9 +1941,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  function openOtpVerificationModal({ email, fullName = '', phone = '', cooldown = 60, notice = '' } = {}) {
+  function openOtpVerificationModal({ email, fullName = '', phone = '', cooldown = 60, notice = '', challengeKind = 'signup' } = {}) {
     const cleanEmail = String(email || '').trim().toLowerCase();
     otpFlowState.email = cleanEmail;
+    otpFlowState.challengeKind = challengeKind;
     otpFlowState.fullName = fullName || otpFlowState.fullName || '';
     otpFlowState.phone = phone || otpFlowState.phone || '';
 
@@ -1977,7 +1987,9 @@ document.addEventListener('DOMContentLoaded', () => {
           showOtpFeedback('OTP resend service is unavailable.', 'error');
           return;
         }
-        const res = await window.MidePayDB.resendSignupOtp(otpFlowState.email);
+        const res = otpFlowState.challengeKind === 'email'
+          ? await window.MidePayDB.requestEmailVerification(otpFlowState.email)
+          : await window.MidePayDB.resendSignupOtp(otpFlowState.email);
         if (!res.success) {
           showOtpFeedback(res.error?.message || 'Unable to resend verification code right now.', 'error');
           return;
@@ -2028,6 +2040,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const provisioned = await window.MidePayDB.ensureProfileAndWallet(supaUser, { fullName, phone });
     const loginAudit = await window.MidePayDB.recordVerifiedLoginSession({ login_method: loginMethod });
+    if (!loginAudit?.success) {
+      if (loginAudit?.code === 'EMAIL_OTP_REQUIRED') {
+        const sent = await window.MidePayDB.requestEmailVerification(supaUser.email);
+        openOtpVerificationModal({email:supaUser.email, fullName, phone, challengeKind:'email', cooldown: sent.success ? 60 : 0,
+          notice: sent.success ? 'Verify the fresh email code to continue.' : 'Email verification is required. Use Resend code to try again.'});
+        return;
+      }
+      throw new Error(loginAudit?.error || 'Login security verification unavailable.');
+    }
     const profile = provisioned?.profile || await window.MidePayDB.getProfile(realUserId);
     const wallet = provisioned?.wallet || await window.MidePayDB.getWallet(realUserId);
 
@@ -2245,6 +2266,7 @@ document.addEventListener('DOMContentLoaded', () => {
               email,
               fullName,
               phone,
+              challengeKind: signUpRes.otpChallengeKind || 'signup',
               cooldown: 60,
               notice: `✓ Account created for ${fullName}! Enter the 6-digit verification code sent to ${email}.`
             });
@@ -2279,6 +2301,14 @@ document.addEventListener('DOMContentLoaded', () => {
   loginForm = document.getElementById('login-form');
   loginErrorAlert = document.getElementById('login-error-alert');
   const loginSubmitBtn = document.getElementById('login-submit-btn');
+  const forgotPasswordLink = document.getElementById('forgot-password-link');
+
+  if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showToast('Password reset is not available yet. Contact support for account recovery.', 'error');
+    });
+  }
 
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
@@ -2355,6 +2385,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const adminLogoutBtn = document.getElementById('admin-logout-btn');
 
   async function handleLogout() {
+    clearTreasurySecrets();
+    treasuryOperation=null;
+    treasuryPanel?.classList.add('hidden');
     try {
       localStorage.removeItem('midepay_session');
       localStorage.removeItem('midepay_active_view');
@@ -2558,6 +2591,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // CBN Tier 3 Upgrade simulation
   if (btnSubmitTier3Upgrade) {
     btnSubmitTier3Upgrade.addEventListener('click', () => {
+      if (window.MidePayDB?.isProduction()) {
+        showToast('Identity verification is not connected. Your verification tier has not changed.', 'error');
+        return;
+      }
       btnSubmitTier3Upgrade.disabled = true;
       btnSubmitTier3Upgrade.innerHTML = '<span>Verifying Identity & Proof of Address with NIBSS...</span>';
 
@@ -3411,7 +3448,13 @@ document.addEventListener('DOMContentLoaded', () => {
       sendFlowState.amount = amt;
       sendFlowState.narration = (sendNarrationInput?.value || '').trim() || 'Transfer via MidePay';
 
-      // 3. Check Wallet Balance (strictly reject insufficient balance)
+      // 3. Staging Quarantine Guard (before client balance check)
+      if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+        showTransferFormError('Staging Quarantine: Client-side wallet transfers are disabled until backend settlement is live.');
+        return;
+      }
+
+      // 4. Check Wallet Balance (strictly reject insufficient balance)
       const totalNeeded = amt + sendFlowState.transferFee;
       if (totalNeeded > state.dashBalance) {
         validateAmountInputs();
@@ -3734,7 +3777,7 @@ document.addEventListener('DOMContentLoaded', () => {
           sendFlowState.lastTransaction = newTx;
 
           if (sendFlowState.approvedRequestId && window.MidePayDB) {
-            window.MidePayDB.updatePaymentRequestStatus(sendFlowState.approvedRequestId, 'approved').catch(console.warn);
+            window.MidePayDB.updatePaymentRequestStatus(sendFlowState.approvedRequestId, 'approved', txRef).catch(console.warn);
             sendFlowState.approvedRequestId = null;
             if (typeof refreshNotificationsAndRequests === 'function') {
               refreshNotificationsAndRequests().catch(console.warn);
@@ -4154,7 +4197,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="req-item-card" data-req-id="${req.id}">
                 <div class="req-item-top">
                   <div class="req-user-info">
-                    <div class="req-user-avatar">${initials}</div>
+                    <div class="req-user-avatar">${escapeHtml(initials)}</div>
                     <div class="req-name-tag">
                       <span class="req-user-name">${escapeHtml(requesterName)}</span>
                       <span class="req-user-tag">${escapeHtml(requesterTag)}</span>
@@ -4213,6 +4256,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Step 4 — Approve Flow: Triggers exact Send Money PIN verification & execution
   function handleApprovePaymentRequest(request) {
     if (!request) return;
+
+    if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+      showToast('Staging Quarantine: Client-side wallet transfers are disabled until backend settlement is live.', 'error');
+      return;
+    }
 
     // Check balance first
     if (state.dashBalance < Number(request.amount)) {
@@ -4776,6 +4824,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const airtimeSubmitBtn = airtimeDataForm.querySelector('button[type="submit"]');
       await withSubmitLock('vtu-airtime-submit', airtimeSubmitBtn, 'Processing VTU...', async (idempotencyKey) => {
+        if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+          const qMsg = 'Staging Quarantine: Client-side VTU & utility bill payments are disabled until backend settlement is live.';
+          if (airtimeErrorAlert && airtimeErrorText) {
+            airtimeErrorText.textContent = qMsg;
+            airtimeErrorAlert.classList.remove('hidden');
+          } else {
+            showToast(qMsg, 'error');
+          }
+          return;
+        }
+
         const pinRes = await verifyOrSetupActionPin(airtimePinInput?.value);
         if (!pinRes.valid) {
           if (airtimeErrorAlert && airtimeErrorText) {
@@ -5150,6 +5209,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const billSubmitBtn = billPaymentForm.querySelector('button[type="submit"]');
       await withSubmitLock('utility-bill-submit', billSubmitBtn, 'Paying Bill...', async (idempotencyKey) => {
+        if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+          const qMsg = 'Staging Quarantine: Client-side VTU & utility bill payments are disabled until backend settlement is live.';
+          if (billsErrorAlert && billsErrorText) {
+            billsErrorText.textContent = qMsg;
+            billsErrorAlert.classList.remove('hidden');
+          } else {
+            showToast(qMsg, 'error');
+          }
+          return;
+        }
+
         const pinRes = await verifyOrSetupActionPin(billsPinInput?.value);
         if (!pinRes.valid) {
           if (billsErrorAlert && billsErrorText) {
@@ -5683,6 +5753,10 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   if (btnFreezeCard) {
     btnFreezeCard.addEventListener('click', async () => {
       await withSubmitLock('vcard-freeze', btnFreezeCard, null, async () => {
+        if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+          showToast('Staging Quarantine: Client-side virtual card mutations are disabled until backend settlement is live.', 'error');
+          return;
+        }
         const card = getActiveVirtualCard();
         if (!card) return;
         const nextFrozen = !card.isFrozen;
@@ -5747,6 +5821,10 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   if (btnSaveCardLimit && cardLimitInput && cardLimitEditor) {
     btnSaveCardLimit.addEventListener('click', async () => {
       await withSubmitLock('vcard-limit', btnSaveCardLimit, 'Saving...', async () => {
+        if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+          showToast('Staging Quarantine: Client-side virtual card limit changes are disabled until backend settlement is live.', 'error');
+          return;
+        }
         const card = getActiveVirtualCard();
         if (!card) return;
         const nextLimit = Number(cardLimitInput.value);
@@ -5825,6 +5903,10 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     btnFundCardModal.addEventListener('click', async () => {
       ensureUserSession();
       await withSubmitLock('vcard-fund', btnFundCardModal, 'Funding Card...', async (idempotencyKey) => {
+        if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+          showToast('Staging Quarantine: Client-side virtual card funding is disabled until backend settlement is live.', 'error');
+          return;
+        }
         let card = getActiveVirtualCard();
         if (!card && state.user?.id) {
           await loadUserVirtualCards(state.user.id, state.user.walletId || null, state.user.fullName);
@@ -5938,7 +6020,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     if (window.MidePayDB && window.MidePayDB.isConfigured() && window.MidePayDB.client) {
       try {
         const [{ data: supaProfiles }, { data: supaWallets }, { data: supaTxs }] = await Promise.all([
-          window.MidePayDB.client.from('profiles').select('*'),
+          window.MidePayDB.client.from('profiles').select('id, full_name, email, phone, tag, kyc_tier, role, is_frozen, frozen_by_admin, created_at'),
           window.MidePayDB.client.from('wallets').select('*'),
           window.MidePayDB.client.from('transactions').select('*').order('created_at', { ascending: false }).limit(50)
         ]);
@@ -6102,7 +6184,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     });
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">No member accounts matched query "${filterQuery}".</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">No member accounts matched query "${escapeHtml(filterQuery)}".</td></tr>`;
       return;
     }
 
@@ -6114,27 +6196,27 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       const cleanNuban = formatNubanDisplay(user.nuban || '9021849102');
 
       return `
-        <tr data-user-email="${user.email}">
+        <tr data-user-email="${escapeHtml(user.email)}">
           <td>
             <div class="member-cell">
-              <div class="member-avatar-mini">${initials}</div>
+              <div class="member-avatar-mini">${escapeHtml(initials)}</div>
               <div class="member-name-block">
-                <span class="member-full-name">${user.fullName || 'Unnamed Member'}</span>
-                <span class="member-tag-mini">${tag}</span>
+                <span class="member-full-name">${escapeHtml(user.fullName || 'Unnamed Member')}</span>
+                <span class="member-tag-mini">${escapeHtml(tag)}</span>
               </div>
             </div>
           </td>
           <td>
             <div style="display:flex; flex-direction:column; font-size:0.82rem;">
-              <span>${user.email || '—'}</span>
-              <span style="color:var(--text-muted);">${user.phone ? '+234 ' + user.phone : 'No phone'}</span>
+              <span>${escapeHtml(user.email || '')}</span>
+              <span style="color:var(--text-muted);">${escapeHtml(user.phone ? '+234 ' + user.phone : 'No phone')}</span>
             </div>
           </td>
           <td>
             <div style="font-family:monospace; font-weight:700; color:var(--text-primary); font-size:0.92rem;">
               ${cleanNuban}
             </div>
-            <span style="font-size:0.72rem; color:var(--text-muted);">${user.bank || 'Providus Bank'}</span>
+            <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(user.bank || 'Providus Bank')}</span>
           </td>
           <td>
             <div style="display:flex; flex-direction:column; gap:0.25rem;">
@@ -6156,10 +6238,10 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
           </td>
           <td>
             <div style="display:flex; align-items:center; gap:0.4rem;">
-              <button type="button" class="btn-admin-action ${isFrozen ? 'btn-admin-unfreeze' : 'btn-admin-freeze'}" data-action="toggle-freeze" data-email="${user.email}">
+              <button type="button" class="btn-admin-action ${isFrozen ? 'btn-admin-unfreeze' : 'btn-admin-freeze'}" data-action="toggle-freeze" data-email="${escapeHtml(user.email)}">
                 ${isFrozen ? 'Unfreeze' : 'Freeze'}
               </button>
-              <button type="button" class="btn-admin-action btn-admin-credit" data-action="credit-funds" data-email="${user.email}">
+              <button type="button" class="btn-admin-action btn-admin-credit" data-action="credit-funds" data-email="${escapeHtml(user.email)}">
                 + Credit ₦50k
               </button>
             </div>
@@ -6200,21 +6282,21 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
         <tr>
           <td>
             <div style="font-family:monospace; font-weight:700; color:var(--primary-emerald); font-size:0.86rem;">
-              ${tx.ref || 'MP-TX-20260924'}
+              ${escapeHtml(tx.ref || 'MP-TX-20260924')}
             </div>
             <span style="font-size:0.7rem; color:var(--text-muted);">NIP Session: 999048...</span>
           </td>
-          <td><span style="font-size:0.82rem; color:var(--text-muted);">${tx.date || 'Today'}</span></td>
-          <td><strong>${tx.sender || 'Sender'}</strong></td>
+          <td><span style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(tx.date || 'Today')}</span></td>
+          <td><strong>${escapeHtml(tx.sender || 'Sender')}</strong></td>
           <td>
-            <div>${tx.beneficiary || 'Beneficiary'}</div>
+            <div>${escapeHtml(tx.beneficiary || 'Beneficiary')}</div>
           </td>
           <td>
             <span style="font-weight:700; color:${isInflow ? '#34D399' : 'var(--text-primary)'};">
               ${isInflow ? '+' : '-'}${formatNaira(tx.amount)}
             </span>
           </td>
-          <td><span style="font-size:0.78rem; text-transform:uppercase; color:var(--text-muted);">${tx.category || 'Transfer'}</span></td>
+          <td><span style="font-size:0.78rem; text-transform:uppercase; color:var(--text-muted);">${escapeHtml(tx.category || 'Transfer')}</span></td>
           <td>
             <span style="color:#34D399; font-weight:700; font-size:0.75rem;">✓ Successful</span>
           </td>
@@ -6238,10 +6320,10 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     tbody.innerHTML = filtered.map((item, idx) => `
       <tr>
         <td><span style="color:var(--text-muted); font-size:0.78rem;">#${idx + 1}</span></td>
-        <td><strong>${item.email}</strong></td>
+        <td><strong>${escapeHtml(item.email)}</strong></td>
         <td><span style="font-size:0.82rem; color:var(--text-muted);">${formatTxDate(item.date)}</span></td>
         <td><span class="badge-emerald-sm" style="font-size:0.72rem;">Priority VIP</span></td>
-        <td><span style="font-size:0.78rem; color:var(--text-muted);">${item.source || 'Organic Web'}</span></td>
+        <td><span style="font-size:0.78rem; color:var(--text-muted);">${escapeHtml(item.source || 'Organic Web')}</span></td>
       </tr>
     `).join('');
   }
@@ -6252,20 +6334,20 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
 
     // Add Users
     adminUsersList.forEach(u => {
-      rows.push(['MEMBER_WALLET', `"${u.fullName || 'User'}"`, `"${u.nuban || ''}"`, (u.balance || 0), (u.isFrozen ? 'FROZEN' : 'ACTIVE'), `"${new Date().toISOString()}"`]);
+      rows.push(['MEMBER_WALLET', u.fullName || 'User', u.nuban || '', (u.balance || 0), (u.isFrozen ? 'FROZEN' : 'ACTIVE'), new Date().toISOString()]);
     });
 
     // Add Transactions
     adminTxList.forEach(t => {
-      rows.push(['TRANSACTION', `"${t.sender} -> ${t.beneficiary}"`, `"${t.ref}"`, t.amount, t.status, `"${t.date}"`]);
+      rows.push(['TRANSACTION', `"${t.sender} -> ${t.beneficiary}"`, t.ref, t.amount, t.status, t.date]);
     });
 
     // Add Waitlist Leads
     adminWaitlistEntries.forEach(w => {
-      rows.push(['WAITLIST_LEAD', `"${w.email}"`, 'N/A', 0, 'PENDING_ONBOARDING', `"${w.date}"`]);
+      rows.push(['WAITLIST_LEAD', w.email, 'N/A', 0, 'PENDING_ONBOARDING', w.date]);
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.map(escapeCsvCell).join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -6277,6 +6359,95 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     showToast('📥 Downloaded MidePay Investor Dossier (CSV) successfully!');
   }
   window.exportInvestorDossierCsv = exportInvestorDossierCsv;
+
+  const treasuryPanel = document.getElementById('treasury-controls');
+  const treasuryFeedback = document.getElementById('treasury-feedback');
+  let treasuryFactorId = null;
+  let treasuryOperation = null;
+  const treasuryField = id => document.getElementById(id);
+  function treasuryMessage(text) { if (treasuryFeedback) treasuryFeedback.textContent = text; }
+  function clearTreasurySecrets() {
+    const pin=treasuryField('treasury-pin'), code=treasuryField('treasury-mfa-code'), qr=treasuryField('treasury-mfa-qr');
+    if(pin)pin.value=''; if(code)code.value=''; if(qr){qr.removeAttribute('src');qr.classList.add('hidden');}
+    treasuryFactorId=null;
+  }
+  async function refreshTreasuryQueue() {
+    const result = await window.MidePayDB.treasuryRpc('get_treasury_credit_queue');
+    if (!result.success) { treasuryMessage(result.error || result.code || 'Treasury unavailable.'); return; }
+    const source = treasuryField('treasury-source');
+    if (source) {
+      const current=source.value;
+      source.innerHTML = (result.wallets || []).map(w => `<option value="${escapeHtml(w.id)}">${escapeHtml(w.label)} — ${formatNaira(w.balance)}</option>`).join('');
+      if ((result.wallets||[]).some(w=>w.id===current)) source.value=current;
+    }
+    const recipient=treasuryField('treasury-target');
+    if(recipient){
+      const selected=recipient.value;
+      const members=adminUsersList.filter(u=>isValidUuid(u.id) && u.role!=='executive' && !u.isFrozen);
+      recipient.innerHTML='<option value="">Select a member</option>'+members.map(u=>`<option value="${escapeHtml(u.id)}">${escapeHtml(u.fullName||'Member')} (${escapeHtml(u.email||'')})</option>`).join('');
+      if(members.some(u=>u.id===selected))recipient.value=selected;
+    }
+    const queue=treasuryField('treasury-queue');
+    if (queue) queue.innerHTML=(result.requests||[]).map(q=>`<div style="padding:.75rem 0;border-bottom:1px solid #334155;">
+      <strong>${formatNaira(q.amount)}</strong> · ${escapeHtml(q.status)} · recipient ${escapeHtml(q.target_user_id)}
+      <p>${escapeHtml(q.reason)} · maker ${escapeHtml(q.maker_id)}</p>
+      ${q.status==='pending' ? `<button type="button" class="btn btn-outline-xs" data-treasury-id="${escapeHtml(q.id)}" data-treasury-action="${q.maker_id===state.user?.id?'cancel':'approve'}">${q.maker_id===state.user?.id?'Cancel request':'Approve funded transfer'}</button>`:''}
+    </div>`).join('') || '<p>No treasury requests.</p>';
+    if(!(result.wallets||[]).length) treasuryMessage('No institutional treasury wallet is configured. Credits remain disabled.');
+  }
+  async function openTreasuryPanel(targetUserId='') {
+    if (!await window.MidePayDB?.isUserExecutive()) { showToast('Executive authorization required.','error'); return; }
+    treasuryPanel?.classList.remove('hidden');
+    await refreshTreasuryQueue();
+    if(targetUserId && treasuryField('treasury-target')) treasuryField('treasury-target').value=targetUserId;
+  }
+  treasuryField('treasury-refresh')?.addEventListener('click', () => refreshTreasuryQueue().catch(()=>treasuryMessage('Unable to refresh queue.')));
+  treasuryField('treasury-enroll-mfa')?.addEventListener('click', async () => {
+    await withSubmitLock('treasury-enroll-mfa',treasuryField('treasury-enroll-mfa'),'Preparing...',async()=>{
+      const result=await window.MidePayDB.enrollTreasuryMfa();
+      if(result.error){treasuryMessage(result.error);return;}
+      treasuryFactorId=result.factorId;
+      const qr=treasuryField('treasury-mfa-qr');
+      if(qr && typeof result.qrCode==='string' && result.qrCode.startsWith('data:image/svg+xml')){qr.src=result.qrCode;qr.classList.remove('hidden');}
+      treasuryMessage('Scan the QR code, then enter its current six-digit authenticator code.');
+    });
+  });
+  treasuryField('treasury-verify-mfa')?.addEventListener('click', async () => {
+    await withSubmitLock('treasury-verify-mfa',treasuryField('treasury-verify-mfa'),'Verifying...',async()=>{
+      const result=await window.MidePayDB.verifyTreasuryMfa(treasuryField('treasury-mfa-code')?.value||'',treasuryFactorId);
+      treasuryMessage(result.success?'Authenticator verified for treasury actions.':result.error||'Verification failed.');
+      if(result.success)clearTreasurySecrets();
+    });
+  });
+  treasuryField('treasury-request-form')?.addEventListener('submit', async e=>{
+    e.preventDefault();
+    await withSubmitLock('treasury-request',treasuryField('treasury-submit'),'Requesting...',async()=>{
+      const payload={p_source_wallet_id:treasuryField('treasury-source')?.value,p_target_user_id:treasuryField('treasury-target')?.value.trim(),
+        p_amount:Number(treasuryField('treasury-amount')?.value),p_reason:treasuryField('treasury-reason')?.value.trim()};
+      const signature=JSON.stringify(payload);
+      // Preserve the same key across unknown network outcomes. No PIN is retained.
+      if(!treasuryOperation || treasuryOperation.signature!==signature)treasuryOperation={signature,key:crypto.randomUUID()};
+      let result;
+      try {result=await window.MidePayDB.treasuryRpc('request_treasury_credit',{...payload,p_idempotency_key:treasuryOperation.key,p_pin:treasuryField('treasury-pin')?.value});}
+      catch {treasuryMessage('Request outcome unknown. Retry unchanged details to reuse the same key.');return;}
+      finally {if(treasuryField('treasury-pin'))treasuryField('treasury-pin').value='';}
+      treasuryMessage(result.success?'Request saved. A different executive must approve it.':result.error||result.code||'Request rejected.');
+      if(result.success){treasuryOperation=null;await refreshTreasuryQueue();}
+    });
+  });
+  treasuryField('treasury-queue')?.addEventListener('click',async e=>{
+    const button=e.target.closest('button[data-treasury-id]');if(!button)return;
+    const rpc=button.dataset.treasuryAction==='cancel'?'cancel_treasury_credit':'approve_treasury_credit';
+    await withSubmitLock('treasury-'+button.dataset.treasuryId,button,'Processing...',async()=>{
+      try {
+        const result=await window.MidePayDB.treasuryRpc(rpc,{p_request_id:button.dataset.treasuryId,p_pin:treasuryField('treasury-pin')?.value});
+        treasuryMessage(result.success?(rpc==='approve_treasury_credit'?'Funded treasury transfer approved.':'Request cancelled.'):result.error||result.code||'Action rejected.');
+        if(result.success){await refreshTreasuryQueue();await renderAdminPortal();}
+      } catch {treasuryMessage('Outcome unknown. Refresh the queue before retrying.');}
+      finally {if(treasuryField('treasury-pin'))treasuryField('treasury-pin').value='';}
+    });
+  });
+  [document.getElementById('admin-logout-btn'),document.getElementById('dash-logout-btn')].forEach(button=>button?.addEventListener('click',()=>{clearTreasurySecrets();treasuryOperation=null;treasuryPanel?.classList.add('hidden');}));
 
   // --- Wire Executive Admin Portal Event Listeners ---
   const navOpenAdminBtn = document.getElementById('nav-open-admin-btn');
@@ -6313,40 +6484,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       showToast('↻ Telemetry & Member Registry Refreshed!');
     });
   }
-  if (adminQuickAddFundBtn) {
-    adminQuickAddFundBtn.addEventListener('click', async () => {
-      const email = prompt('Enter the user email to credit funds (default: olasunkanmiolamide15@gmail.com):', 'olasunkanmiolamide15@gmail.com');
-      if (!email) return;
-      const amountStr = prompt('Enter amount to credit (₦):', '50000');
-      const amt = parseFloat(amountStr) || 50000;
-      const user = adminUsersList.find(u => u.email && u.email.toLowerCase() === email.trim().toLowerCase()) || findAccount(email);
-      if (!user) {
-        showToast(`User ${email} not found.`, 'error');
-        return;
-      }
-
-      if (window.MidePayDB && window.MidePayDB.isConfigured() && isValidUuid(user.id)) {
-        const rpcRes = await window.MidePayDB.adminCreditWallet({
-          targetUserId: user.id,
-          amount: amt,
-          reason: 'Executive Quick Treasury Credit'
-        });
-        if (!rpcRes.success) {
-          showToast(rpcRes.error || 'Executive wallet credit failed on server.', 'error');
-          return;
-        }
-      }
-
-      user.balance = (Number(user.balance) || 0) + amt;
-      saveAccountToRegistry(user);
-      if (state.user && state.user.email.toLowerCase() === email.toLowerCase()) {
-        state.dashBalance = user.balance;
-        renderBalances();
-      }
-      showToast(`🎉 Credited ${formatNaira(amt)} to ${user.fullName}'s wallet!`);
-      renderAdminPortal();
-    });
-  }
+  if (adminQuickAddFundBtn) adminQuickAddFundBtn.addEventListener('click', () => openTreasuryPanel());
   if (adminKillswitchTest) {
     adminKillswitchTest.addEventListener('click', () => {
       showToast('🔒 CBN Emergency Interlock: Operational safety systems verified and armed.');
@@ -6432,25 +6570,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
         showToast(nextFreeze ? `🔒 Account for ${user.fullName} FROZEN (CBN AML Compliance)` : `✅ Account for ${user.fullName} UNFROZEN`);
         renderAdminPortal();
       } else if (action === 'credit-funds') {
-        if (window.MidePayDB && window.MidePayDB.isConfigured() && isValidUuid(user.id)) {
-          const rpcRes = await window.MidePayDB.adminCreditWallet({
-            targetUserId: user.id,
-            amount: 50000,
-            reason: 'Executive Portal +₦50k Treasury Credit'
-          });
-          if (!rpcRes.success) {
-            showToast(rpcRes.error || 'Executive wallet credit failed on server.', 'error');
-            return;
-          }
-        }
-        user.balance = (Number(user.balance) || 0) + 50000;
-        saveAccountToRegistry(user);
-        if (state.user && state.user.email.toLowerCase() === email.toLowerCase()) {
-          state.dashBalance = user.balance;
-          renderBalances();
-        }
-        showToast(`🎉 Credited ₦50,000.00 to ${user.fullName}'s wallet!`);
-        renderAdminPortal();
+        openTreasuryPanel(user.id);
       }
     });
   }
@@ -6469,6 +6589,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
 
   function getStatementTransactions() {
     ensureUserSession();
+    if (window.MidePayDB?.isProduction()) return Array.isArray(state.transactions) ? state.transactions : [];
     const list = Array.isArray(state.transactions) && state.transactions.length > 0
       ? state.transactions
       : DEFAULT_DEMO_TRANSACTIONS;
@@ -6476,7 +6597,9 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   }
 
   function escapeCsvCell(val) {
-    const str = String(val ?? '').replace(/"/g, '""');
+    const raw = String(val ?? '');
+    const safe = /^[\s]*[=+@-]/.test(raw) || /^[\t\r\n]/.test(raw) ? "'" + raw : raw;
+    const str = safe.replace(/"/g, '""');
     return `"${str}"`;
   }
 
@@ -7011,6 +7134,17 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
           return;
         }
 
+        if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+          const qMsg = 'Staging Quarantine: Client-side MideSave vault mutations are disabled until backend settlement is live.';
+          if (mideSaveActionError && mideSaveActionErrorText) {
+            mideSaveActionErrorText.textContent = qMsg;
+            mideSaveActionError.classList.remove('hidden');
+          } else {
+            showToast(qMsg, 'error');
+          }
+          return;
+        }
+
         const pinCheck = await verifyOrSetupActionPin(pinVal);
         if (!pinCheck.valid) {
           if (mideSaveActionError && mideSaveActionErrorText) {
@@ -7379,6 +7513,17 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       payrollErrorAlert?.classList.add('hidden');
 
       await withSubmitLock('business-payroll-disburse', btnExecutePayroll, 'Disbursing Payroll...', async (idempotencyKey) => {
+        if (window.MidePayDB && typeof window.MidePayDB.isFinancialQuarantined === 'function' && window.MidePayDB.isFinancialQuarantined()) {
+          const qMsg = 'Staging Quarantine: Client-side batch payroll disbursements are disabled until backend settlement is live.';
+          if (payrollErrorAlert && payrollErrorText) {
+            payrollErrorText.textContent = qMsg;
+            payrollErrorAlert.classList.remove('hidden');
+          } else {
+            showToast(qMsg, 'error');
+          }
+          return;
+        }
+
         if (payrollState.roster.length === 0) {
           if (payrollErrorAlert && payrollErrorText) {
             payrollErrorText.textContent = 'Add at least one verified staff member to your roster before disbursing.';

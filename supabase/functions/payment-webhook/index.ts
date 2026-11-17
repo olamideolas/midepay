@@ -30,7 +30,22 @@ export interface WebhookDependencies {
     p_reason: string;
     p_raw_payload: Record<string, unknown>;
   }) => Promise<{ data: unknown; error: { message: string } | null }>;
-  verifyFlutterwaveTx?: (txId: string | number, secretKey: string) => Promise<boolean>;
+  finalizePayout?: (args: {
+    p_reference: string;
+    p_gateway_ref: string;
+    p_raw_payload: Record<string, unknown>;
+  }) => Promise<{ data: unknown; error: { message: string } | null }>;
+  verifyFlutterwaveTx?: (
+    txId: string | number,
+    secretKey: string,
+    expectedAmountNgn?: number,
+    expectedTxRef?: string
+  ) => Promise<boolean>;
+  verifyFlutterwaveTransfer?: (
+    transferId: string | number,
+    secretKey: string,
+    expectedRef?: string
+  ) => Promise<boolean>;
 }
 
 function getEnv(key: string): string {
@@ -88,16 +103,69 @@ export function verifyFlutterwaveSignature(verifHashHeader: string, expectedSecr
   return timingSafeEqualStrings(verifHashHeader.trim(), expectedSecretHash.trim());
 }
 
-async function defaultVerifyFlutterwaveTx(txId: string | number, secretKey: string): Promise<boolean> {
-  if (!secretKey) return true;
+async function defaultVerifyFlutterwaveTx(
+  txId: string | number,
+  secretKey: string,
+  expectedAmountNgn?: number,
+  expectedTxRef?: string
+): Promise<boolean> {
+  if (!secretKey || txId === undefined || txId === null || String(txId).trim() === '') {
+    return false;
+  }
   try {
     const res = await fetch(`https://api.flutterwave.com/v3/transactions/${encodeURIComponent(String(txId))}/verify`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${secretKey}` }
     });
     if (!res.ok) return false;
-    const json = (await res.json()) as { status?: string; data?: { status?: string; currency?: string } };
-    return json.status === 'success' && json.data?.status === 'successful' && json.data?.currency === 'NGN';
+    const json = (await res.json()) as {
+      status?: string;
+      data?: { status?: string; currency?: string; amount?: number; tx_ref?: string };
+    };
+    if (json.status !== 'success' || json.data?.status !== 'successful' || json.data?.currency !== 'NGN') {
+      return false;
+    }
+    if (expectedTxRef && String(json.data?.tx_ref ?? '').trim() !== expectedTxRef) {
+      return false;
+    }
+    if (
+      expectedAmountNgn !== undefined &&
+      Number.isFinite(expectedAmountNgn) &&
+      (!Number.isFinite(Number(json.data?.amount)) || Number(json.data?.amount) < expectedAmountNgn)
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function defaultVerifyFlutterwaveTransfer(
+  transferId: string | number,
+  secretKey: string,
+  expectedRef?: string
+): Promise<boolean> {
+  if (!secretKey || transferId === undefined || transferId === null || String(transferId).trim() === '') {
+    return false;
+  }
+  try {
+    const res = await fetch(`https://api.flutterwave.com/v3/transfers/${encodeURIComponent(String(transferId))}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${secretKey}` }
+    });
+    if (!res.ok) return false;
+    const json = (await res.json()) as {
+      status?: string;
+      data?: { status?: string; currency?: string; reference?: string };
+    };
+    if (json.status !== 'success' || String(json.data?.status ?? '').toUpperCase() !== 'SUCCESSFUL' || json.data?.currency !== 'NGN') {
+      return false;
+    }
+    if (expectedRef && String(json.data?.reference ?? '').trim() !== expectedRef) {
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }
@@ -172,36 +240,57 @@ export async function handlePaymentWebhookRequest(
     });
   }
 
-  // Lazily construct Supabase service_role RPC callers unless injected (for unit tests)
-  let settleDeposit = deps.settleDeposit;
-  let reversePayout = deps.reversePayout;
-
-  if (!settleDeposit || !reversePayout) {
+  // Lazily construct Supabase service_role RPC callers ONLY when invoked and not injected
+  let cachedAdminClient: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> } | null = null;
+  const getAdminClient = async () => {
+    if (cachedAdminClient) return cachedAdminClient;
     const supabaseUrl = getEnv('SUPABASE_URL');
     const supabaseServiceKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !supabaseServiceKey) {
-      return new Response(JSON.stringify({ error: 'Supabase service credentials missing.' }), {
-        status: 500,
-        headers: jsonHeaders
-      });
+      throw new Error('Supabase service credentials missing.');
     }
     const { createClient } = await import('npm:@supabase/supabase-js@2');
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+    cachedAdminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false }
+    }) as unknown as typeof cachedAdminClient;
+    return cachedAdminClient!;
+  };
+
+  const settleDeposit =
+    deps.settleDeposit ??
+    (async (rpcArgs) => {
+      try {
+        const client = await getAdminClient();
+        const { data, error } = await client.rpc('settle_gateway_deposit', rpcArgs);
+        return { data, error: error ? { message: error.message } : null };
+      } catch (e) {
+        return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+      }
     });
-    settleDeposit =
-      settleDeposit ??
-      (async (rpcArgs) => {
-        const { data, error } = await adminClient.rpc('settle_gateway_deposit', rpcArgs);
+
+  const reversePayout =
+    deps.reversePayout ??
+    (async (rpcArgs) => {
+      try {
+        const client = await getAdminClient();
+        const { data, error } = await client.rpc('reverse_failed_payout', rpcArgs);
         return { data, error: error ? { message: error.message } : null };
-      });
-    reversePayout =
-      reversePayout ??
-      (async (rpcArgs) => {
-        const { data, error } = await adminClient.rpc('reverse_failed_payout', rpcArgs);
+      } catch (e) {
+        return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+      }
+    });
+
+  const finalizePayout =
+    deps.finalizePayout ??
+    (async (rpcArgs) => {
+      try {
+        const client = await getAdminClient();
+        const { data, error } = await client.rpc('finalize_payout_settlement', rpcArgs);
         return { data, error: error ? { message: error.message } : null };
-      });
-  }
+      } catch (e) {
+        return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+      }
+    });
 
   // 4A. Process Paystack Webhook Events
   if (verifiedProvider === 'paystack') {
@@ -211,6 +300,15 @@ export async function handlePaymentWebhookRequest(
 
     if (eventType === 'charge.success' && data.status === 'success' && reference) {
       const amountKobo = Number(data.amount ?? 0);
+      if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
+        return new Response(JSON.stringify({ error: 'Invalid Paystack settlement amount.' }), {
+          status: 400,
+          headers: jsonHeaders
+        });
+      }
+      if (data.currency !== 'NGN') {
+        return new Response(JSON.stringify({ error: 'Settlement currency must be NGN.' }), { status: 400, headers: jsonHeaders });
+      }
       const gatewayRef = String(data.id ?? reference);
 
       const { data: rpcResult, error: rpcErr } = await settleDeposit({
@@ -225,6 +323,22 @@ export async function handlePaymentWebhookRequest(
         return new Response(JSON.stringify({ error: rpcErr.message }), { status: 500, headers: jsonHeaders });
       }
       return new Response(JSON.stringify({ received: true, provider: 'paystack', settlement: rpcResult }), {
+        status: 200,
+        headers: jsonHeaders
+      });
+    }
+
+    if (eventType === 'transfer.success' && data.status === 'success' && reference) {
+      const gatewayRef = String(data.transfer_code ?? data.id ?? reference);
+      const { data: finResult, error: finErr } = await finalizePayout({
+        p_reference: reference,
+        p_gateway_ref: gatewayRef,
+        p_raw_payload: payload
+      });
+      if (finErr) {
+        return new Response(JSON.stringify({ error: finErr.message }), { status: 500, headers: jsonHeaders });
+      }
+      return new Response(JSON.stringify({ received: true, provider: 'paystack', payout_settlement: finResult }), {
         status: 200,
         headers: jsonHeaders
       });
@@ -259,18 +373,28 @@ export async function handlePaymentWebhookRequest(
 
   if (eventType === 'charge.completed' && flwStatus === 'successful' && txRef) {
     const txId = data.id as string | number | undefined;
+    const amountNgn = Number(data.amount ?? 0);
+    if (!Number.isFinite(amountNgn) || amountNgn <= 0) {
+      return new Response(JSON.stringify({ error: 'Invalid Flutterwave settlement amount.' }), {
+        status: 400,
+        headers: jsonHeaders
+      });
+    }
+    if (txId === undefined || txId === null || String(txId).trim() === '') {
+      return new Response(JSON.stringify({ error: 'Missing Flutterwave transaction id for server-to-server verification.' }), {
+        status: 400,
+        headers: jsonHeaders
+      });
+    }
     const verifyFn = deps.verifyFlutterwaveTx ?? defaultVerifyFlutterwaveTx;
-    if (txId !== undefined && flwSecretKey) {
-      const verified = await verifyFn(txId, flwSecretKey);
-      if (!verified) {
-        return new Response(JSON.stringify({ error: 'Flutterwave secondary transaction verification failed.' }), {
-          status: 400,
-          headers: jsonHeaders
-        });
-      }
+    const verified = await verifyFn(txId, flwSecretKey, amountNgn, txRef);
+    if (!verified) {
+      return new Response(JSON.stringify({ error: 'Flutterwave secondary transaction verification failed.' }), {
+        status: 400,
+        headers: jsonHeaders
+      });
     }
 
-    const amountNgn = Number(data.amount ?? 0);
     const gatewayRef = String(data.flw_ref ?? data.id ?? txRef);
 
     const { data: rpcResult, error: rpcErr } = await settleDeposit({
@@ -290,19 +414,40 @@ export async function handlePaymentWebhookRequest(
     });
   }
 
-  if (eventType === 'transfer.completed' && flwStatus === 'failed' && txRef) {
-    const { data: revResult, error: revErr } = await reversePayout({
+  if (eventType === 'transfer.completed' && flwStatus === 'successful' && txRef) {
+    const transferId = data.id as string | number | undefined;
+    if (transferId === undefined || transferId === null || String(transferId).trim() === '') {
+      return new Response(JSON.stringify({ error: 'Missing Flutterwave transfer id for verification.' }), {
+        status: 400,
+        headers: jsonHeaders
+      });
+    }
+    const verifyTrfFn = deps.verifyFlutterwaveTransfer ?? defaultVerifyFlutterwaveTransfer;
+    const verifiedTrf = await verifyTrfFn(transferId, flwSecretKey, txRef);
+    if (!verifiedTrf) {
+      return new Response(JSON.stringify({ error: 'Flutterwave secondary transfer verification failed.' }), {
+        status: 400,
+        headers: jsonHeaders
+      });
+    }
+    const { data: finResult, error: finErr } = await finalizePayout({
       p_reference: txRef,
-      p_reason: 'Flutterwave transfer.completed failed',
+      p_gateway_ref: String(transferId),
       p_raw_payload: payload
     });
-    if (revErr) {
-      return new Response(JSON.stringify({ error: revErr.message }), { status: 500, headers: jsonHeaders });
+    if (finErr) {
+      return new Response(JSON.stringify({ error: finErr.message }), { status: 500, headers: jsonHeaders });
     }
-    return new Response(JSON.stringify({ received: true, provider: 'flutterwave', reversal: revResult }), {
+    return new Response(JSON.stringify({ received: true, provider: 'flutterwave', payout_settlement: finResult }), {
       status: 200,
       headers: jsonHeaders
     });
+  }
+
+  if (eventType === 'transfer.completed' && flwStatus === 'failed' && txRef) {
+    // A shared webhook hash alone is insufficient proof of a failed transfer.
+    // Quarantine refunds until failed status is independently reconciled with the provider.
+    return new Response(JSON.stringify({ received: false, reconciliation_required: true }), { status: 503, headers: jsonHeaders });
   }
 
   return new Response(JSON.stringify({ received: true, ignored_event: eventType }), {

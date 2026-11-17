@@ -119,6 +119,12 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
       headers: corsHeaders
     });
   }
+  if (!user.email_confirmed_at) {
+    return new Response(
+      JSON.stringify({ code: 'EMAIL_NOT_VERIFIED', error: 'Verify your 6-digit email OTP before funding your wallet.' }),
+      { status: 403, headers: corsHeaders }
+    );
+  }
 
   // 2. Parse & validate request body
   let body: InitPaymentRequest;
@@ -164,7 +170,7 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
 
   const { data: profile, error: profErr } = await adminClient
     .from('profiles')
-    .select('id, full_name, email, phone, is_frozen, kyc_tier')
+    .select('id, full_name, email, phone, is_frozen, frozen_by_admin, email_otp_verified_at, kyc_tier')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -175,7 +181,11 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
     });
   }
 
-  if (profile.is_frozen === true) {
+  const { data: proof, error: proofError } = await userClient.rpc('get_email_verification_status');
+  if (proofError || !proof?.verified || !profile.email_otp_verified_at) {
+    return new Response(JSON.stringify({ code: 'EMAIL_NOT_VERIFIED' }), { status: 403, headers: corsHeaders });
+  }
+  if (profile.is_frozen === true || profile.frozen_by_admin === true) {
     return new Response(
       JSON.stringify({ error: 'Account is frozen per CBN AML/Fraud compliance. Wallet deposits are disabled.' }),
       { status: 403, headers: corsHeaders }
@@ -190,7 +200,9 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
     .maybeSingle();
 
   if (!wallet) {
-    const generatedNuban = '90' + Math.floor(10000000 + Math.random() * 90000000).toString();
+    const randBuf = new Uint32Array(1);
+    crypto.getRandomValues(randBuf);
+    const generatedNuban = '90' + String(randBuf[0] % 100000000).padStart(8, '0');
     const { data: createdWallet, error: createWalErr } = await adminClient
       .from('wallets')
       .insert({
@@ -360,7 +372,6 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
     await adminClient
       .from('transactions')
       .update({
-        status: 'failed',
         metadata: { error: errMsg, failed_at: new Date().toISOString() }
       })
       .eq('id', pendingTx.id);

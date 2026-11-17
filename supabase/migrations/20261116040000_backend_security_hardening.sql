@@ -180,6 +180,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_payroll_runs_idempotency_key
   ON public.payroll_runs(idempotency_key)
   WHERE idempotency_key IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS public.payroll_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payroll_run_id UUID NOT NULL REFERENCES public.payroll_runs(id) ON DELETE CASCADE,
+  employer_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  recipient_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  employee_name TEXT NOT NULL,
+  employee_role TEXT,
+  recipient_identifier TEXT NOT NULL,
+  recipient_nuban VARCHAR(10),
+  amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
+  status TEXT NOT NULL DEFAULT 'successful' CHECK (status IN ('pending', 'successful', 'failed')),
+  tx_reference TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT TIMEZONE('utc', NOW())
+);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_items_run_id ON public.payroll_items(payroll_run_id);
+CREATE INDEX IF NOT EXISTS idx_payroll_items_recipient ON public.payroll_items(recipient_user_id);
+
 -- 1.8 Create `public.beneficiaries` table
 CREATE TABLE IF NOT EXISTS public.beneficiaries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

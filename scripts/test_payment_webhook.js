@@ -40,7 +40,8 @@ async function main() {
   const edgeFunctions = [
     'supabase/functions/init-payment/index.ts',
     'supabase/functions/payment-webhook/index.ts',
-    'supabase/functions/bank-payout/index.ts'
+    'supabase/functions/bank-payout/index.ts',
+    'supabase/functions/verify-email-otp/index.ts'
   ];
 
   for (const relPath of edgeFunctions) {
@@ -105,6 +106,15 @@ async function main() {
         data: { success: true, already_reversed: already, reference: p_reference, reason: p_reason },
         error: null
       };
+    },
+    finalizePayout: async ({ p_reference, p_gateway_ref }) => {
+      return {
+        data: { success: true, already_settled: false, reference: p_reference, gateway_ref: p_gateway_ref },
+        error: null
+      };
+    },
+    verifyFlutterwaveTransfer: async (transferId, _secret, expectedRef) => {
+      return Number(transferId) === 554433 && expectedRef === 'MDP-OUT-FLW-9902';
     }
   };
 
@@ -253,6 +263,44 @@ async function main() {
       pass('Paystack transfer.reversed webhook triggered automatic payout refund');
     } else {
       fail(`Payout reversal webhook failed: ${JSON.stringify(json)}`);
+    }
+  }
+
+  // Test G: Outbound NIP payout settlement (`transfer.success` & S2S-verified `transfer.completed`)
+  {
+    const pskSettleBody = JSON.stringify({
+      event: 'transfer.success',
+      data: { reference: 'MDP-OUT-PSK-9902', transfer_code: 'TRF_abc123', status: 'success', amount: 500000 }
+    });
+    const pskHmac = crypto.createHmac('sha512', TEST_PSK_SECRET).update(pskSettleBody).digest('hex');
+    const pskRes = await webhookMod.handlePaymentWebhookRequest(
+      new Request('https://pxdzdehocjnmxbuvipxu.supabase.co/functions/v1/payment-webhook', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-paystack-signature': pskHmac },
+        body: pskSettleBody
+      }),
+      mockDeps
+    );
+    const pskJson = await pskRes.json();
+
+    const flwSettleBody = JSON.stringify({
+      event: 'transfer.completed',
+      data: { id: 554433, reference: 'MDP-OUT-FLW-9902', status: 'SUCCESSFUL', amount: 5000, currency: 'NGN' }
+    });
+    const flwRes = await webhookMod.handlePaymentWebhookRequest(
+      new Request('https://pxdzdehocjnmxbuvipxu.supabase.co/functions/v1/payment-webhook', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'verif-hash': TEST_FLW_HASH },
+        body: flwSettleBody
+      }),
+      mockDeps
+    );
+    const flwJson = await flwRes.json();
+
+    if (pskRes.status === 200 && pskJson.payout_settlement?.success === true && flwRes.status === 200 && flwJson.payout_settlement?.success === true) {
+      pass('Paystack transfer.success & S2S-verified Flutterwave transfer.completed finalize pending NIP payouts');
+    } else {
+      fail(`Outbound payout settlement webhook failed: psk=${JSON.stringify(pskJson)} flw=${JSON.stringify(flwJson)}`);
     }
   }
 

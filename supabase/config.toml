@@ -1,11 +1,1 @@
-project_id = "pxdzdehocjnmxbuvipxu"
-
-[functions.init-payment]
-verify_jwt = true
-
-[functions.payment-webhook]
-verify_jwt = false
-
-[functions.bank-payout]
-verify_jwt = true
 

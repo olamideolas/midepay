@@ -6,10 +6,6 @@
   <title>MidePay — Modern Digital Wallet for Nigeria</title>
   <meta name="description" content="MidePay is a modern digital wallet concept for individuals and small businesses in Nigeria. Instant zero-fee transfers, virtual cards, and smart financial tools.">
   
-  <!-- Google Fonts: Sora (Headings) & Inter (Body) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
-  
   <!-- Favicon & Installable PWA Configuration -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#00D492">
@@ -53,7 +49,7 @@
       <div class="nav-right-cluster">
         <!-- Auth Action Buttons -->
         <div class="nav-actions" id="landing-nav-actions">
-          <button type="button" class="btn btn-outline-xs hidden" id="nav-landing-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+          <button type="button" class="btn btn-outline-xs hidden" id="nav-landing-admin-btn" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.65rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             <span>Executive Portal</span>
           </button>
@@ -92,12 +88,12 @@
             <span class="user-avatar-circle" id="nav-user-initials">M</span>
             <span class="user-pill-name" id="nav-user-name">User</span>
           </div>
-          <button type="button" class="btn btn-outline-xs hidden" id="nav-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+          <button type="button" class="btn btn-outline-xs hidden" id="nav-open-admin-btn" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             <span>Executive Portal</span>
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="nav-goto-dashboard-btn" onclick="showView('dashboard')" style="padding: 0.4rem 0.9rem; font-size: 0.84rem;">Dashboard</button>
-          <button type="button" class="btn btn-outline-sm" id="nav-logout-btn" onclick="handleLogout()">Log out</button>
+          <button type="button" class="btn btn-primary btn-sm" id="nav-goto-dashboard-btn" style="padding: 0.4rem 0.9rem; font-size: 0.84rem;">Dashboard</button>
+          <button type="button" class="btn btn-outline-sm" id="nav-logout-btn">Log out</button>
         </div>
 
         <!-- Theme Switcher (Dark & White Mode System-Compatible) -->
@@ -158,11 +154,11 @@
       <div class="mobile-nav-actions">
         <button class="btn btn-ghost w-full" id="mobile-login-btn">Log in</button>
         <button class="btn btn-primary w-full" id="mobile-register-btn">Get started</button>
-        <button class="btn btn-outline-xs w-full hidden" id="mobile-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem; font-size: 0.84rem; font-weight: 700; margin-top: 0.35rem; cursor: pointer;">
+        <button class="btn btn-outline-xs w-full hidden" id="mobile-admin-btn" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem; font-size: 0.84rem; font-weight: 700; margin-top: 0.35rem; cursor: pointer;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
           <span>Executive Portal</span>
         </button>
-        <button class="btn btn-outline-sm w-full hidden" id="mobile-logout-btn" onclick="handleLogout()" style="border-color: rgba(239, 68, 68, 0.4); color: #FCA5A5; margin-top: 0.35rem;">Log out</button>
+        <button class="btn btn-outline-sm w-full hidden" id="mobile-logout-btn" style="border-color: rgba(239, 68, 68, 0.4); color: #FCA5A5; margin-top: 0.35rem;">Log out</button>
       </div>
     </div>
   </header>
@@ -746,7 +742,7 @@
             <button class="footer-btn-link" id="footer-login-btn">Sign In</button>
             <button class="footer-btn-link" id="footer-register-btn">Open Free Account</button>
             <button class="footer-btn-link" id="footer-demo-direct">Go to Dashboard</button>
-            <button class="footer-btn-link hidden" id="footer-admin-btn" onclick="showView('admin')" style="color: #FBBF24; font-weight: 700;">Executive Back-Office</button>
+            <button class="footer-btn-link hidden" id="footer-admin-btn" style="color: #FBBF24; font-weight: 700;">Executive Back-Office</button>
           </div>
         </div>
 
@@ -938,7 +934,7 @@
           <div class="form-group">
             <div class="label-with-aside">
               <label for="login-password" class="form-label">Password</label>
-              <a href="#" class="aside-note text-accent" id="forgot-password-link" onclick="event.preventDefault(); showToast('Password reset link sent to your registered email.');">Forgot?</a>
+              <a href="#" class="aside-note text-accent" id="forgot-password-link">Forgot?</a>
             </div>
             <div class="input-container with-action">
               <input 
@@ -1007,11 +1003,11 @@
         </div>
 
         <div class="dash-header-actions">
-          <button class="btn btn-outline-xs hidden" id="dash-open-admin-btn" onclick="showView('admin')" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
+          <button class="btn btn-outline-xs hidden" id="dash-open-admin-btn" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.85rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;" title="Open Executive Back-Office & Investor Terminal">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
             <span>Executive Portal</span>
           </button>
-          <button class="btn btn-outline-sm" id="dash-logout-btn" onclick="handleLogout()">
+          <button class="btn btn-outline-sm" id="dash-logout-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
@@ -1145,14 +1141,14 @@
 
             <!-- Card Actions -->
             <div class="dash-card-buttons">
-              <button type="button" class="btn btn-primary" id="btn-open-send-modal" onclick="event.preventDefault(); if (typeof openSendModal === 'function') openSendModal();">
+              <button type="button" class="btn btn-primary" id="btn-open-send-modal">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13"></line>
                   <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                 </svg>
                 <span>Send Money</span>
               </button>
-              <button type="button" class="btn btn-outline" id="btn-open-request-modal" onclick="event.preventDefault(); if (typeof openRequestModal === 'function') openRequestModal();">
+              <button type="button" class="btn btn-outline" id="btn-open-request-modal">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="7 10 12 15 17 10"></polyline>
                   <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -1182,7 +1178,7 @@
           <div class="dash-quick-section">
             <h3 class="dash-section-title">Quick Actions</h3>
             <div class="dash-action-grid">
-              <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-transfer" onclick="event.preventDefault(); if (typeof openSendModal === 'function') openSendModal();" title="Send Money">
+              <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="emerald" id="qa-transfer" title="Send Money">
                 <div class="qa-icon-wrap emerald">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -1193,7 +1189,7 @@
                 <span class="qa-desc">Instant ₦0 fee</span>
               </button>
 
-              <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="teal" id="qa-request" onclick="event.preventDefault(); if (typeof openRequestModal === 'function') openRequestModal();" title="Request Money">
+              <button type="button" class="dash-action-card liquid-glass" data-liquid-glass="rounded" data-liquid-theme="teal" id="qa-request" title="Request Money">
                 <div class="qa-icon-wrap teal">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="7 10 12 15 17 10"></polyline>
@@ -1387,7 +1383,7 @@
           <!-- Left: Add Staff + Roster Table -->
           <div class="payroll-main-card liquid-glass" data-liquid-glass="card" data-liquid-theme="obsidian">
             <h3 class="dash-section-title" style="margin-bottom:0.85rem;">1. Build Staff Payroll Roster</h3>
-            <form class="payroll-add-form" id="payroll-add-staff-form" onsubmit="return false;">
+            <form class="payroll-add-form" id="payroll-add-staff-form">
               <div class="payroll-form-row">
                 <div class="form-group" style="margin:0;">
                   <label for="payroll-staff-identifier" class="form-label">Staff MidePay 10-Digit NUBAN or @tag</label>
@@ -1502,13 +1498,13 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>Export Investor Dossier (CSV)</span>
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="admin-switch-wallet-btn" onclick="showView('dashboard')">
+          <button type="button" class="btn btn-primary btn-sm" id="admin-switch-wallet-btn">
             <span>← My Wallet Dashboard</span>
           </button>
-          <button type="button" class="btn btn-outline btn-sm" id="admin-switch-landing-btn" onclick="showView('landing')">
+          <button type="button" class="btn btn-outline btn-sm" id="admin-switch-landing-btn">
             <span>← Public Site</span>
           </button>
-          <button type="button" class="btn btn-outline btn-sm" id="admin-logout-btn" onclick="handleLogout()" style="border-color: rgba(239, 68, 68, 0.4); color: #FCA5A5;">
+          <button type="button" class="btn btn-outline btn-sm" id="admin-logout-btn" style="border-color: rgba(239, 68, 68, 0.4); color: #FCA5A5;">
             <span>Log out</span>
           </button>
         </div>
@@ -1581,10 +1577,33 @@
             <input type="text" id="admin-user-search" class="admin-search-input" placeholder="Search members by name, email, NUBAN, or tag...">
           </div>
           <div class="admin-filter-actions">
-            <button type="button" class="btn btn-outline-xs" id="admin-quick-add-fund-btn">+ Credit Any Wallet</button>
+            <button type="button" class="btn btn-outline-xs" id="admin-quick-add-fund-btn">Request funded credit</button>
             <button type="button" class="btn btn-ghost-xs" id="admin-refresh-users-btn">↻ Refresh</button>
           </div>
         </div>
+
+﻿        <section id="treasury-controls" class="glass-card hidden" style="padding:1.25rem;margin:1rem 0;">
+          <h3>Funded treasury credits</h3>
+          <p>Requests need a funded institutional wallet, your PIN, a recent authenticator check, and approval from a different executive. Creating a request does not move funds.</p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+            <button type="button" id="treasury-enroll-mfa" class="btn btn-outline-xs">Set up authenticator</button>
+            <label>Authenticator code <input id="treasury-mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" size="8"></label>
+            <button type="button" id="treasury-verify-mfa" class="btn btn-outline-xs">Verify authenticator</button>
+            <button type="button" id="treasury-refresh" class="btn btn-ghost-xs">Refresh queue</button>
+          </div>
+          <img id="treasury-mfa-qr" class="hidden" alt="Scan with your authenticator app" style="width:180px;height:180px;background:white;">
+          <form id="treasury-request-form" style="display:grid;gap:.65rem;margin:1rem 0;">
+            <label>Treasury wallet <select id="treasury-source" required></select></label>
+            <label>Recipient <select id="treasury-target" required></select></label>
+            <label>Amount (NGN) <input id="treasury-amount" type="number" min="0.01" max="10000000" step="0.01" required></label>
+            <label>Reason <input id="treasury-reason" minlength="5" maxlength="500" required autocomplete="off"></label>
+            <label>Your transaction PIN <input id="treasury-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required></label>
+            <button id="treasury-submit" class="btn btn-outline-xs" type="submit">Create approval request</button>
+          </form>
+          <p id="treasury-feedback" role="status" aria-live="polite"></p>
+          <p>To approve or cancel, enter your PIN above and use the queue action.</p>
+          <div id="treasury-queue"></div>
+        </section>
 
         <div class="admin-table-wrapper">
           <table class="admin-table" id="admin-users-table">
@@ -1741,7 +1760,7 @@
           <button type="button" class="modal-close-btn" id="close-request-modal-btn" aria-label="Close modal">✕</button>
         </div>
 
-        <form class="modal-form" id="main-request-form" onsubmit="return false;">
+        <form class="modal-form" id="main-request-form">
           <!-- Information banner -->
           <div class="transfer-balance-alert" style="background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3);">
             <span style="color:#93C5FD;">💡 The recipient will receive an instant notification to approve & pay you.</span>
@@ -1903,7 +1922,7 @@
           <button class="modal-close-btn" id="close-send-modal-btn" aria-label="Close modal">✕</button>
         </div>
 
-        <form class="modal-form" id="main-transfer-form" onsubmit="return false;">
+        <form class="modal-form" id="main-transfer-form">
           <!-- Balance Alert / Test Top-up Bar -->
           <div class="transfer-balance-alert" id="transfer-balance-notice">
             <span>Available Balance: <strong id="transfer-modal-balance">₦0.00</strong></span>
@@ -2191,7 +2210,7 @@
           <span class="summary-fee-text" style="font-size:0.8rem; color:#A7F3D0;">Fee: ₦0.00 • MidePay Zero-Fee Switch</span>
         </div>
 
-        <form class="modal-form" id="pin-auth-form" onsubmit="return false;" style="margin-top:1rem;">
+        <form class="modal-form" id="pin-auth-form" style="margin-top:1rem;">
           <div class="form-group">
             <div class="label-with-aside">
               <label class="form-label" id="pin-prompt-label">Enter 4-Digit Security PIN</label>
@@ -3362,7 +3381,7 @@
           <button type="button" class="amount-tag-btn" data-vault-preset="Emergency Fund" data-vault-cat="Emergency Fund" data-vault-target="500000">🛡️ Emergency Fund</button>
           <button type="button" class="amount-tag-btn" data-vault-preset="Business Restock" data-vault-cat="Business Restock" data-vault-target="2000000">📦 Business Restock</button>
         </div>
-        <form id="midesave-create-form" class="modal-form" onsubmit="return false;">
+        <form id="midesave-create-form" class="modal-form">
           <div class="form-group">
             <label for="vault-title-input" class="form-label">Vault Goal Title</label>
             <input type="text" id="vault-title-input" class="form-input" placeholder="e.g. Rent 2027, Emergency Fund, Business Restock" maxlength="60" required>
@@ -3401,7 +3420,7 @@
         <div class="flow-alert-banner flow-alert-warning hidden" id="midesave-early-break-warning" style="margin-bottom:0.75rem;">
           <span>⚠️ <strong>Locked Vault Notice:</strong> Withdrawing before maturity applies a <strong>1.5% early-break fee</strong>.</span>
         </div>
-        <form id="midesave-action-form" class="modal-form" onsubmit="return false;">
+        <form id="midesave-action-form" class="modal-form">
           <input type="hidden" id="midesave-action-vault-id" value="">
           <input type="hidden" id="midesave-action-mode" value="fund">
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
@@ -3547,15 +3566,12 @@
   </div>
 
   <!-- Liquid Glass v2.5 Interactive Engine -->
-  <script src="liquid-glass.js?v=4.0"></script>
+  <script src="liquid-glass.js?v=4.7"></script>
 
-  <!-- Cryptographic Hashing (bcryptjs for 4-digit Transaction PINs) -->
-  <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
-
-  <!-- Supabase JS Client & MidePay Backend Integration -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=4.0"></script>
-  <script src="supabaseClient.js?v=4.0"></script>
-  <script src="app.js?v=4.0"></script>
+  <!-- Self-Hosted Supabase v2 Gateway & MidePay Backend Integration ('self' CSP Locked) -->
+  <script src="vendor/supabase.js?v=4.7"></script>
+  <script src="config.js?v=4.7"></script>
+  <script src="supabaseClient.js?v=4.7"></script>
+  <script src="app.js?v=4.7"></script>
 </body>
 </html>

@@ -68,7 +68,7 @@ if (failures === 0) {
 
 // 2. JavaScript Syntax Validation
 console.log('\n[2/7] Running JavaScript syntax validation (node --check)...');
-const jsFiles = ['config.js', 'liquid-glass.js', 'supabaseClient.js', 'app.js', 'sw.js', 'build.js', 'scripts/build_sdlc_docx.js'];
+const jsFiles = ['config.js', 'vendor/supabase.js', 'liquid-glass.js', 'supabaseClient.js', 'app.js', 'sw.js', 'build.js', 'scripts/build_sdlc_docx.js'];
 for (const jf of jsFiles) {
   const fullPath = path.join(ROOT, jf);
   try {
@@ -105,12 +105,16 @@ if (orphanedIds.length > 0) {
 }
 
 // 4. Environment & Hardening Config Check
-console.log('\n[4/6] Verifying strict production environment configuration...');
+console.log('\n[4/6] Verifying strict production environment & Staging Quarantine configuration...');
 const configTxt = fs.readFileSync(path.join(ROOT, 'config.js'), 'utf8');
-if (/ENV:\s*['"]production['"]/.test(configTxt) && configTxt.includes('https://pxdzdehocjnmxbuvipxu.supabase.co')) {
-  pass(`config.js sets ENV: 'production' and targets https://pxdzdehocjnmxbuvipxu.supabase.co.`);
+if (
+  /ENV:\s*['"]production['"]/.test(configTxt) &&
+  /FINANCIAL_RPCS_LIVE:\s*false/.test(configTxt) &&
+  configTxt.includes('https://pxdzdehocjnmxbuvipxu.supabase.co')
+) {
+  pass(`config.js sets ENV: 'production', FINANCIAL_RPCS_LIVE: false (Staging Quarantine), and targets https://pxdzdehocjnmxbuvipxu.supabase.co.`);
 } else {
-  fail(`config.js missing ENV: 'production' or production Supabase URL.`);
+  fail(`config.js missing ENV: 'production', FINANCIAL_RPCS_LIVE: false, or production Supabase URL.`);
 }
 
 // 5. Production SQL Migration Verification
@@ -248,15 +252,20 @@ if (!fs.existsSync(authGateSqlPath)) {
     fn => !new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+public\\.${fn}\\b`, 'i').test(gateSql)
   );
   const hasEmailAndPinGuards =
+    /STAGING-ONLY\s+security\s+candidate/i.test(gateSql) &&
     /SELECT\s+email_confirmed_at\s+FROM\s+auth\.users\s+WHERE\s+id\s*=\s*auth\.uid\(\)/i.test(gateSql) &&
     /transaction_pin_hash\s+IS\s+NOT\s+NULL/i.test(gateSql) &&
     /USER_LOGIN/.test(gateSql) &&
-    /UNVERIFIED_EMAIL_BLOCKED/.test(gateSql);
+    /UNVERIFIED_EMAIL_BLOCKED/.test(gateSql) &&
+    /PIN_REQUIRED/.test(gateSql) &&
+    /p_business_id\s+IS\s+NULL\s+OR\s+NOT\s+public\.has_business_write_role\(p_business_id\)/i.test(gateSql) &&
+    !/INSERT\s+INTO\s+public\.virtual_cards/i.test(gateSql) &&
+    /DO\s+\$quarantine\$[\s\S]*?REVOKE\s+ALL\s+ON\s+FUNCTION\s+%s\s+FROM\s+PUBLIC,\s*anon,\s*authenticated[\s\S]*?\$quarantine\$/i.test(gateSql);
 
   if (missingGateRpcs.length > 0 || !hasEmailAndPinGuards) {
-    fail(`20261116050000_auth_verification_gate.sql missing RPCs (${missingGateRpcs.join(', ')}) or email_confirmed_at / transaction_pin_hash guards.`);
+    fail(`20261116050000_auth_verification_gate.sql missing RPCs (${missingGateRpcs.join(', ')}) or Staging Quarantine / PIN_REQUIRED / business_id / PCI guards.`);
   } else {
-    pass('20261116050000_auth_verification_gate.sql verified (email_confirmed_at + transaction_pin_hash guards across execute_p2p_transfer, fund_virtual_card, pay_vtu_bill, manage_midesave_vault & execute_payroll_batch + USER_LOGIN audit).');
+    pass('20261116050000_auth_verification_gate.sql verified (verbatim STAGING-ONLY $quarantine$ revocations across all 14 financial RPCs, PIN_REQUIRED on fund_virtual_card, has_business_write_role on execute_payroll_batch, zero PAN/CVV persistence & USER_LOGIN audit).');
   }
 }
 
@@ -305,10 +314,10 @@ if (/Math\.random\s*\(/.test(supaCodeNoComments)) {
 const directSupaWrites = supaCodeNoComments.match(/\.(?:insert|update|upsert|delete)\s*\(/g) || [];
 if (directSupaWrites.length > 0) {
   fail(`supabaseClient.js still contains ${directSupaWrites.length} direct table write call(s): ${directSupaWrites.join(', ')}`);
-} else if (!/generateIdempotencyKey/.test(supaCodeNoComments) || !/crypto\.randomUUID/.test(supaCodeNoComments)) {
-  fail('supabaseClient.js missing generateIdempotencyKey() / crypto.randomUUID() RPC deduplication.');
+} else if (!/generateIdempotencyKey/.test(supaCodeNoComments) || !/crypto\.randomUUID/.test(supaCodeNoComments) || !/isFinancialQuarantined/.test(supaCodeNoComments) || !/STAGING_QUARANTINE/.test(supaCodeNoComments)) {
+  fail('supabaseClient.js missing generateIdempotencyKey() / crypto.randomUUID() RPC deduplication or isFinancialQuarantined() Staging Quarantine guard.');
 } else {
-  pass('supabaseClient.js verified: zero direct .insert()/.update()/.upsert()/.delete() table calls; 100% SECURITY DEFINER RPCs with UUID idempotency.');
+  pass('supabaseClient.js verified: zero direct .insert()/.update()/.upsert()/.delete() table calls; Staging Quarantine guard (STAGING_QUARANTINE) & UUID idempotency active.');
 }
 
 const appCodeNoComments = appJs.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
@@ -326,10 +335,10 @@ if (appDirectWrites.length > 0) {
   !/function\s+enforceNoDemoControlsInProduction\b/.test(appCodeNoComments) ||
   !/function\s+startOtpResendCooldown\b/.test(appCodeNoComments) ||
   !/function\s+enforceMandatoryPinOnboardingLock\b/.test(appCodeNoComments) ||
-  !/auth\.verifyOtp/.test(supaCodeNoComments) ||
+  !/functions\.invoke\('verify-email-otp'/.test(supaCodeNoComments) ||
   !/auth\.resend/.test(supaCodeNoComments)
 ) {
-  fail('app.js / supabaseClient.js missing withSubmitLock, OTP verifyOtp/resend, 60s cooldown, or mandatory PIN onboarding lock.');
+  fail('app.js / supabaseClient.js missing withSubmitLock, server OTP endpoint/resend, 60s cooldown, or mandatory PIN onboarding lock.');
 } else {
   pass('app.js & supabaseClient.js verified: zero client-side balance math, zero direct writes, 6-digit OTP verify/resend + 60s cooldown & mandatory PIN lock.');
 }
@@ -347,10 +356,31 @@ for (const infraFile of [
   }
 }
 const vercelCfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
-const hasCsp = JSON.stringify(vercelCfg.headers || []).includes('Content-Security-Policy');
-const hasWorkerCsp = JSON.stringify(vercelCfg.headers || []).includes("worker-src 'self'");
-if (!hasCsp || !hasWorkerCsp) fail('vercel.json missing Content-Security-Policy or worker-src directive.');
-else pass('Edge Functions (init-payment, payment-webhook, bank-payout), vercel.json CSP (with worker-src/manifest-src) & CI/CD workflows verified.');
+const globalRule = (vercelCfg.headers || []).find(r => r.source === '/(.*)');
+const headerMap = new Map((globalRule?.headers || []).map(h => [h.key, h.value]));
+const cspVal = headerMap.get('Content-Security-Policy') || '';
+const hasStrictHeaders =
+  cspVal.includes('https://pxdzdehocjnmxbuvipxu.supabase.co') &&
+  cspVal.includes('wss://pxdzdehocjnmxbuvipxu.supabase.co') &&
+  cspVal.includes('https://js.paystack.co') &&
+  cspVal.includes('https://checkout.flutterwave.com') &&
+  cspVal.includes("frame-ancestors 'none'") &&
+  cspVal.includes("object-src 'none'") &&
+  cspVal.includes("base-uri 'self'") &&
+  cspVal.includes("worker-src 'self'") &&
+  !cspVal.includes('*.supabase.co') &&
+  !cspVal.includes('cdn.jsdelivr.net') &&
+  headerMap.get('Strict-Transport-Security') === 'max-age=63072000; includeSubDomains; preload' &&
+  headerMap.get('X-Frame-Options') === 'DENY' &&
+  headerMap.get('X-Content-Type-Options') === 'nosniff' &&
+  headerMap.get('Referrer-Policy') === 'no-referrer' &&
+  headerMap.get('Permissions-Policy') === 'camera=(), microphone=(), geolocation=()';
+
+if (!hasStrictHeaders) {
+  fail('vercel.json missing strict CSP origin lock or hardened HSTS/XFO/nosniff/Referrer-Policy/Permissions-Policy headers.');
+} else {
+  pass('Edge Functions & vercel.json strict CSP origin lock + HSTS preload + XFO DENY + nosniff + no-referrer + Permissions-Policy verified.');
+}
 
 // 6. PWA Manifest, iOS Meta Tags, Service Worker & Statement Controls Check
 console.log('\n[6/7] Verifying PWA Manifest, Service Worker & Statement Export Structure...');
@@ -377,13 +407,13 @@ if (!fs.existsSync(manifestPath)) {
 }
 
 const swTxt = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8');
-const hasSwAssets = ['index.html', 'style.css', 'liquid-glass.css', 'loading-animation.css', 'app.js', 'liquid-glass.js', 'midepay-icon.png', 'favicon.svg']
+const hasSwAssets = ['index.html', 'style.css', 'liquid-glass.css', 'loading-animation.css', '/vendor/supabase.js', 'app.js', 'liquid-glass.js', 'midepay-icon.png', 'favicon.svg']
   .every(asset => swTxt.includes(asset));
-const hasBumpedSwCache = /CACHE_NAME\s*=\s*['"]midepay-pwa-static-v4\.6\.0['"]/.test(swTxt);
+const hasBumpedSwCache = /CACHE_NAME\s*=\s*['"]midepay-pwa-static-v4\.7\.1['"]/.test(swTxt);
 if (!hasSwAssets || !hasBumpedSwCache || !appJs.includes("serviceWorker.register('sw.js')")) {
-  fail('sw.js missing required cached assets, bumped v4.6.0 CACHE_NAME, or app.js missing serviceWorker.register("sw.js").');
+  fail('sw.js missing required cached assets (/vendor/supabase.js), bumped v4.7.1 CACHE_NAME, or app.js missing serviceWorker.register("sw.js").');
 } else {
-  pass('sw.js cache version bump (midepay-pwa-static-v4.6.0), cache-first static assets, Supabase network-first routing & registration verified.');
+  pass('sw.js cache version bump (midepay-pwa-static-v4.7.1), self-hosted vendor/supabase.js, cache-first static assets & network-first routing verified.');
 }
 
 if (

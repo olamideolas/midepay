@@ -22,6 +22,16 @@
   const userConfig = window.MIDEPAY_SUPABASE_CONFIG || {};
   const APP_ENV = String(userConfig.ENV || DEFAULT_CONFIG.ENV).trim().toLowerCase();
   const isProduction = () => APP_ENV === 'production';
+  const isFinancialQuarantined = () => {
+    const liveCfg = (typeof window !== 'undefined' && window.MIDEPAY_SUPABASE_CONFIG) || userConfig || {};
+    return isProduction() && liveCfg.FINANCIAL_RPCS_LIVE !== true;
+  };
+  const buildQuarantineResult = (featureLabel = 'financial mutations') => ({
+    success: false,
+    quarantined: true,
+    code: 'STAGING_QUARANTINE',
+    error: `Staging Quarantine: Client-side ${featureLabel} are disabled until backend settlement is live.`
+  });
 
   // In production, strictly ignore localStorage URL/key overrides to prevent client-side endpoint hijacking
   if (!isProduction()) {
@@ -183,6 +193,7 @@
     ENV: APP_ENV,
     client,
     isProduction,
+    isFinancialQuarantined,
     isConfigured: isSupabaseConfigured,
     generateSecureRandomNuban,
     generateSecureCardCredentials,
@@ -243,16 +254,22 @@
       if (error) return { user: null, session: null, error };
 
       // Zero-Trust Session Hardening: Never auto-sign-in or expose an unverified session prior to 6-digit OTP verification
-      if (data?.session && !data?.user?.email_confirmed_at) {
+      if (data?.session) {
         try {
           await this.client.auth.signOut();
         } catch (_) {}
       }
 
+      const otpChallengeKind = data?.user?.email_confirmed_at ? 'email' : 'signup';
+      if (otpChallengeKind === 'email') {
+        const sent=await this.requestEmailVerification(normalizedEmail);
+        if (!sent.success) return {user:null,session:null,error:new Error('Account created, but a verification code could not be sent. Sign in to request another code.')};
+      }
       return {
         user: data?.user || null,
         session: null,
         error: null,
+        otpChallengeKind,
         requiresOtpVerification: true,
         emailConfirmationPending: true
       };
@@ -272,21 +289,25 @@
         return { user: null, session: null, error: new Error('Authentication verification service is unavailable.') };
       }
 
-      const { data, error } = await this.client.auth.verifyOtp({
-        email: normalizedEmail,
-        token: cleanToken,
-        type
+      const { data, error } = await this.client.functions.invoke('verify-email-otp', {
+        body: { email: normalizedEmail, token: cleanToken }
       });
-
-      if (error) {
-        return { user: null, session: null, error };
+      if (error || !data?.success || !data?.session?.access_token || !data?.session?.refresh_token) {
+        return { user: null, session: null, error: error || new Error(data?.error || 'Email verification failed.') };
       }
+      const adopted = await this.client.auth.setSession({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+      if (adopted.error || adopted.data?.user?.id !== data.user?.id) {
+        return { user: null, session: null, error: adopted.error || new Error('Verified session could not be established.') };
+      }
+      return { user: adopted.data.user, session: adopted.data.session, error: null };
+    },
 
-      return {
-        user: data?.user || data?.session?.user || null,
-        session: data?.session || null,
-        error: null
-      };
+    async requestEmailVerification(email) {
+      if (!this.client || !this.isConfigured()) return { success: false, error: new Error('Authentication unavailable.') };
+      const { error } = await this.client.auth.signInWithOtp({
+        email: String(email || '').trim().toLowerCase(), options: { shouldCreateUser: false }
+      });
+      return { success: !error, error };
     },
 
     async resendSignupOtp(email) {
@@ -395,7 +416,7 @@
 
       const { data, error } = await this.client
         .from('profiles')
-        .select('*')
+        .select('id, full_name, email, phone, tag, avatar_url, kyc_tier, bvn_verified, nin_verified, pin_failed_attempts, pin_locked_until, role, is_frozen, frozen_by_admin, email_otp_verified_at, last_login_at, created_at, updated_at')
         .eq('id', userId)
         .maybeSingle();
 
@@ -418,7 +439,7 @@
 
         const { data, error } = await this.client
           .from('profiles')
-          .select('*')
+          .select('id, role, is_frozen')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -440,12 +461,12 @@
       try {
         const { data, error } = await this.client
           .from('profiles')
-          .select('*')
+          .select('id, is_frozen, frozen_by_admin')
           .eq('id', userId)
           .maybeSingle();
 
         if (error || !data) return { isFrozen: false, source: 'supabase' };
-        return { isFrozen: data.is_frozen === true, source: 'supabase' };
+        return { isFrozen: data.is_frozen === true, frozenByAdmin: data.frozen_by_admin === true, source: 'supabase' };
       } catch (e) {
         return { isFrozen: false, source: 'error' };
       }
@@ -454,7 +475,7 @@
     /**
      * Allow authenticated user to toggle CBN Emergency Panic Freeze on their own account
      */
-    async setOwnAccountFreeze(userId, freezeState) {
+    async setOwnAccountFreeze(userId, freezeState, pin = null) {
       if (!this.isConfigured() || !this.client || !isValidUuid(userId)) {
         if (isProduction()) {
           return { success: false, error: 'Authenticated Supabase session required to update freeze state.' };
@@ -470,7 +491,8 @@
 
         // Zero-Trust RPC ONLY: `set_own_account_freeze`
         const { data: rpcFreeze, error: rpcErr } = await this.client.rpc('set_own_account_freeze', {
-          p_is_frozen: Boolean(freezeState)
+          p_is_frozen: Boolean(freezeState),
+          p_pin: pin ? String(pin).trim() : null
         });
 
         if (rpcErr || !rpcFreeze?.success) {
@@ -621,47 +643,6 @@
               isRegistered: true,
               source: 'supabase_rpc'
             };
-          }
-
-          // Fallback direct profiles query for non-NUBAN handles if migration 020000 is not yet pushed
-          if (cleanDigits.length !== 10 || clean.startsWith('0') || clean.startsWith('+') || clean.startsWith('234')) {
-            const cleanPhone = clean.replace(/[\s\-]/g, '');
-            let supaQuery = this.client
-              .from('profiles')
-              .select('id, full_name, email, phone, tag, avatar_url, is_frozen');
-
-            if (clean.includes('@') && !clean.startsWith('@')) {
-              supaQuery = supaQuery.eq('email', clean);
-            } else if (clean.startsWith('@')) {
-              supaQuery = supaQuery.ilike('tag', clean);
-            } else if (/^\+?[0-9]{7,15}$/.test(cleanPhone)) {
-              supaQuery = supaQuery.or(`phone.eq.${cleanPhone},phone.eq.${clean}`);
-            } else {
-              supaQuery = supaQuery.or(`email.ilike.%${clean}%,phone.ilike.%${clean}%,tag.ilike.%${clean}%`);
-            }
-
-            if (currentUserId && isValidUuid(currentUserId)) {
-              supaQuery = supaQuery.neq('id', currentUserId);
-            }
-
-            const { data, error } = await supaQuery.limit(1);
-
-            if (!error && data && data.length > 0) {
-              return {
-                id: data[0].id,
-                fullName: data[0].full_name,
-                email: data[0].email,
-                phone: data[0].phone || '',
-                tag: data[0].tag || `@${(data[0].full_name || 'member').toLowerCase().replace(/[^a-z0-9]/g, '')}`,
-                nuban: null,
-                bankName: 'MidePay / Providus Bank',
-                isMidePayNuban: false,
-                avatarUrl: data[0].avatar_url,
-                isFrozen: data[0].is_frozen === true,
-                isRegistered: true,
-                source: 'supabase'
-              };
-            }
           }
         } catch (e) {
           console.warn('⚠️ [MidePay] Recipient lookup error:', e.message);
@@ -816,6 +797,7 @@
      * (server-side pgcrypto PIN check, 5-strike lockout, FOR UPDATE locking & UUID idempotency)
      */
     async executeP2PTransfer({ recipientNuban, amount, pin, idempotencyKey = null, narration = 'MidePay Transfer' }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('P2P transfers');
       const cleanRecipient = String(recipientNuban || '').trim();
       const amt = Math.round(Number(amount) * 100) / 100;
       const idemKey = isValidUuid(idempotencyKey) ? idempotencyKey : generateIdempotencyKey();
@@ -865,6 +847,7 @@
      * transfer_funds(sender_id, recipient_id, amount, narration, p_pin, p_idempotency_key)
      */
     async transferFunds({ senderId, recipientId, recipientNuban = null, amount, narration, pin = null, idempotencyKey = null }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('wallet transfers');
       if (!senderId) return { success: false, error: 'Sender ID is required' };
       if (!recipientId && !recipientNuban) return { success: false, error: 'Recipient ID or NUBAN is required' };
       if (recipientId && senderId === recipientId) return { success: false, error: 'Cannot transfer funds to yourself' };
@@ -959,6 +942,7 @@
      * (zero client-side balance math or direct table writes)
      */
     async recordTransfer({ userId, amount, recipient, accountNumber = null, destinationBank, narration, fee = 0.00, reference = null, pin = null, idempotencyKey = null }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('external bank transfers');
       if (!this.isConfigured() || !this.client) {
         if (isProduction()) {
           return { success: false, error: 'Ledger service unavailable in production.' };
@@ -1004,6 +988,7 @@
      * Initialize Live Paystack or Flutterwave Deposit Session via `init-payment` Edge Function
      */
     async initializeGatewayDeposit({ provider = 'paystack', amount, callbackUrl = null }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('gateway deposits');
       const cleanProvider = String(provider || 'paystack').trim().toLowerCase();
       if (cleanProvider !== 'paystack' && cleanProvider !== 'flutterwave') {
         return { success: false, error: "Unsupported payment gateway. Choose 'paystack' or 'flutterwave'." };
@@ -1102,14 +1087,17 @@
     /**
      * Initiate PIN-Authenticated Outbound NIP Bank Payout via `bank-payout` Edge Function
      */
-    async initiateBankPayout({ provider = 'paystack', accountNumber, bankCode, accountName, amount, pin, narration }) {
+    async initiateBankPayout({ provider = 'paystack', accountNumber, bankCode, accountName, amount, pin, narration, idempotencyKey }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('outbound bank payouts');
       if (!this.isConfigured() || !this.client) {
         return { success: false, error: 'Supabase backend connection is required.' };
       }
+      if (!isValidUuid(idempotencyKey)) return { success: false, code: 'IDEMPOTENCY_KEY_REQUIRED', error: 'A stable UUID idempotency key is required.' };
       try {
         const { data, error } = await this.client.functions.invoke('bank-payout', {
           body: {
             action: 'initiate_payout',
+            idempotency_key: idempotencyKey,
             provider,
             account_number: String(accountNumber || '').trim(),
             bank_code: String(bankCode || '').trim(),
@@ -1139,6 +1127,7 @@
      * (zero client-side balance math or direct table writes)
      */
     async recordDeposit({ userId, amount, idempotencyKey = null }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('wallet top-ups');
       const depositAmount = Number(amount);
       if (!Number.isFinite(depositAmount) || depositAmount <= 0) {
         return { success: false, error: 'Deposit amount must be greater than zero.' };
@@ -1195,33 +1184,32 @@
     /**
      * Executive RPC: admin_credit_wallet(target_user_id, amount, reason)
      */
-    async adminCreditWallet({ targetUserId, amount, reason = 'Executive Treasury Credit' }) {
-      if (!this.isConfigured() || !this.client) {
-        return { success: false, error: 'Supabase backend connection is required.' };
-      }
-      if (!isValidUuid(targetUserId)) {
-        return { success: false, error: 'Valid target user UUID is required.' };
-      }
-      const creditAmt = Number(amount);
-      if (!creditAmt || creditAmt <= 0) {
-        return { success: false, error: 'Credit amount must be greater than zero.' };
-      }
+    async adminCreditWallet() {
+      return { success: false, code: 'TREASURY_APPROVAL_REQUIRED', error: 'Use a funded treasury request and independent approval.' };
+    },
 
-      const isExec = await this.isUserExecutive();
-      if (!isExec) {
-        return { success: false, error: 'Access Denied: Verified executive role required.' };
-      }
+    async treasuryRpc(name, args = {}) {
+      if (!this.isConfigured() || !this.client) return { success: false, error: 'Authenticated backend required.' };
+      const { data, error } = await this.client.rpc(name, args);
+      return error ? { success: false, error: error.message } : (data || { success: false, error: 'Empty treasury response.' });
+    },
 
-      const { data, error } = await this.client.rpc('admin_credit_wallet', {
-        target_user_id: targetUserId,
-        amount: creditAmt,
-        reason: String(reason || 'Executive Treasury Credit').trim()
-      });
+    async enrollTreasuryMfa() {
+      if (!this.client?.auth?.mfa) return { error: 'MFA is unavailable.' };
+      const { data, error } = await this.client.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'MidePay treasury' });
+      return error ? { error: error.message } : { factorId: data.id, qrCode: data.totp.qr_code };
+    },
 
-      if (error) {
-        return { success: false, error: error.message || 'admin_credit_wallet RPC failed.' };
+    async verifyTreasuryMfa(code, factorId = null) {
+      if (!this.client?.auth?.mfa || !/^\d{6}$/.test(code)) return { success: false, error: 'Enter a six-digit authenticator code.' };
+      if (!factorId) {
+        const { data, error } = await this.client.auth.mfa.listFactors();
+        if (error) return { success: false, error: error.message };
+        factorId = data?.totp?.find(f => f.status === 'verified')?.id;
       }
-      return { success: true, data };
+      if (!factorId) return { success: false, error: 'Set up an authenticator first.' };
+      const { error } = await this.client.auth.mfa.challengeAndVerify({ factorId, code });
+      return { success: !error, error: error?.message };
     },
 
     /**
@@ -1353,6 +1341,7 @@
     },
 
     async createPaymentRequest({ requesterId, payerId, amount, note = '', requesterDetails = null, payerDetails = null }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('payment requests');
       if (!requesterId || !payerId) return { success: false, error: 'Requester and Payer are required' };
       if (requesterId === payerId) return { success: false, error: 'Cannot request money from yourself' };
       if (!amount || Number(amount) <= 0) return { success: false, error: 'Request amount must be greater than zero' };
@@ -1440,7 +1429,7 @@
           if (authData?.user && authData.user.id === userId) {
             const { data, error } = await this.client
               .from('virtual_cards')
-              .select('*')
+              .select('id, user_id, wallet_id, card_type, currency, card_holder_name, masked_pan, card_label, expiry_month, expiry_year, card_balance, spending_limit_monthly, is_frozen, is_active, created_at, updated_at')
               .eq('user_id', userId)
               .order('created_at', { ascending: false });
 
@@ -1453,6 +1442,7 @@
         }
       }
 
+      if (isProduction()) return [];
       return this._readLocalVirtualCards(userId).filter(c => c.is_active !== false);
     },
 
@@ -1466,6 +1456,7 @@
       spendingLimit = null,
       initialBalance = 0.00
     }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('virtual card issuance');
       if (!userId) {
         return { success: false, error: 'User ID is required to issue a virtual debit card.' };
       }
@@ -1536,6 +1527,9 @@
     async ensureUserVirtualCards({ userId, walletId = null, cardHolderName = 'MIDEPAY MEMBER' }) {
       if (!userId) return [];
       let cards = await this.getVirtualCards(userId);
+      if (isFinancialQuarantined()) {
+        return cards;
+      }
 
       const hasUsd = cards.some(c => String(c.currency).toUpperCase() === 'USD');
       const hasNgn = cards.some(c => String(c.currency).toUpperCase() === 'NGN');
@@ -1572,6 +1566,7 @@
     },
 
     async updateVirtualCardFreeze({ cardId, userId, isFrozen }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('virtual card mutations');
       if (!cardId || !userId) {
         return { success: false, error: 'Card ID and User ID are required.' };
       }
@@ -1612,6 +1607,7 @@
     },
 
     async updateVirtualCardLimit({ cardId, userId, spendingLimit }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('virtual card limit changes');
       const numLimit = Number(spendingLimit);
       if (!cardId || !userId || !Number.isFinite(numLimit) || numLimit < 0) {
         return { success: false, error: 'Enter a valid monthly spending limit.' };
@@ -1666,6 +1662,7 @@
     },
 
     async updateVirtualCardBalance({ cardId, userId, fundIncrement = null, pin = null, idempotencyKey = null }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('virtual card funding');
       const creditAmt = Math.round(Number(fundIncrement) * 100) / 100;
       if (!cardId || !userId || !Number.isFinite(creditAmt) || creditAmt <= 0) {
         return { success: false, error: 'Valid card ID, user ID, and positive funding amount are required.' };
@@ -1757,14 +1754,16 @@
       return requests;
     },
 
-    async updatePaymentRequestStatus(requestId, status) {
+    async updatePaymentRequestStatus(requestId, status, txReference = null) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('payment request settlements');
       if (!requestId || !status) return { success: false, error: 'Request ID and status required' };
 
       if (this.isConfigured() && this.client && isValidUuid(requestId)) {
         try {
           const { data: rpcRes, error } = await this.client.rpc('respond_payment_request', {
             p_request_id: requestId,
-            p_status: String(status).toLowerCase()
+            p_status: String(status).toLowerCase(),
+            p_tx_reference: txReference && typeof txReference === 'string' ? txReference.trim() : null
           });
 
           if (error || rpcRes?.success === false) {
@@ -1837,10 +1836,12 @@
         }
       }
 
+      if (isProduction()) return [];
       return this._readLocalVaults(userId);
     },
 
     async createSavingsVault({ userId, title, category = 'General', targetAmount, lockUntil = null, interestRatePa = 14.50 }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('MideSave vault creation');
       const cleanTitle = String(title || '').trim();
       const targetNum = Math.round(Number(targetAmount) * 100) / 100;
       if (!userId) return { success: false, error: 'User ID is required.' };
@@ -1900,6 +1901,7 @@
     },
 
     async fundSavingsVault(vaultId, amount, userId = null, options = {}) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('MideSave deposits');
       const amt = Math.round(Number(amount) * 100) / 100;
       if (!vaultId || !Number.isFinite(amt) || amt <= 0) {
         return { success: false, error: 'Valid vault ID and positive deposit amount are required.' };
@@ -1943,6 +1945,7 @@
     },
 
     async withdrawSavingsVault(vaultId, amount, userId = null, options = {}) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('MideSave withdrawals');
       const amt = Math.round(Number(amount) * 100) / 100;
       if (!vaultId || !Number.isFinite(amt) || amt <= 0) {
         return { success: false, error: 'Valid vault ID and positive withdrawal amount are required.' };
@@ -2042,10 +2045,12 @@
         }
       }
 
+      if (isProduction()) return [];
       return this._readLocalBills(userId);
     },
 
     async payUtilityBill({ userId, serviceType, provider, identifier, planName, amount, pinVerified = true, pin = null, idempotencyKey = null }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('VTU & utility bill payments');
       const cleanService = String(serviceType || '').trim().toLowerCase();
       const amt = Math.round(Number(amount) * 100) / 100;
       if (!['airtime', 'data', 'electricity', 'cable'].includes(cleanService)) {
@@ -2145,10 +2150,12 @@
         }
       }
 
+      if (isProduction()) return [];
       return this._readLocalPayroll(userId);
     },
 
     async executeBusinessPayroll({ userId, businessId = null, title = 'Monthly Team Payroll', employees = [], pin = null, idempotencyKey = null }) {
+      if (isFinancialQuarantined()) return buildQuarantineResult('batch payroll disbursements');
       if (!userId) return { success: false, error: 'Employer user ID is required.' };
       if (!Array.isArray(employees) || employees.length === 0) {
         return { success: false, error: 'Add at least one staff member to execute batch payroll.' };

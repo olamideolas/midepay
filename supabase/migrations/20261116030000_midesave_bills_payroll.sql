@@ -25,6 +25,24 @@ CREATE TABLE IF NOT EXISTS public.savings_vaults (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT TIMEZONE('utc', NOW())
 );
 
+-- Reconcile legacy 20260923 savings_vaults columns before creating indexes
+ALTER TABLE public.savings_vaults
+  ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'General',
+  ADD COLUMN IF NOT EXISTS current_balance NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  ADD COLUMN IF NOT EXISTS interest_rate_pa NUMERIC(5, 2) NOT NULL DEFAULT 14.50,
+  ADD COLUMN IF NOT EXISTS lock_until TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'savings_vaults' AND column_name = 'current_amount'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.savings_vaults ALTER COLUMN current_amount SET DEFAULT 0.00';
+    EXECUTE 'UPDATE public.savings_vaults SET current_balance = GREATEST(COALESCE(current_balance, 0), COALESCE(current_amount, 0)) WHERE current_balance = 0 AND COALESCE(current_amount, 0) > 0';
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_savings_vaults_user_id ON public.savings_vaults(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_savings_vaults_status ON public.savings_vaults(status);
 
@@ -477,6 +495,36 @@ CREATE TABLE IF NOT EXISTS public.payroll_runs (
   status TEXT NOT NULL DEFAULT 'successful' CHECK (status IN ('pending', 'successful', 'failed')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT TIMEZONE('utc', NOW())
 );
+
+-- Reconcile legacy 20260923 payroll_runs columns before creating indexes
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'payroll_runs' AND column_name = 'business_id'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.payroll_runs ALTER COLUMN business_id DROP NOT NULL';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'payroll_runs' AND column_name = 'total_recipients'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.payroll_runs ALTER COLUMN total_recipients DROP NOT NULL';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'payroll_runs' AND column_name = 'total_payout'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.payroll_runs ALTER COLUMN total_payout DROP NOT NULL';
+  END IF;
+END $$;
+
+ALTER TABLE public.payroll_runs
+  ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS business_id UUID REFERENCES public.businesses(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS total_amount NUMERIC(14, 2) DEFAULT 0.00,
+  ADD COLUMN IF NOT EXISTS total_fee NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+  ADD COLUMN IF NOT EXISTS employee_count INT DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS reference TEXT;
 
 CREATE TABLE IF NOT EXISTS public.payroll_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

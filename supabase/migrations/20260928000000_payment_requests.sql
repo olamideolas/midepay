@@ -49,8 +49,9 @@ CREATE POLICY "Participants can update payment requests"
   USING (auth.uid() = payer_id OR auth.uid() = requester_id)
   WITH CHECK (auth.uid() = payer_id OR auth.uid() = requester_id);
 
--- 4. Realtime publication (safe if enabled)
+-- 4. Realtime publication (safe if enabled or if publication is absent in local/staging PG)
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.payment_requests;
-EXCEPTION WHEN duplicate_object THEN null;
+EXCEPTION
+  WHEN duplicate_object OR undefined_object THEN null;
 END $$;

@@ -8,15 +8,15 @@
  * 2. Supports `action: 'resolve_account'` (10-digit NUBAN beneficiary inquiry).
  * 3. Supports `action: 'initiate_payout'`:
  *    - Enforces `profiles.is_frozen === false` and PIN lockout window (`pin_locked_until`).
- *    - Verifies 4-digit transaction PIN against `profiles.pin_hash` (`bcryptjs`),
+ *    - Verifies the PIN through the authenticated PostgreSQL verification RPC,
  *      locking PIN for 15 minutes after 5 consecutive failed attempts.
  *    - Enforces CBN Tier 1–3 single-transfer limits (₦50k / ₦100k / ₦5M).
  *    - Atomically debits wallet via `debit_wallet_for_payout` RPC BEFORE calling gateway.
- *    - Automatically refunds wallet via `reverse_failed_payout` RPC if gateway call fails.
+ *    - Preserves pending debits on ambiguous failures for verified reconciliation.
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import bcrypt from 'npm:bcryptjs@2.4.3';
+
 
 export type PayoutProvider = 'paystack' | 'flutterwave';
 
@@ -28,11 +28,10 @@ export interface BankPayoutRequest {
   account_name?: string;
   amount_ngn?: number;
   pin?: string;
+  idempotency_key?: string;
   narration?: string;
 }
 
-const MAX_PIN_ATTEMPTS = 5;
-const PIN_LOCKOUT_MINUTES = 15;
 
 function getEnv(key: string): string {
   const denoEnv = (globalThis as unknown as { Deno?: { env?: { get(k: string): string | undefined } } }).Deno?.env;
@@ -62,15 +61,6 @@ function buildCorsHeaders(req: Request): Record<string, string> {
     'Vary': 'Origin',
     'Content-Type': 'application/json; charset=utf-8'
   };
-}
-
-function generatePayoutReference(provider: PayoutProvider): string {
-  const prefix = provider === 'paystack' ? 'MDP-OUT-PSK' : 'MDP-OUT-FLW';
-  const ts = Date.now().toString(36).toUpperCase();
-  const bytes = new Uint8Array(5);
-  crypto.getRandomValues(bytes);
-  const randHex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-  return `${prefix}-${ts}-${randHex}`;
 }
 
 async function resolveNubanAccount(
@@ -177,6 +167,12 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
       headers: corsHeaders
     });
   }
+  if (!user.email_confirmed_at) {
+    return new Response(
+      JSON.stringify({ code: 'EMAIL_NOT_VERIFIED', error: 'Verify your 6-digit email OTP before initiating payouts.' }),
+      { status: 403, headers: corsHeaders }
+    );
+  }
 
   let body: BankPayoutRequest;
   try {
@@ -220,6 +216,13 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     });
   }
 
+  // Default server-side quarantine: browser configuration cannot enable real payouts.
+  if (getEnv('BANK_PAYOUTS_ENABLED') !== 'true') {
+    return new Response(JSON.stringify({ code: 'PAYOUTS_QUARANTINED', error: 'Bank payouts await staging approval.' }), { status: 503, headers: corsHeaders });
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.idempotency_key || '')) {
+    return new Response(JSON.stringify({ code: 'IDEMPOTENCY_KEY_REQUIRED' }), { status: 400, headers: corsHeaders });
+  }
   // ACTION 2: PIN-Verified Outbound Bank Transfer
   const amountNgn = Math.round(Number(body.amount_ngn ?? 0) * 100) / 100;
   const rawPin = String(body.pin ?? '').trim();
@@ -245,7 +248,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
 
   const { data: profile, error: profErr } = await adminClient
     .from('profiles')
-    .select('id, full_name, pin_hash, pin_failed_attempts, pin_locked_until, is_frozen, kyc_tier')
+    .select('id, full_name, email_otp_verified_at, is_frozen, kyc_tier')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -256,6 +259,13 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     });
   }
 
+  if (!user.email_confirmed_at || !profile.email_otp_verified_at) {
+    return new Response(
+      JSON.stringify({ code: 'EMAIL_NOT_VERIFIED', error: 'Complete 6-digit Email OTP verification before initiating bank transfers.' }),
+      { status: 403, headers: corsHeaders }
+    );
+  }
+
   if (profile.is_frozen === true) {
     return new Response(
       JSON.stringify({ error: 'Account is frozen per CBN AML/Fraud directives. Outbound payouts are blocked.' }),
@@ -263,57 +273,17 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     );
   }
 
-  if (profile.pin_locked_until && new Date(profile.pin_locked_until) > new Date()) {
-    return new Response(
-      JSON.stringify({ error: 'Transaction PIN is temporarily locked due to repeated failed attempts.' }),
-      { status: 429, headers: corsHeaders }
-    );
-  }
-
-  if (!profile.pin_hash || !/^\$2[aby]\$\d{2}\$/.test(profile.pin_hash)) {
-    return new Response(
-      JSON.stringify({ error: 'Transaction PIN not configured. Please set up your 4-digit security PIN first.' }),
-      { status: 400, headers: corsHeaders }
-    );
-  }
-
-  const isPinValid = bcrypt.compareSync(rawPin, profile.pin_hash);
-  if (!isPinValid) {
-    const nextAttempts = Number(profile.pin_failed_attempts ?? 0) + 1;
-    const lockUntil =
-      nextAttempts >= MAX_PIN_ATTEMPTS
-        ? new Date(Date.now() + PIN_LOCKOUT_MINUTES * 60 * 1000).toISOString()
-        : null;
-
-    await adminClient
-      .from('profiles')
-      .update({
-        pin_failed_attempts: nextAttempts,
-        pin_locked_until: lockUntil,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', user.id);
-
-    return new Response(
-      JSON.stringify({
-        error: lockUntil
-          ? `Incorrect PIN. Maximum attempts reached; PIN locked for ${PIN_LOCKOUT_MINUTES} minutes.`
-          : 'Incorrect 4-digit transaction PIN.'
-      }),
-      { status: 401, headers: corsHeaders }
-    );
-  }
-
-  if (Number(profile.pin_failed_attempts ?? 0) > 0) {
-    await adminClient
-      .from('profiles')
-      .update({ pin_failed_attempts: 0, pin_locked_until: null })
-      .eq('id', user.id);
+  // PIN strikes must be serialized and persisted by PostgreSQL, never read/modify/write at the Edge.
+  const { data: pinResult, error: pinError } = await userClient.rpc('verify_user_transaction_pin', { p_pin: rawPin });
+  if (pinError || !pinResult?.valid) {
+    return new Response(JSON.stringify({ error: pinResult?.error || pinError?.message || 'PIN verification failed.' }), {
+      status: pinResult?.code === 'PIN_LOCKED' ? 429 : 401, headers: corsHeaders
+    });
   }
 
   // Enforce CBN Tier 1-3 single-transfer cap
   const kycTier = Number(profile.kyc_tier ?? 1);
-  const singleLimit = kycTier === 1 ? 50_000 : kycTier === 2 ? 100_000 : 5_000_000;
+  const singleLimit = kycTier === 1 ? 50_000 : kycTier === 2 ? 250_000 : 5_000_000;
   if (amountNgn > singleLimit) {
     return new Response(
       JSON.stringify({
@@ -335,7 +305,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     }
   }
 
-  const reference = generatePayoutReference(provider);
+  const reference = `MDP-OUT-${user.id}-${body.idempotency_key!.toLowerCase()}`;
   const payoutFee = 0.0;
 
   // Atomically lock & debit sender's NGN wallet before external network call
@@ -358,6 +328,9 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     });
   }
 
+  if ((debitResult as { already_debited?: boolean })?.already_debited) {
+    return new Response(JSON.stringify(debitResult), { status: 200, headers: corsHeaders });
+  }
   // Dispatch outbound NIP payout via Paystack or Flutterwave
   try {
     let gatewayRef = reference;
@@ -445,14 +418,17 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
       gatewayRef = String(flwJson.data?.id ?? reference);
     }
 
+    // SECURITY: Keep payout transaction in `'pending'` status until cryptographically
+    // verified settlement arrives via `payment-webhook` (`finalize_payout_settlement`).
     await adminClient
       .from('transactions')
-      .update({ status: 'successful', gateway_reference: gatewayRef })
+      .update({ gateway_reference: gatewayRef })
       .eq('reference', reference);
 
     return new Response(
       JSON.stringify({
         success: true,
+        status: 'pending',
         provider,
         reference,
         gateway_reference: gatewayRef,
@@ -464,16 +440,10 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     );
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Outbound gateway transfer failed.';
-    // Automatically reverse wallet debit so customer funds are never stranded
-    await adminClient.rpc('reverse_failed_payout', {
-      p_reference: reference,
-      p_reason: errMsg,
-      p_raw_payload: { error: errMsg }
-    });
-
-    return new Response(JSON.stringify({ error: errMsg, reversed: true, reference }), {
-      status: 502,
-      headers: corsHeaders
+    // A timeout or malformed response does not prove failure: the bank may have paid.
+    // Keep the debit pending until a verified webhook or reconciliation resolves it.
+    return new Response(JSON.stringify({ error: errMsg, status: 'pending', reconciliation_required: true, reference }), {
+      status: 202, headers: corsHeaders
     });
   }
 }
