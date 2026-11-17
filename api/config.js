@@ -16,11 +16,13 @@ export default function handler(req, res) {
   }
 
   const financialRpcsLive = String(process.env.FINANCIAL_RPCS_LIVE || '').toLowerCase() === 'true';
+  const testPaystackCheckout = process.env.TEST_PAYSTACK_CHECKOUT === 'true' && url === 'https://ajbhsmcosxgymrtawlmd.supabase.co';
 
   res.status(200).send(`
 window.MIDEPAY_SUPABASE_CONFIG = {
   ENV: ${JSON.stringify(env)},
   FINANCIAL_RPCS_LIVE: ${JSON.stringify(financialRpcsLive)},
+  TEST_PAYSTACK_CHECKOUT: ${JSON.stringify(testPaystackCheckout)},
   url: ${JSON.stringify(url)},
   anonKey: ${JSON.stringify(anonKey)}
 };

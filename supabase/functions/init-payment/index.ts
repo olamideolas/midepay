@@ -317,6 +317,12 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
         throw new Error(pskJson.message || 'Paystack transaction initialization failed.');
       }
 
+      const checkout = new URL(pskJson.data.authorization_url);
+      if (checkout.protocol !== 'https:' || checkout.hostname !== 'checkout.paystack.com' || checkout.username || checkout.password ||
+          pskJson.data.reference !== reference) {
+        throw new Error('Paystack checkout response did not match the requested payment.');
+      }
+
       authorizationUrl = pskJson.data.authorization_url;
       gatewayRef = pskJson.data.access_code || pskJson.data.reference || reference;
     } else {
@@ -377,6 +383,7 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
         authorization_url: authorizationUrl,
         reference,
         provider,
+        mode: provider === 'paystack' && gatewaySecret.startsWith('sk_test_') ? 'test' : 'live',
         amount_ngn: amountNgn
       }),
       { status: 200, headers: corsHeaders }

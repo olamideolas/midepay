@@ -38,6 +38,7 @@ const financialRpcsLive = process.env.FINANCIAL_RPCS_LIVE !== undefined
   ? String(process.env.FINANCIAL_RPCS_LIVE).trim().toLowerCase() === 'true'
   : existingFinancialLive;
 const supabaseUrl = (process.env.SUPABASE_URL || existingUrl || 'https://pxdzdehocjnmxbuvipxu.supabase.co').trim();
+const testPaystackCheckout = process.env.TEST_PAYSTACK_CHECKOUT === 'true' && supabaseUrl === 'https://ajbhsmcosxgymrtawlmd.supabase.co';
 const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || existingAnonKey || 'sb_publishable_5adXF0UhSQJ1n4F_IqLXEw_0naxL0wT').trim();
 
 function containsServiceRoleJwt(rawKey) {
@@ -70,6 +71,7 @@ const configContent = `/**
 window.MIDEPAY_SUPABASE_CONFIG = {
   ENV: ${JSON.stringify(appEnv)},
   FINANCIAL_RPCS_LIVE: ${JSON.stringify(financialRpcsLive)},
+  TEST_PAYSTACK_CHECKOUT: ${JSON.stringify(testPaystackCheckout)},
   url: ${JSON.stringify(supabaseUrl)},
   anonKey: ${JSON.stringify(supabaseAnonKey)}
 };

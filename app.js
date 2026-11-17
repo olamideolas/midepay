@@ -4382,6 +4382,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const gatewaysLive = Boolean(
     window.MIDEPAY_SUPABASE_CONFIG && window.MIDEPAY_SUPABASE_CONFIG.GATEWAYS_LIVE === true
   );
+  const stagingPaystackTest = window.MIDEPAY_SUPABASE_CONFIG?.TEST_PAYSTACK_CHECKOUT === true &&
+    window.MIDEPAY_SUPABASE_CONFIG?.url === 'https://ajbhsmcosxgymrtawlmd.supabase.co';
+  if (stagingPaystackTest) {
+    if (btnGatewayDirect) { btnGatewayDirect.disabled = true; btnGatewayDirect.classList.add('hidden'); }
+    if (btnGatewayFlutterwave) { btnGatewayFlutterwave.disabled = true; btnGatewayFlutterwave.classList.add('hidden'); }
+    if (btnGatewayPaystack) {
+      btnGatewayPaystack.disabled = false; btnGatewayPaystack.removeAttribute('aria-disabled');
+      btnGatewayPaystack.classList.remove('is-disabled-roadmap');
+      btnGatewayPaystack.title = 'Paystack test checkout — no real money';
+      const badge = btnGatewayPaystack.querySelector('.gateway-coming-badge');
+      if (badge) badge.textContent = 'Test mode — no real money';
+    }
+  }
 
   // Unlock Paystack/Flutterwave buttons automatically once GATEWAYS_LIVE === true
   if (gatewaysLive) {
@@ -4395,7 +4408,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function selectGatewayProvider(provider) {
-    const clean = gatewaysLive && (provider === 'paystack' || provider === 'flutterwave') ? provider : 'direct';
+    const clean = stagingPaystackTest ? 'paystack' : gatewaysLive && (provider === 'paystack' || provider === 'flutterwave') ? provider : 'direct';
     if (gatewayProviderInput) gatewayProviderInput.value = clean;
 
     if (btnGatewayDirect) {
@@ -4416,7 +4429,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirmTopupBtnText) {
       confirmTopupBtnText.textContent =
         clean === 'paystack'
-          ? 'Continue to Paystack Checkout'
+          ? (stagingPaystackTest ? 'Continue to Paystack Test Checkout' : 'Continue to Paystack Checkout')
           : clean === 'flutterwave'
             ? 'Continue to Flutterwave Checkout'
             : 'Credit Wallet Instantly';
@@ -4430,7 +4443,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (btnGatewayPaystack) {
     btnGatewayPaystack.addEventListener('click', () => {
-      if (!gatewaysLive) {
+      if (!gatewaysLive && !stagingPaystackTest) {
         showToast('🗓️ Paystack online card checkout goes live November 30, 2026. Use Instant Direct Top-Up now!');
         return;
       }
@@ -4469,7 +4482,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Optional External Card Checkout Path (only when GATEWAYS_LIVE === true)
       if (
-        gatewaysLive &&
+        (gatewaysLive || (stagingPaystackTest && selectedProvider === 'paystack')) &&
         (selectedProvider === 'paystack' || selectedProvider === 'flutterwave') &&
         window.MidePayDB &&
         typeof window.MidePayDB.initializeGatewayDeposit === 'function'
@@ -4515,6 +4528,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Primary Default Path: Instant Direct Wallet Top-Up via `concept_topup_wallet` RPC
+      if (stagingPaystackTest) { showToast('Use Paystack test checkout. Direct wallet credits remain disabled.', 'error'); return; }
       ensureUserSession();
       await withSubmitLock('add-money-direct', confirmTopupBtn, 'Crediting Wallet...', async (idempotencyKey) => {
         if (!window.MidePayDB || !state.user?.id) {

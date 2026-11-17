@@ -15,4 +15,7 @@ assert.ok(!/Password123!|password123|@gmail\.com|investor\.relations@|temitope\.
 assert.ok(!/\b\d{10,}\b/.test(app.replaceAll('0000000000','')));
 const parsed=cp.spawnSync(process.execPath,['--check','app.js'],{cwd:output,encoding:'utf8'});assert.equal(parsed.status,0,parsed.stderr);
 console.log('PASS preview removes embedded member credentials, contact details, banking fixtures, transactions and waitlist leads');
-console.log('8 passed; 0 failed');
+assert.ok(content.includes('TEST_PAYSTACK_CHECKOUT: true'));
+const dynamic=fs.readFileSync(path.join(output,'api/config.js'),'utf8');assert.ok(dynamic.includes('const testPaystackCheckout = true;'));assert.ok(dynamic.includes('const financialRpcsLive = false;'));
+console.log('PASS only Paystack test checkout is enabled while general financial mutations stay disabled');
+console.log('9 passed; 0 failed');

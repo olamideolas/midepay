@@ -988,13 +988,19 @@
      * Initialize Live Paystack or Flutterwave Deposit Session via `init-payment` Edge Function
      */
     async initializeGatewayDeposit({ provider = 'paystack', amount, callbackUrl = null }) {
-      if (isFinancialQuarantined()) return buildQuarantineResult('gateway deposits');
       const cleanProvider = String(provider || 'paystack').trim().toLowerCase();
+      const testCheckout = window.MIDEPAY_SUPABASE_CONFIG?.TEST_PAYSTACK_CHECKOUT === true &&
+        SUPABASE_URL === 'https://ajbhsmcosxgymrtawlmd.supabase.co' && cleanProvider === 'paystack';
+      if (isFinancialQuarantined() && !testCheckout) return buildQuarantineResult('gateway deposits');
       if (cleanProvider !== 'paystack' && cleanProvider !== 'flutterwave') {
         return { success: false, error: "Unsupported payment gateway. Choose 'paystack' or 'flutterwave'." };
       }
 
-      const amountNgn = Math.round(Number(amount) * 100) / 100;
+      const scaledAmount = typeof amount === 'number' ? amount * 100 : NaN;
+      if (!Number.isSafeInteger(Math.round(scaledAmount)) || Math.abs(scaledAmount - Math.round(scaledAmount)) > 0.0000001) {
+        return { success: false, error: 'Enter a numeric amount with at most two decimal places.' };
+      }
+      const amountNgn = Math.round(scaledAmount) / 100;
       if (!Number.isFinite(amountNgn) || amountNgn < 100 || amountNgn > 5000000) {
         return { success: false, error: 'Deposit amount must be between ₦100.00 and ₦5,000,000.00.' };
       }
@@ -1041,12 +1047,18 @@
         if (!data || !data.authorization_url) {
           return { success: false, error: data?.error || 'Gateway did not return an authorization URL.' };
         }
+        const checkout = new URL(data.authorization_url);
+        if (cleanProvider === 'paystack' && (checkout.protocol !== 'https:' || checkout.hostname !== 'checkout.paystack.com' || checkout.username || checkout.password)) {
+          return { success: false, error: 'Checkout returned an untrusted payment address.' };
+        }
+        if (testCheckout && data.mode !== 'test') return { success: false, error: 'Staging requires a Paystack test checkout.' };
 
         return {
           success: true,
           authorizationUrl: data.authorization_url,
           reference: data.reference,
           provider: data.provider || cleanProvider,
+          mode: data.mode,
           amountNgn: data.amount_ngn || amountNgn
         };
       } catch (err) {

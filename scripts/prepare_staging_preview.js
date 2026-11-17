@@ -31,7 +31,9 @@ function prepare({url,key,output}){
   }
   if(name==='build.js')text=`// Staging upload only: fail closed on an unexpected database target.\nconst approvedStagingUrl=${JSON.stringify(url)};\nif(process.env.SUPABASE_URL && process.env.SUPABASE_URL!==approvedStagingUrl)throw Error('Staging target mismatch');\nprocess.env.SUPABASE_URL=approvedStagingUrl;\nprocess.env.SUPABASE_ANON_KEY=${JSON.stringify(key)};\nprocess.env.APP_ENV='production';\nprocess.env.FINANCIAL_RPCS_LIVE='false';\n`+text;
   if(name==='api/config.js')text=text.replace(/const env = .*;/,"const env = 'production';").replace(/const url = .*;/,'const url = '+JSON.stringify(url)+';').replace(/const anonKey = .*;/,'const anonKey = '+JSON.stringify(key)+';').replace(/const financialRpcsLive = .*;/,'const financialRpcsLive = false;');
-  if(name==='config.js')text='window.MIDEPAY_SUPABASE_CONFIG = '+JSON.stringify({ENV:'production',FINANCIAL_RPCS_LIVE:false,url,anonKey:key},null,2)+';\n';
+  if(name==='build.js')text="process.env.TEST_PAYSTACK_CHECKOUT='true';\n"+text;
+  if(name==='api/config.js')text=text.replace(/const testPaystackCheckout = .*;/,'const testPaystackCheckout = true;');
+  if(name==='config.js')text='window.MIDEPAY_SUPABASE_CONFIG = '+JSON.stringify({ENV:'production',FINANCIAL_RPCS_LIVE:false,TEST_PAYSTACK_CHECKOUT:true,url,anonKey:key},null,2)+';\n';
   fs.writeFileSync(dest,text);
  }
  fs.writeFileSync(path.join(out,'package.json'),JSON.stringify({name:'midepay-staging-preview',version:'1.0.0',private:true,scripts:{build:'node build.js'},engines:{node:'>=22'}},null,2)+'\n');

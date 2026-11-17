@@ -298,9 +298,15 @@ export async function handlePaymentWebhookRequest(
     const data = (payload.data ?? {}) as Record<string, unknown>;
     const reference = String(data.reference ?? '').trim();
 
+    // A staging deployment must never settle a live payment, even after a secret misconfiguration.
+    if (getEnv('SUPABASE_URL') === 'https://ajbhsmcosxgymrtawlmd.supabase.co' &&
+        (!paystackSecret.startsWith('sk_test_') || data.domain !== 'test')) {
+      return new Response(JSON.stringify({ error: 'Staging accepts only Paystack test events.' }), { status: 400, headers: jsonHeaders });
+    }
+
     if (eventType === 'charge.success' && data.status === 'success' && reference) {
       const amountKobo = Number(data.amount ?? 0);
-      if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
+      if (typeof data.amount !== 'number' || !Number.isSafeInteger(amountKobo) || amountKobo <= 0) {
         return new Response(JSON.stringify({ error: 'Invalid Paystack settlement amount.' }), {
           status: 400,
           headers: jsonHeaders
