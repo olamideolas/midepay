@@ -7,7 +7,7 @@
  * - Clean offline fallback notification when mobile data is unavailable
  */
 
-const CACHE_NAME = 'midepay-pwa-static-v4.7.1';
+const CACHE_NAME = 'midepay-pwa-static-v4.7.2-deposit-recovery';
 
 const STATIC_ASSETS = [
   '/',

@@ -16,14 +16,15 @@ Object.assign(process.env,{SUPABASE_URL:'https://ajbhsmcosxgymrtawlmd.supabase.c
 let pass=0;
 async function test(name,fn){await fn();pass++;console.log('PASS '+name)}
 const user={id:crypto.randomUUID(),email:'pipeline@example.invalid',email_confirmed_at:new Date().toISOString()};
+let proofVerified=true,settlementUnavailable=false;
 const value=v=>v&&typeof v==='object'?JSON.stringify(v):v;
 function queryBuilder(table){
  if(!['profiles','wallets','transactions'].includes(table))throw Error('Unexpected table');
  let filters=[],insertion,update;
- const q={select(){return q},eq(k,v){filters.push([k,v]);return q},insert(v){insertion=v;return q},update(v){update=v;return q},single:()=>execute(),maybeSingle:()=>execute(),then:(resolve,reject)=>execute().then(resolve,reject)};
+ const q={select(){return q},eq(k,v){filters.push([k,v]);return q},order(){return q},limit(){return q},insert(v){insertion=v;return q},update(v){update=v;return q},single:()=>execute(),maybeSingle:()=>execute(),then:(resolve,reject)=>execute().then(resolve,reject)};
  async function execute(){try{let sql,params=[];if(insertion){const keys=Object.keys(insertion);params=keys.map(k=>value(insertion[k]));sql=`INSERT INTO public.${table}(${keys.join(',')}) VALUES(${keys.map((_,i)=>'$'+(i+1)).join(',')}) RETURNING *`;}else{
   const keys=update?Object.keys(update):[];params=keys.map(k=>value(update[k]));const where=filters.map(([k,v])=>{params.push(v);return `${k}=$${params.length}`}).join(' AND ');
-  sql=update?`UPDATE public.${table} SET ${keys.map((k,i)=>k+'=$'+(i+1)).join(',')} WHERE ${where} RETURNING *`:`SELECT * FROM public.${table} WHERE ${where}`;
+  sql=update?`UPDATE public.${table} SET ${keys.map((k,i)=>k+'=$'+(i+1)).join(',')} WHERE ${where} RETURNING *`:`SELECT * FROM public.${table} WHERE ${where} ORDER BY created_at DESC LIMIT 1`;
  }const r=await db.query(sql,params);return{data:r.rows[0]||null,error:null};}catch(e){return{data:null,error:{message:e.message}}}}
  return q;
 }
@@ -42,7 +43,7 @@ try{
  for(const file of fs.readdirSync(path.join(root,'supabase/migrations')).filter(f=>f.endsWith('.sql')).sort())await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',file),'utf8'));
  await db.query('INSERT INTO auth.users(id,email,email_confirmed_at) VALUES($1,$2,now())',[user.id,user.email]);
  await db.query('SELECT attest_verified_email($1,$2)',[user.id,user.email]);
- globalThis.__pipelineClient=(_url,key)=>key==='pipeline-service'?{from:queryBuilder}:{auth:{getUser:async()=>({data:{user},error:null})},rpc:async()=>({data:{verified:true},error:null})};
+ globalThis.__pipelineClient=(_url,key)=>key==='pipeline-service'?{from:queryBuilder,rpc:async(name,args)=>{assert.equal(name,'settle_gateway_deposit');return settlementUnavailable?{data:null,error:{message:'synthetic outage'}}:deps.settleDeposit(args)}}:{auth:{getUser:async()=>({data:{user},error:null})},rpc:async()=>({data:{verified:proofVerified},error:null})};
  const source=fs.readFileSync(path.join(root,'supabase/functions/init-payment/index.ts'),'utf8').replace("import { createClient } from 'npm:@supabase/supabase-js@2.119.0';",'const createClient=globalThis.__pipelineClient;');fs.writeFileSync(entry,source);
  const {handleInitPaymentRequest:init}=await import(pathToFileURL(entry));
  let requestBody;
@@ -63,5 +64,20 @@ try{
  await test('fractional kobo cannot be silently rounded into a credit',async()=>{assert.equal((await webhook(event(pending.reference,{amount:100000.1,id:'fractional-receipt'}))).status,400);assert.equal(await balance(),1000)});
  await test('checkout rejects an untrusted redirect URL from the provider response',async()=>{checkoutUrl='https://untrusted.example.invalid/pay';assert.equal((await initialize()).status,502);checkoutUrl='https://checkout.paystack.com/synthetic'});
  await test('checkout rejects a mismatched provider reference',async()=>{checkoutReferenceOverride='different-reference';assert.equal((await initialize()).status,502);checkoutReferenceOverride=null});
+ const recoveryTx=await (await initialize()).json();
+ let verificationCalls=0,verificationOverrides={},transportFailure=false;
+ globalThis.fetch=async(url,options)=>{verificationCalls++;if(transportFailure)throw Error('synthetic timeout');assert.equal(options.method,'GET');assert.equal(options.headers.Authorization,'Bearer '+secret);const ref=decodeURIComponent(url.split('/').at(-1));return new Response(JSON.stringify({status:true,data:{status:'success',domain:'test',currency:'NGN',amount:100000,id:9002,reference:ref,...verificationOverrides}}),{status:200})};
+ const recover=(reference=recoveryTx.reference)=>init(new Request('http://localhost/init',{method:'POST',headers:{authorization:'Bearer synthetic',origin,'content-type':'application/json'},body:JSON.stringify({action:'verify_payment',...(reference?{reference}:{})})}));
+ await test('a missed webhook can be recovered only after server-side Paystack verification',async()=>{const r=await recover();assert.equal(r.status,200);assert.equal((await r.json()).success,true);assert.equal(await balance(),2000)});
+ await test('repeating recovery and then receiving the real webhook cannot double-credit',async()=>{const r=await recover();assert.equal((await r.json()).already_settled,true);assert.equal((await webhook(event(recoveryTx.reference,{id:9002}))).status,200);assert.equal(await balance(),2000)});
+ await test('unconfirmed provider status cannot authorize settlement',async()=>{verificationOverrides={status:'pending'};const r=await recover();assert.equal(r.status,200);assert.equal((await r.json()).success,false);verificationOverrides={};assert.equal(await balance(),2000)});
+ await test('recovery rejects mismatched amount, currency, domain, receipt or reference',async()=>{for(const override of [{amount:99999},{amount:100001},{currency:'USD'},{domain:'live'},{reference:'other'},{id:null}]){verificationOverrides=override;assert.equal((await recover()).status,409)}verificationOverrides={};assert.equal(await balance(),2000)});
+ await test('a different account cannot reconcile another user deposit',async()=>{const id=crypto.randomUUID(),ref='MDP-PSK-FOREIGN-DEPOSIT';await db.query("INSERT INTO auth.users(id,email) VALUES($1,'other@pipeline.invalid')",[id]);await db.query("INSERT INTO transactions(wallet_id,user_id,type,category,amount,fee,status,counterparty_name,reference,gateway_provider) SELECT id,user_id,'inflow','deposit',1000,0,'pending','Synthetic', $2,'paystack' FROM wallets WHERE user_id=$1",[id,ref]);const before=verificationCalls;assert.equal((await recover(ref)).status,404);assert.equal(verificationCalls,before);assert.equal(await balance(),2000)});
+ await test('recovery requires independent email proof before contacting Paystack',async()=>{proofVerified=false;const before=verificationCalls;assert.equal((await recover()).status,403);assert.equal(verificationCalls,before);proofVerified=true});
+ await test('provider timeouts cannot manufacture a settlement',async()=>{transportFailure=true;assert.equal((await recover()).status,503);transportFailure=false;assert.equal(await balance(),2000)});
+ await test('recovery is unavailable outside the explicitly approved staging database',async()=>{process.env.SUPABASE_URL='https://other.example.invalid';assert.equal((await recover()).status,503);process.env.SUPABASE_URL='https://ajbhsmcosxgymrtawlmd.supabase.co'});
+ await test('malformed recovery references are rejected before provider calls',async()=>{const before=verificationCalls;assert.equal((await recover('invalid/reference')).status,400);assert.equal(verificationCalls,before)});
+ await test('failed database settlement is not reported as credited',async()=>{settlementUnavailable=true;assert.equal((await recover()).status,503);settlementUnavailable=false;assert.equal(await balance(),2000)});
+ await test('latest-deposit lookup stays scoped to the authenticated user',async()=>{const r=await recover(null);assert.equal(r.status,200);assert.equal((await r.json()).reference,recoveryTx.reference);assert.equal(await balance(),2000)});
  console.log(`${pass} passed; 0 failed`);
 }finally{await db.close();globalThis.fetch=oldFetch;delete globalThis.__pipelineClient;for(const k of envKeys){if(oldEnv[k]===undefined)delete process.env[k];else process.env[k]=oldEnv[k]}fs.unlinkSync(entry);fs.rmdirSync(temp)}

@@ -987,6 +987,28 @@
     /**
      * Initialize Live Paystack or Flutterwave Deposit Session via `init-payment` Edge Function
      */
+    async verifyGatewayDeposit(reference = null) {
+      if (SUPABASE_URL !== 'https://ajbhsmcosxgymrtawlmd.supabase.co' || window.MIDEPAY_SUPABASE_CONFIG?.TEST_PAYSTACK_CHECKOUT !== true) return buildQuarantineResult('deposit verification');
+      if (!this.isConfigured() || !this.client) return { success: false, error: 'Sign in before checking a deposit.' };
+      try {
+        const body = { action: 'verify_payment' };
+        if (reference) body.reference = reference;
+        const { data, error } = await this.client.functions.invoke('init-payment', { body });
+        if (error) {
+          let code = '';
+          try { code = (await error.context?.json())?.code || ''; } catch (_) {}
+          const messages = {
+            DEPOSIT_NOT_FOUND: 'No Paystack deposit was found for your account.',
+            EMAIL_NOT_VERIFIED: 'Verify your email before checking a deposit.',
+            TEST_RECONCILIATION_UNAVAILABLE: 'The staging Paystack test key needs configuration.',
+            PROVIDER_PAYMENT_MISMATCH: 'Paystack payment details do not match this deposit.'
+          };
+          return { success: false, error: messages[code] || 'Could not verify the payment. Try again shortly.' };
+        }
+        return data || { success: false, error: 'Payment verification returned no result.' };
+      } catch (_) { return { success: false, error: 'Could not connect to payment verification.' }; }
+    },
+
     async initializeGatewayDeposit({ provider = 'paystack', amount, callbackUrl = null }) {
       const cleanProvider = String(provider || 'paystack').trim().toLowerCase();
       const testCheckout = window.MIDEPAY_SUPABASE_CONFIG?.TEST_PAYSTACK_CHECKOUT === true &&

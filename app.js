@@ -4385,6 +4385,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const stagingPaystackTest = window.MIDEPAY_SUPABASE_CONFIG?.TEST_PAYSTACK_CHECKOUT === true &&
     window.MIDEPAY_SUPABASE_CONFIG?.url === 'https://ajbhsmcosxgymrtawlmd.supabase.co';
   if (stagingPaystackTest) {
+    document.getElementById('pending-deposit-tools')?.classList.remove('hidden');
     if (btnGatewayDirect) { btnGatewayDirect.disabled = true; btnGatewayDirect.classList.add('hidden'); }
     if (btnGatewayFlutterwave) { btnGatewayFlutterwave.disabled = true; btnGatewayFlutterwave.classList.add('hidden'); }
     if (btnGatewayPaystack) {
@@ -4437,6 +4438,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (topupErrorAlert) topupErrorAlert.classList.add('hidden');
   }
   selectGatewayProvider('direct');
+
+  const verifyDepositBtn = document.getElementById('verify-latest-deposit-btn');
+  if (verifyDepositBtn) verifyDepositBtn.addEventListener('click', async () => {
+    const status = document.getElementById('pending-deposit-status');
+    if (!stagingPaystackTest || !window.MidePayDB?.verifyGatewayDeposit) return;
+    await withSubmitLock('verify-paystack-deposit', verifyDepositBtn, 'Checking Paystack...', async () => {
+      if (status) status.textContent = 'Checking the existing payment with Paystack...';
+      const result = await window.MidePayDB.verifyGatewayDeposit();
+      if (!result.success) {
+        if (status) status.textContent = result.error || 'Paystack has not confirmed this deposit as successful. Do not pay again yet.';
+        return;
+      }
+      try {
+        await loadDashboardData();
+        await rehydrateBalanceFromServer();
+      } catch (_) {
+        if (status) status.textContent = 'Payment verified. Reload your dashboard to refresh the balance.';
+        return;
+      }
+      if (status) status.textContent = result.already_settled ? 'This deposit was already credited. Your balance has been refreshed.' : 'Payment verified and credited. Your balance has been refreshed.';
+      showToast('Paystack deposit verified. Balance refreshed.', 'success');
+    });
+  });
 
   if (btnGatewayDirect) {
     btnGatewayDirect.addEventListener('click', () => selectGatewayProvider('direct'));

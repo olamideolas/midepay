@@ -16,6 +16,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2.119.0';
 export type GatewayProvider = 'paystack' | 'flutterwave';
 
 export interface InitPaymentRequest {
+  action?: 'verify_payment';
+  reference?: string;
   provider: GatewayProvider;
   amount_ngn: number;
   callback_url?: string;
@@ -137,6 +139,50 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
       status: 400,
       headers: corsHeaders
     });
+  }
+
+  // Recovery for a missed webhook. Authenticate ownership first, then verify with
+  // Paystack server-to-server; a browser success callback is never payment proof.
+  if (body.action === 'verify_payment') {
+    const respond = (status: number, result: unknown) => new Response(JSON.stringify(result), { status, headers: { ...corsHeaders, 'Cache-Control': 'no-store' } });
+    const secret = getEnv('PAYSTACK_SECRET_KEY');
+    if (supabaseUrl !== 'https://ajbhsmcosxgymrtawlmd.supabase.co' || !secret.startsWith('sk_test_')) return respond(503, { code: 'TEST_RECONCILIATION_UNAVAILABLE' });
+    if (body.reference !== undefined && (typeof body.reference !== 'string' || !/^MDP-PSK-[A-Z0-9-]{10,100}$/.test(body.reference))) return respond(400, { code: 'INVALID_REFERENCE' });
+    try {
+      const { data: proof, error: proofError } = await userClient.rpc('get_email_verification_status');
+      if (proofError || proof?.verified !== true) return respond(403, { code: 'EMAIL_NOT_VERIFIED' });
+      const admin = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      let query = admin.from('transactions').select('id,wallet_id,user_id,type,category,amount,status,gateway_provider,reference')
+        .eq('user_id', user.id).eq('type', 'inflow').eq('category', 'deposit').eq('gateway_provider', 'paystack');
+      if (body.reference) query = query.eq('reference', body.reference);
+      const { data: tx, error: txError } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (txError) return respond(503, { code: 'DEPOSIT_LOOKUP_UNAVAILABLE' });
+      if (!tx || tx.user_id !== user.id) return respond(404, { code: 'DEPOSIT_NOT_FOUND' });
+      if (!['pending', 'successful'].includes(tx.status)) return respond(409, { code: 'DEPOSIT_NOT_SETTLEABLE' });
+      const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(tx.reference)}`, {
+        method: 'GET', headers: { Authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(15000)
+      });
+      const result = await response.json();
+      if (!response.ok || result?.status !== true || !result.data) return respond(503, { code: 'PROVIDER_VERIFICATION_UNAVAILABLE' });
+      const payment = result.data;
+      if (payment.status !== 'success') return respond(200, { success: false, status: 'pending', code: 'PAYMENT_NOT_SUCCESSFUL', reference: tx.reference });
+      const expectedKobo = Math.round(Number(tx.amount) * 100);
+      if (payment.domain !== 'test' || payment.currency !== 'NGN' || payment.reference !== tx.reference ||
+          !Number.isSafeInteger(payment.amount) || payment.amount !== expectedKobo ||
+          !/^[1-9][0-9]*$/.test(String(payment.id ?? '')) ||
+          (typeof payment.id === 'number' && !Number.isSafeInteger(payment.id))) return respond(409, { code: 'PROVIDER_PAYMENT_MISMATCH' });
+      const { data: settlement, error: settlementError } = await admin.rpc('settle_gateway_deposit', {
+        p_reference: tx.reference, p_provider: 'paystack', p_amount_kobo_or_ngn: payment.amount,
+        p_gateway_ref: String(payment.id), p_raw_payload: {
+          event: 'charge.success', verification_source: 'paystack_verify_api',
+          data: { id: payment.id, reference: payment.reference, status: payment.status, domain: payment.domain, currency: payment.currency, amount: payment.amount }
+        }
+      });
+      if (settlementError || settlement?.success !== true) return respond(503, { code: 'SETTLEMENT_RETRY_REQUIRED' });
+      return respond(200, { success: true, status: 'successful', reference: tx.reference, amount_ngn: Number(tx.amount), already_settled: settlement.already_settled === true });
+    } catch {
+      return respond(503, { code: 'VERIFICATION_RETRY_REQUIRED' });
+    }
   }
 
   const provider = String(body.provider ?? '').toLowerCase() as GatewayProvider;
