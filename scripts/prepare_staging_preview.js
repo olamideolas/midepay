@@ -4,7 +4,7 @@ const fs=require('fs'),path=require('path');
 const ROOT=path.resolve(__dirname,'..');
 const STAGING_URL='https://ajbhsmcosxgymrtawlmd.supabase.co';
 const PRODUCTION_REF='pxdzdehocjnmxbuvipxu';
-const assets=['index.html','style.css','liquid-glass.css','loading-animation.css','liquid-glass.js','app.js','supabaseClient.js','sw.js','favicon.svg','logo.svg','manifest.json','midepay-icon.png','midepay-logo.jpg','midepay-logo.png','midepay-logo.svg','vendor/supabase.js','vendor/supabase.LICENSE.txt','vendor/supabase.version.json','api/config.js','build.js','config.js','vercel.json'];
+const assets=['password-recovery.html','password-recovery.js','password-recovery.css','index.html','style.css','liquid-glass.css','loading-animation.css','liquid-glass.js','app.js','supabaseClient.js','sw.js','favicon.svg','logo.svg','manifest.json','midepay-icon.png','midepay-logo.jpg','midepay-logo.png','midepay-logo.svg','vendor/supabase.js','vendor/supabase.LICENSE.txt','vendor/supabase.version.json','api/config.js','build.js','config.js','vercel.json'];
 function prepare({url,key,output}){
  if(url!==STAGING_URL)throw Error('Only the explicitly approved MidePay staging project is allowed.');
  if(!/^sb_publishable_[A-Za-z0-9_-]+$/.test(key||''))throw Error('An enabled staging publishable key is required.');

@@ -16,7 +16,8 @@
     "test:sdk": "node scripts/test_browser_sdk.js",
     "test:staging": "node scripts/test_staging_preview.js",
     "test:payment-boundaries": "node scripts/test_payout_boundaries.mjs",
-    "test:postgres-concurrency": "node scripts/test_native_postgres.mjs"
+    "test:postgres-concurrency": "node scripts/test_native_postgres.mjs",
+    "test:recovery": "node scripts/test_password_recovery.js"
   },
   "keywords": [
     "fintech",

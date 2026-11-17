@@ -2306,7 +2306,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (forgotPasswordLink) {
     forgotPasswordLink.addEventListener('click', (e) => {
       e.preventDefault();
-      showToast('Password reset is not available yet. Contact support for account recovery.', 'error');
+      window.location.assign('/password-recovery');
     });
   }
 
