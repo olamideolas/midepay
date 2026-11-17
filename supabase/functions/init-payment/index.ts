@@ -37,15 +37,10 @@ export function buildCorsHeaders(req: Request): Record<string, string> {
     .map((s) => s.trim())
     .filter(Boolean);
   const reqOrigin = req.headers.get('origin') ?? '';
-  const allowOrigin =
-    allowedList.length === 0
-      ? reqOrigin || '*'
-      : allowedList.includes(reqOrigin)
-        ? reqOrigin
-        : allowedList[0];
+  const allowOrigin = allowedList.includes(reqOrigin) ? reqOrigin : '';
 
   return {
-    'Access-Control-Allow-Origin': allowOrigin,
+    ...(allowOrigin ? { 'Access-Control-Allow-Origin': allowOrigin } : {}),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400',
@@ -66,7 +61,9 @@ export function generateDepositReference(provider: GatewayProvider): string {
 function isSafeCallbackUrl(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl);
-    return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'));
+    const allowedOrigins = getEnv('ALLOWED_ORIGINS').split(',').map(s => s.trim()).filter(Boolean);
+    return !parsed.username && !parsed.password && allowedOrigins.includes(parsed.origin) &&
+      (parsed.protocol === 'https:' || (parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')));
   } catch {
     return false;
   }
@@ -74,6 +71,10 @@ function isSafeCallbackUrl(rawUrl: string): boolean {
 
 export async function handleInitPaymentRequest(req: Request): Promise<Response> {
   const corsHeaders = buildCorsHeaders(req);
+  const origin = req.headers.get('origin');
+  if (origin && !getEnv('ALLOWED_ORIGINS').split(',').map(s => s.trim()).filter(Boolean).includes(origin)) {
+    return new Response(JSON.stringify({ code: 'ORIGIN_NOT_ALLOWED' }), { status: 403, headers: corsHeaders });
+  }
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -130,6 +131,7 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
   let body: InitPaymentRequest;
   try {
     body = (await req.json()) as InitPaymentRequest;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid payload');
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON request payload.' }), {
       status: 400,
@@ -145,7 +147,16 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
     });
   }
 
-  const amountNgn = Math.round(Number(body.amount_ngn) * 100) / 100;
+  const gatewaySecret = getEnv(provider === 'paystack' ? 'PAYSTACK_SECRET_KEY' : 'FLUTTERWAVE_SECRET_KEY');
+  const isStaging = supabaseUrl === 'https://ajbhsmcosxgymrtawlmd.supabase.co';
+  if (!gatewaySecret || (isStaging && (provider !== 'paystack' || !gatewaySecret.startsWith('sk_test_')))) {
+    return new Response(JSON.stringify({ code: 'GATEWAY_NOT_CONFIGURED' }), { status: 503, headers: corsHeaders });
+  }
+  const scaledAmount = typeof body.amount_ngn === 'number' ? body.amount_ngn * 100 : NaN;
+  if (!Number.isSafeInteger(Math.round(scaledAmount)) || Math.abs(scaledAmount - Math.round(scaledAmount)) > 0.0000001) {
+    return new Response(JSON.stringify({ code: 'INVALID_AMOUNT_PRECISION' }), { status: 400, headers: corsHeaders });
+  }
+  const amountNgn = Math.round(scaledAmount) / 100;
   if (!Number.isFinite(amountNgn) || amountNgn < MIN_DEPOSIT_NGN || amountNgn > MAX_DEPOSIT_NGN) {
     return new Response(
       JSON.stringify({
@@ -155,7 +166,10 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
     );
   }
 
-  const callbackUrl = body.callback_url?.trim() || req.headers.get('origin') || 'https://midepay.vercel.app';
+  if (body.callback_url !== undefined && typeof body.callback_url !== 'string') {
+    return new Response(JSON.stringify({ code: 'INVALID_CALLBACK_URL' }), { status: 400, headers: corsHeaders });
+  }
+  const callbackUrl = body.callback_url?.trim() || req.headers.get('origin') || '';
   if (!isSafeCallbackUrl(callbackUrl)) {
     return new Response(JSON.stringify({ error: 'Invalid callback_url. Must be HTTPS (or localhost in dev).' }), {
       status: 400,

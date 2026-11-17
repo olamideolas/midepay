@@ -46,15 +46,10 @@ function buildCorsHeaders(req: Request): Record<string, string> {
     .map((s) => s.trim())
     .filter(Boolean);
   const reqOrigin = req.headers.get('origin') ?? '';
-  const allowOrigin =
-    allowedList.length === 0
-      ? reqOrigin || '*'
-      : allowedList.includes(reqOrigin)
-        ? reqOrigin
-        : allowedList[0];
+  const allowOrigin = allowedList.includes(reqOrigin) ? reqOrigin : '';
 
   return {
-    'Access-Control-Allow-Origin': allowOrigin,
+    ...(allowOrigin ? { 'Access-Control-Allow-Origin': allowOrigin } : {}),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400',
@@ -123,6 +118,10 @@ async function resolveNubanAccount(
 
 export async function handleBankPayoutRequest(req: Request): Promise<Response> {
   const corsHeaders = buildCorsHeaders(req);
+  const origin = req.headers.get('origin');
+  if (origin && !getEnv('ALLOWED_ORIGINS').split(',').map(s => s.trim()).filter(Boolean).includes(origin)) {
+    return new Response(JSON.stringify({ code: 'ORIGIN_NOT_ALLOWED' }), { status: 403, headers: corsHeaders });
+  }
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -177,6 +176,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
   let body: BankPayoutRequest;
   try {
     body = (await req.json()) as BankPayoutRequest;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Invalid payload');
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON request payload.' }), {
       status: 400,
@@ -184,7 +184,10 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     });
   }
 
-  const provider: PayoutProvider = body.provider === 'flutterwave' ? 'flutterwave' : 'paystack';
+  if (body.provider !== undefined && body.provider !== 'paystack' && body.provider !== 'flutterwave') {
+    return new Response(JSON.stringify({ code: 'INVALID_PROVIDER' }), { status: 400, headers: corsHeaders });
+  }
+  const provider: PayoutProvider = body.provider ?? 'paystack';
   const accountNumber = String(body.account_number ?? '').trim();
   const bankCode = String(body.bank_code ?? '').trim();
 
@@ -193,6 +196,13 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
       status: 400,
       headers: corsHeaders
     });
+  }
+
+  // Check configuration before reserving any wallet funds or contacting a gateway.
+  const gatewaySecret = getEnv(provider === 'paystack' ? 'PAYSTACK_SECRET_KEY' : 'FLUTTERWAVE_SECRET_KEY');
+  const isStaging = supabaseUrl === 'https://ajbhsmcosxgymrtawlmd.supabase.co';
+  if (!gatewaySecret || (isStaging && (provider !== 'paystack' || !gatewaySecret.startsWith('sk_test_')))) {
+    return new Response(JSON.stringify({ code: 'GATEWAY_NOT_CONFIGURED' }), { status: 503, headers: corsHeaders });
   }
 
   // ACTION 1: NIP Account Name Inquiry
@@ -224,7 +234,11 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ code: 'IDEMPOTENCY_KEY_REQUIRED' }), { status: 400, headers: corsHeaders });
   }
   // ACTION 2: PIN-Verified Outbound Bank Transfer
-  const amountNgn = Math.round(Number(body.amount_ngn ?? 0) * 100) / 100;
+  const scaledAmount = typeof body.amount_ngn === 'number' ? body.amount_ngn * 100 : NaN;
+  if (!Number.isSafeInteger(Math.round(scaledAmount)) || Math.abs(scaledAmount - Math.round(scaledAmount)) > 0.0000001) {
+    return new Response(JSON.stringify({ code: 'INVALID_AMOUNT_PRECISION' }), { status: 400, headers: corsHeaders });
+  }
+  const amountNgn = Math.round(scaledAmount) / 100;
   const rawPin = String(body.pin ?? '').trim();
   const narration = String(body.narration ?? 'Transfer via MidePay').trim().slice(0, 60) || 'Transfer via MidePay';
 
@@ -328,6 +342,12 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     });
   }
 
+  if (!debitResult || debitResult.success !== true) {
+    return new Response(JSON.stringify({ code: 'DEBIT_NOT_CONFIRMED', reconciliation_required: true, reference }), {
+      status: 503, headers: corsHeaders
+    });
+  }
+
   if ((debitResult as { already_debited?: boolean })?.already_debited) {
     return new Response(JSON.stringify(debitResult), { status: 200, headers: corsHeaders });
   }
@@ -420,10 +440,11 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
 
     // SECURITY: Keep payout transaction in `'pending'` status until cryptographically
     // verified settlement arrives via `payment-webhook` (`finalize_payout_settlement`).
-    await adminClient
+    const { error: referenceError } = await adminClient
       .from('transactions')
       .update({ gateway_reference: gatewayRef })
       .eq('reference', reference);
+    if (referenceError) throw new Error('Gateway accepted transfer; reference persistence requires reconciliation.');
 
     return new Response(
       JSON.stringify({

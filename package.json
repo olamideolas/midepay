@@ -14,7 +14,9 @@
     "test:independent": "node scripts/test_independent_database.mjs && node scripts/test_independent_webhook.mjs",
     "test:phase1": "node scripts/test_phase1_security.mjs && node scripts/test_phase1_handlers.mjs",
     "test:sdk": "node scripts/test_browser_sdk.js",
-    "test:staging": "node scripts/test_staging_preview.js"
+    "test:staging": "node scripts/test_staging_preview.js",
+    "test:payment-boundaries": "node scripts/test_payout_boundaries.mjs",
+    "test:postgres-concurrency": "node scripts/test_native_postgres.mjs"
   },
   "keywords": [
     "fintech",
