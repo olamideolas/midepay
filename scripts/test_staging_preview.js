@@ -1,0 +1,18 @@
+const assert=require('assert/strict'),fs=require('fs'),path=require('path'),cp=require('child_process');const {prepare}=require('./prepare_staging_preview');
+const base=process.env.STAGING_TEST_OUTPUT;if(!base)throw Error('STAGING_TEST_OUTPUT must be a disposable workspace directory');fs.mkdirSync(base,{recursive:true});
+const key='sb_publishable_test_staging_contract',url='https://ajbhsmcosxgymrtawlmd.supabase.co';
+assert.throws(()=>prepare({url:'https://pxdzdehocjnmxbuvipxu.supabase.co',key,output:path.join(base,'forbidden')}));console.log('PASS production target rejected');
+assert.throws(()=>prepare({url,key:'sb_secret_forbidden',output:path.join(base,'secret')}));console.log('PASS server secret rejected');
+const output=fs.mkdtempSync(path.join(base,'safe-'));prepare({url,key,output});const files=[];function walk(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,item.name);if(item.isDirectory())walk(p);else files.push(p)}}walk(output);
+for(const f of files.filter(f=>/\.(js|json|html|css)$/.test(f)))assert.ok(!fs.readFileSync(f,'utf8').includes('pxdzdehocjnmxbuvipxu'),path.relative(output,f)+' references production');console.log('PASS preview files contain no production database reference');
+assert.ok(!fs.existsSync(path.join(output,'supabase'))&&!fs.existsSync(path.join(output,'docs'))&&!fs.existsSync(path.join(output,'.env')));console.log('PASS source migrations, reports and secret env files are excluded');
+const csp=JSON.parse(fs.readFileSync(path.join(output,'vercel.json'),'utf8')).headers[0].headers.find(h=>h.key==='Content-Security-Policy').value;assert.ok(csp.includes(url)&&csp.includes('wss://ajbhsmcosxgymrtawlmd.supabase.co'));console.log('PASS CSP allows only the staging Supabase target');
+const result=cp.spawnSync(process.execPath,['build.js'],{cwd:output,env:{...process.env,SUPABASE_URL:url},encoding:'utf8'});assert.equal(result.status,0,result.stderr);const content=fs.readFileSync(path.join(output,'config.js'),'utf8');assert.ok(content.includes(url)&&content.includes('FINANCIAL_RPCS_LIVE: false'));console.log('PASS generated runtime config keeps financial operations disabled');
+const rejected=cp.spawnSync(process.execPath,['build.js'],{cwd:output,env:{...process.env,SUPABASE_URL:'https://pxdzdehocjnmxbuvipxu.supabase.co'},encoding:'utf8'});assert.notEqual(rejected.status,0);console.log('PASS preview build rejects inherited production settings');
+const app=fs.readFileSync(path.join(output,'app.js'),'utf8');
+for(const declaration of ['const DEFAULT_DEMO_TRANSACTIONS = [];','const BUILTIN_REGISTERED_ACCOUNTS = [];','const demoRequests = [];','adminWaitlistEntries = [];'])assert.ok(app.includes(declaration),declaration);
+assert.ok(!/Password123!|password123|@gmail\.com|investor\.relations@|temitope\.ade@|08139482019|9021849102/.test(app));
+assert.ok(!/\b\d{10,}\b/.test(app.replaceAll('0000000000','')));
+const parsed=cp.spawnSync(process.execPath,['--check','app.js'],{cwd:output,encoding:'utf8'});assert.equal(parsed.status,0,parsed.stderr);
+console.log('PASS preview removes embedded member credentials, contact details, banking fixtures, transactions and waitlist leads');
+console.log('8 passed; 0 failed');

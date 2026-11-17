@@ -29,7 +29,7 @@ export async function handleVerifyEmailOtp(req: Request, deps: EmailOtpDependenc
     if (!deps.verifyOtp || !deps.attest || !deps.consumeAttempt) {
       const url=env('SUPABASE_URL'), anonKey=env('SUPABASE_ANON_KEY'), service=env('SUPABASE_SERVICE_ROLE_KEY');
       if (!url||!anonKey||!service) return respond(503,{error:'Verification unavailable.'});
-      const {createClient}=await import('npm:@supabase/supabase-js@2');
+      const {createClient}=await import('npm:@supabase/supabase-js@2.119.0');
       anon=createClient(url,anonKey,{auth:{persistSession:false,autoRefreshToken:false}});
       admin=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
     }

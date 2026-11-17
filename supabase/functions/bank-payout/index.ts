@@ -15,7 +15,7 @@
  *    - Preserves pending debits on ambiguous failures for verified reconciliation.
  */
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.119.0';
 
 
 export type PayoutProvider = 'paystack' | 'flutterwave';

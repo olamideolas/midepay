@@ -11,7 +11,7 @@
  *    `{ authorization_url, reference, provider }` with strict CORS headers.
  */
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.119.0';
 
 export type GatewayProvider = 'paystack' | 'flutterwave';
 

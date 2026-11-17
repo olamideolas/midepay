@@ -19,7 +19,7 @@ await test('stored HTML in executive member fields is escaped by renderer',async
 
 const bankSource=fs.readFileSync(new URL('../supabase/functions/bank-payout/index.ts',import.meta.url),'utf8');
 // Execute the actual handler after substituting only its SDK import. No external connections.
-const transformed=bankSource.replace("import { createClient } from 'npm:@supabase/supabase-js@2';",'const createClient = globalThis.__auditClientFactory;');
+const transformed=bankSource.replace("import { createClient } from 'npm:@supabase/supabase-js@2.119.0';",'const createClient = globalThis.__auditClientFactory;');
 const temp=new URL('../scripts/.audit-bank-runtime.ts',import.meta.url);
 const envKeys=['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SERVICE_ROLE_KEY','BANK_PAYOUTS_ENABLED','PAYSTACK_SECRET_KEY'];
 const prior=Object.fromEntries(envKeys.map(k=>[k,process.env[k]]));

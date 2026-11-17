@@ -249,7 +249,7 @@ export async function handlePaymentWebhookRequest(
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Supabase service credentials missing.');
     }
-    const { createClient } = await import('npm:@supabase/supabase-js@2');
+    const { createClient } = await import('npm:@supabase/supabase-js@2.119.0');
     cachedAdminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false }
     }) as unknown as typeof cachedAdminClient;

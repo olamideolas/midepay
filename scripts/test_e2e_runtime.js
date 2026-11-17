@@ -493,7 +493,7 @@ function createZeroTrustSupabaseSimulator() {
         const normEmail = String(email || '').trim().toLowerCase();
         const found = authUsersByEmail.get(normEmail);
         const expectedOtp = pendingOtpsByEmail.get(normEmail);
-        if (!found || type !== 'signup' || !expectedOtp || String(token) !== expectedOtp) {
+        if (!found || type !== 'email' || !expectedOtp || String(token) !== expectedOtp) {
           return { data: { user: null, session: null }, error: { message: 'Token has expired or is invalid' } };
         }
         found.email_confirmed_at = new Date().toISOString();
@@ -504,7 +504,7 @@ function createZeroTrustSupabaseSimulator() {
           email_confirmed_at: found.email_confirmed_at,
           user_metadata: found.user_metadata
         };
-        activeSession = { access_token: `jwt-${found.id}`, user: pubUser };
+        activeSession = { access_token: `jwt-${found.id}`, refresh_token: `refresh-${found.id}`, user: pubUser };
         return { data: { user: pubUser, session: activeSession }, error: null };
       },
       resend: async ({ type, email }) => {
@@ -533,9 +533,11 @@ function createZeroTrustSupabaseSimulator() {
           email_confirmed_at: found.email_confirmed_at,
           user_metadata: found.user_metadata
         };
-        activeSession = { access_token: `jwt-${found.id}`, user: pubUser };
+        activeSession = { access_token: `jwt-${found.id}`, refresh_token: `refresh-${found.id}`, user: pubUser };
         return { data: { user: pubUser, session: activeSession }, error: null };
       },
+      setSession: async () => ({data:{user:activeSession?.user,session:activeSession},error:null}),
+      signInWithOtp: async ({email}) => client.auth.resend({email,type:'signup'}),
       signOut: async () => {
         activeSession = null;
         return { error: null };
@@ -544,6 +546,13 @@ function createZeroTrustSupabaseSimulator() {
       getSession: async () => ({ data: { session: activeSession }, error: null }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() { } } } })
     },
+    functions: {invoke: async (name,{body}) => {
+      if(name!=='verify-email-otp')return {data:null,error:{message:'Unknown endpoint'}};
+      const result=await client.auth.verifyOtp({...body,type:'email'});
+      if(result.error)return result;
+      profilesById.get(result.data.user.id).email_otp_verified_at=new Date().toISOString();
+      return {data:{success:true,...result.data},error:null};
+    }},
     from: (table) => createQueryBuilder(table),
     rpc: async (fnName, params = {}) => {
       rpcCallHistory.push({ fn: fnName, params: { ...params }, quarantinedAtCall: quarantineActiveInDb });
@@ -556,6 +565,7 @@ function createZeroTrustSupabaseSimulator() {
       const uid = activeSession?.user?.id || null;
 
       switch (fnName) {
+        case 'get_email_verification_status': return {data:{verified:Boolean(profilesById.get(uid)?.email_otp_verified_at)},error:null};
         case 'ensure_my_profile_and_wallet': {
           if (!uid) return { data: null, error: { message: 'Authentication required' } };
           const authU = authUsersById.get(uid);
@@ -582,6 +592,7 @@ function createZeroTrustSupabaseSimulator() {
             return { data: { success: false, code: 'EMAIL_NOT_VERIFIED', error: 'Email not verified' }, error: null };
           }
           const prof = profilesById.get(uid);
+          if(!prof.email_otp_verified_at)return {data:{success:false,code:'EMAIL_OTP_REQUIRED'},error:null};
           const nowIso = new Date().toISOString();
           const meta = params.p_device_metadata || {};
           prof.last_login_at = nowIso;
@@ -1312,6 +1323,9 @@ vm.createContext(context);
 for (const scriptFile of ['liquid-glass.js', 'vendor/supabase.js', 'config.js', 'supabaseClient.js', 'app.js']) {
   const code = fs.readFileSync(path.join(ROOT, scriptFile), 'utf8');
   vm.runInContext(code, context, { filename: scriptFile });
+  // The official SDK is verified separately by test_browser_sdk.js. Keep this DOM
+  // harness on its explicit Auth/RPC simulator after the real bundle is evaluated.
+  if (scriptFile === 'vendor/supabase.js') context.supabase = { createClient: () => sim.client };
 }
 
 // Fire DOMContentLoaded
@@ -1457,7 +1471,7 @@ async function runAssertions() {
   await elementsById.get('otp-verify-form').dispatchEvent('submit');
   check(
     !otpModal.classList.contains('hidden') && elementsById.get('otp-feedback-alert').classList.contains('error'),
-    'Invalid 6-digit OTP token is rejected by auth.verifyOtp and keeps OTP modal open'
+    'Invalid 6-digit OTP token is rejected by the server OTP endpoint and keeps OTP modal open'
   );
 
   // Verify valid 6-digit OTP -> logs USER_LOGIN audit + locks dashboard behind Mandatory 4-Digit PIN Onboarding modal!

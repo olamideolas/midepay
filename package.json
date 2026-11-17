@@ -12,7 +12,9 @@
     "test:webhooks": "node --experimental-strip-types scripts/test_payment_webhook.js",
     "test:database": "node scripts/test_v46_postgres_migration.mjs",
     "test:independent": "node scripts/test_independent_database.mjs && node scripts/test_independent_webhook.mjs",
-    "test:phase1": "node scripts/test_phase1_security.mjs && node scripts/test_phase1_handlers.mjs"
+    "test:phase1": "node scripts/test_phase1_security.mjs && node scripts/test_phase1_handlers.mjs",
+    "test:sdk": "node scripts/test_browser_sdk.js",
+    "test:staging": "node scripts/test_staging_preview.js"
   },
   "keywords": [
     "fintech",
@@ -23,6 +25,7 @@
   "author": "MidePay",
   "license": "MIT",
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.10"
+    "@electric-sql/pglite": "0.5.10",
+    "@supabase/supabase-js": "2.119.0"
   }
 }

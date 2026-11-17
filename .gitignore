@@ -20,3 +20,7 @@ dist/
 # Operating System files
 .DS_Store
 Thumbs.db
+
+# Generated staging preview and local staging credentials
+work/staging-preview/
+.env.staging.local

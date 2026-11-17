@@ -1,0 +1,2 @@
+# Preserve the exact verified upstream browser bundle on Windows checkouts.
+vendor/supabase.js -text
