@@ -22,3 +22,5 @@
 
 \ir ./migrations/20261118161218_recovery_scheduler_permissions.sql
 \ir ./migrations/20261118161813_signed_reconciliation_invocations.sql
+
+\ir ./migrations/20261118165154_payout_dispatch_outbox.sql

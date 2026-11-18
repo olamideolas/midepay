@@ -150,6 +150,30 @@ try{
    const r=await sql(`SET ROLE ${role};SELECT ${call};`,{allowError:true});assert.notEqual(r.code,0);assert.match(r.err,/permission denied/);
   }
  });
+
+ await sql("INSERT INTO private.payment_reconciliation_control(singleton,enabled,signing_key,payout_dispatch_enabled) VALUES(true,true,gen_random_bytes(32),true) ON CONFLICT(singleton) DO UPDATE SET enabled=true,payout_dispatch_enabled=true;");
+ const nativeEnqueue=async suffix=>{
+  await fund(10000);const result=JSON.parse((await sql(asService(`SELECT enqueue_wallet_payout('${user}',1000,0,'MDP-OUT-NATIVE-${suffix}','paystack','Test','001','0000000000')`))).out.split('\n').at(-1));
+  const jobs=JSON.parse((await sql(asService('SELECT claim_payout_dispatch()'))).out.split('\n').at(-1));return jobs.find(j=>j.transaction_id===result.tx_id);
+ };
+ await test('parallel dispatch claims grant exactly one worker a payout',async()=>{
+  await fund(10000);await sql(asService(`SELECT enqueue_wallet_payout('${user}',1000,0,'MDP-OUT-NATIVE-CLAIM','paystack','Test','001','0000000000')`));
+  const rows=await Promise.all(Array.from({length:8},()=>sql(asService('SELECT claim_payout_dispatch()'))));const jobs=rows.flatMap(r=>JSON.parse(r.out.split('\n').at(-1)));
+  assert.equal(jobs.length,1);const job=jobs[0];
+  const gates=await Promise.all(Array.from({length:16},()=>sql(asService(`SELECT begin_payout_dispatch('${job.transaction_id}','${job.lease_token}','RCP_NATIVE')`))));
+  assert.equal(gates.map(r=>JSON.parse(r.out.split('\n').at(-1))).filter(r=>r.success===true).length,1);
+ });
+ await test('cancellation racing dispatch cannot both refund and authorize a send',async()=>{
+  const job=await nativeEnqueue('RACE');assert.ok(job);
+  const rows=await Promise.all([sql(asService(`SELECT cancel_undispatched_payout('${job.transaction_id}')`)),sql(asService(`SELECT begin_payout_dispatch('${job.transaction_id}','${job.lease_token}','RCP_NATIVE')`))]);
+  const values=rows.map(r=>JSON.parse(r.out.split('\n').at(-1)));assert.equal(values.filter(r=>r.success===true).length,1);assert.equal(await balance(),values[0].success?'10000.00':'9000.00');
+  fs.writeFileSync(path.join(dir,'dispatch-cancellation-evidence.json'),JSON.stringify(values,null,2));
+ });
+ await test('an expired preparation lease cannot authorize an old dispatch worker',async()=>{
+  const job=await nativeEnqueue('STALE');assert.ok(job);await sql(`UPDATE private.payout_dispatch_outbox SET leased_until=now()-interval '1 second' WHERE transaction_id='${job.transaction_id}';`);
+  const replacement=JSON.parse((await sql(asService('SELECT claim_payout_dispatch()'))).out.split('\n').at(-1));assert.equal(replacement.length,1);assert.notEqual(replacement[0].lease_token,job.lease_token);
+  const old=JSON.parse((await sql(asService(`SELECT begin_payout_dispatch('${job.transaction_id}','${job.lease_token}','RCP_NATIVE')`))).out.split('\n').at(-1));assert.equal(old.success,false);
+ });
  console.log(`${checks} passed; 0 failed`);
 }finally{
  if(started)run('pg_ctl',['-D',data,'-m','fast','-w','stop']);

@@ -320,11 +320,11 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     }
   }
 
-  const reference = `MDP-OUT-${user.id}-${body.idempotency_key!.toLowerCase()}`;
+  let reference = `MDP-OUT-${user.id}-${body.idempotency_key!.toLowerCase()}`;
   const payoutFee = 0.0;
 
   // Atomically lock & debit sender's NGN wallet before external network call
-  const { data: debitResult, error: debitErr } = await adminClient.rpc('debit_wallet_for_payout', {
+  const { data: debitResult, error: debitErr } = await adminClient.rpc('enqueue_wallet_payout', {
     p_user_id: user.id,
     p_amount: amountNgn,
     p_fee: payoutFee,
@@ -338,7 +338,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
 
   if (debitErr) {
     return new Response(JSON.stringify({ error: debitErr.message }), {
-      status: 400,
+      status: debitErr.message.includes('PAYOUT_DISPATCH_DISABLED') ? 503 : 400,
       headers: corsHeaders
     });
   }
@@ -349,125 +349,15 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     });
   }
 
+  reference = debitResult.reference || reference;
+
   if ((debitResult as { already_debited?: boolean })?.already_debited) {
     return new Response(JSON.stringify(debitResult), { status: 200, headers: corsHeaders });
   }
-  // Dispatch outbound NIP payout via Paystack or Flutterwave
-  try {
-    let gatewayRef = reference;
+  // The atomic enqueue RPC reserves money and creates the durable outbox together.
+  // Only the internal worker may dispatch. Browser retries never issue a transfer.
+  return new Response(JSON.stringify({success:true,status:'pending',dispatch_status:debitResult.dispatch_status??'queued',provider,reference,beneficiary_name:beneficiaryName,amount_ngn:amountNgn,new_balance:debitResult.new_balance}),{status:202,headers:corsHeaders});
 
-    if (provider === 'paystack') {
-      const secret = getEnv('PAYSTACK_SECRET_KEY');
-      if (!secret) throw new Error('PAYSTACK_SECRET_KEY is not configured.');
-
-      // Step A: Create Transfer Recipient
-      const rcptRes = await fetch('https://api.paystack.co/transferrecipient', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${secret}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          type: 'nuban',
-          name: beneficiaryName,
-          account_number: accountNumber,
-          bank_code: bankCode,
-          currency: 'NGN'
-        })
-      });
-      const rcptJson = (await rcptRes.json()) as {
-        status?: boolean;
-        message?: string;
-        data?: { recipient_code?: string };
-      };
-      if (!rcptRes.ok || !rcptJson.status || !rcptJson.data?.recipient_code) {
-        throw new Error(rcptJson.message || 'Paystack transfer recipient creation failed.');
-      }
-
-      // Step B: Initiate Transfer (kobo)
-      const trfRes = await fetch('https://api.paystack.co/transfer', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${secret}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          source: 'balance',
-          amount: Math.round(amountNgn * 100),
-          recipient: rcptJson.data.recipient_code,
-          reason: narration,
-          reference
-        })
-      });
-      const trfJson = (await trfRes.json()) as {
-        status?: boolean;
-        message?: string;
-        data?: { transfer_code?: string; status?: string };
-      };
-      if (!trfRes.ok || !trfJson.status) {
-        throw new Error(trfJson.message || 'Paystack NIP transfer initiation failed.');
-      }
-      gatewayRef = trfJson.data?.transfer_code || reference;
-    } else {
-      const secret = getEnv('FLUTTERWAVE_SECRET_KEY');
-      if (!secret) throw new Error('FLUTTERWAVE_SECRET_KEY is not configured.');
-
-      const flwRes = await fetch('https://api.flutterwave.com/v3/transfers', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${secret}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          account_bank: bankCode,
-          account_number: accountNumber,
-          amount: amountNgn,
-          narration,
-          currency: 'NGN',
-          reference,
-          debit_currency: 'NGN'
-        })
-      });
-      const flwJson = (await flwRes.json()) as {
-        status?: string;
-        message?: string;
-        data?: { id?: number | string };
-      };
-      if (!flwRes.ok || flwJson.status !== 'success') {
-        throw new Error(flwJson.message || 'Flutterwave NIP transfer initiation failed.');
-      }
-      gatewayRef = String(flwJson.data?.id ?? reference);
-    }
-
-    // SECURITY: Keep payout transaction in `'pending'` status until cryptographically
-    // verified settlement arrives via `payment-webhook` (`finalize_payout_settlement`).
-    const { error: referenceError } = await adminClient
-      .from('transactions')
-      .update({ gateway_reference: gatewayRef })
-      .eq('reference', reference);
-    if (referenceError) throw new Error('Gateway accepted transfer; reference persistence requires reconciliation.');
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        status: 'pending',
-        provider,
-        reference,
-        gateway_reference: gatewayRef,
-        beneficiary_name: beneficiaryName,
-        amount_ngn: amountNgn,
-        new_balance: (debitResult as { new_balance?: number })?.new_balance
-      }),
-      { status: 200, headers: corsHeaders }
-    );
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Outbound gateway transfer failed.';
-    // A timeout or malformed response does not prove failure: the bank may have paid.
-    // Keep the debit pending until a verified webhook or reconciliation resolves it.
-    return new Response(JSON.stringify({ error: errMsg, status: 'pending', reconciliation_required: true, reference }), {
-      status: 202, headers: corsHeaders
-    });
-  }
 }
 
 const denoRuntime = (globalThis as unknown as { Deno?: { serve?: (h: (r: Request) => Promise<Response>) => void } }).Deno;

@@ -7,6 +7,37 @@ const env=(key: string): string => {
 };
 type Job={transaction_id:string;lease_token:string;reference:string;type:string;category:string;amount:number|string;status:string;gateway_reference:string|null;bank_code:string;account_number:string};
 type Decision={outcome:'done'|'retry'|'review';code:string};
+type DispatchJob={transaction_id:string;lease_token:string;reference:string;amount:number|string;account_name:string;account_number:string;bank_code:string;narration:string};
+export async function dispatchQueuedPayouts(rpc:(name:string,args:Record<string,unknown>)=>Promise<any>,secret:string):Promise<Record<string,number>>{
+ const counts={dispatch_submitted:0,dispatch_cancelled:0,dispatch_retry:0,dispatch_review:0,dispatch_incomplete:0};
+ let jobs:DispatchJob[];
+ try{jobs=await rpc('claim_payout_dispatch',{});if(!Array.isArray(jobs)||jobs.length>1)throw Error('INVALID_DISPATCH_BATCH');}
+ catch{counts.dispatch_incomplete++;return counts;}
+ for(const job of jobs){
+  let sending=false;
+  const args={p_transaction_id:job.transaction_id,p_lease_token:job.lease_token};
+  try{
+   const kobo=Number(job.amount)*100;
+   if(!/^MDP-OUT-[A-Za-z0-9-]+$/.test(job.reference)||!/^\d{10}$/.test(job.account_number)||!/^\d{3,10}$/.test(job.bank_code)||!Number.isSafeInteger(Math.round(kobo))||kobo<=0||Math.abs(kobo-Math.round(kobo))>0.0000001)throw Error('INVALID_STORED_PAYOUT');
+   const recipientResponse=await fetch('https://api.paystack.co/transferrecipient',{method:'POST',headers:{Authorization:'Bearer '+secret,'Content-Type':'application/json'},signal:AbortSignal.timeout(8000),body:JSON.stringify({type:'nuban',name:job.account_name,account_number:job.account_number,bank_code:job.bank_code,currency:'NGN'})});
+   const recipient=await recipientResponse.json();const d=recipient?.data;
+   if(!recipientResponse.ok||recipient.status!==true||typeof d?.recipient_code!=='string'||!/^RCP_[A-Za-z0-9]+$/.test(d.recipient_code)||d.details?.account_number!==job.account_number||d.details?.bank_code!==job.bank_code||d.currency!=='NGN')throw Error('RECIPIENT_NOT_CONFIRMED');
+   const gate=await rpc('begin_payout_dispatch',{...args,p_recipient_code:d.recipient_code});
+   if(gate?.success!==true)throw Error('DISPATCH_NOT_AUTHORIZED');
+   sending=true;
+   const response=await fetch('https://api.paystack.co/transfer',{method:'POST',headers:{Authorization:'Bearer '+secret,'Content-Type':'application/json'},signal:AbortSignal.timeout(8000),body:JSON.stringify({source:'balance',amount:Math.round(kobo),recipient:d.recipient_code,reason:job.narration,reference:job.reference})});
+   const result=await response.json();const transfer=result?.data;
+   if(!response.ok||result.status!==true||transfer?.reference!==job.reference||typeof transfer.transfer_code!=='string'||!/^TRF_[A-Za-z0-9]+$/.test(transfer.transfer_code))throw Error('AMBIGUOUS_TRANSFER_RESPONSE');
+   const ack=await rpc('finish_payout_dispatch',{...args,p_outcome:'submitted',p_gateway_reference:transfer.transfer_code});
+   if(ack?.success!==true)throw Error('DISPATCH_ACKNOWLEDGEMENT_LOST');
+   counts.dispatch_submitted++;
+  }catch{
+   try{const ack=await rpc('finish_payout_dispatch',{...args,p_outcome:sending?'ambiguous':'prepare_retry'});if(ack?.success!==true)throw Error('STALE_DISPATCH');counts[ack.dispatch_status==='cancelled'?'dispatch_cancelled':sending?'dispatch_review':'dispatch_retry']++;}
+   catch{counts.dispatch_incomplete++;}
+  }
+ }
+ return counts;
+}
 export async function handleReconciliation(req:Request):Promise<Response>{
  const reply=(status:number,data:unknown)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
  if(req.method!=='POST')return reply(405,{code:'METHOD_NOT_ALLOWED'});
@@ -19,7 +50,7 @@ export async function handleReconciliation(req:Request):Promise<Response>{
  try{if(await rpc('authorize_payment_reconciliation',{p_token:auth.slice(7)})!==true)return reply(401,{code:'UNAUTHORIZED_OR_DISABLED'});}
  catch{return reply(503,{code:'WORKER_AUTH_UNAVAILABLE'});}
  let jobs:Job[];
- try{jobs=await rpc('claim_payment_reconciliation',{p_limit:5});if(!Array.isArray(jobs)||jobs.length>5)throw Error('INVALID_BATCH');}
+ try{jobs=await rpc('claim_payment_reconciliation',{p_limit:3});if(!Array.isArray(jobs)||jobs.length>3)throw Error('INVALID_BATCH');}
  catch{return reply(503,{code:'QUEUE_UNAVAILABLE'});}
  const counts={processed:0,done:0,retry:0,review:0,incomplete:0};
  for(const job of jobs){
@@ -35,7 +66,7 @@ export async function handleReconciliation(req:Request):Promise<Response>{
     if((!deposit&&!payout)||typeof job.reference!=='string'||!job.reference.startsWith(prefix)||!Number.isSafeInteger(Math.round(expected))||expected<=0||Math.abs(expected-Math.round(expected))>0.0000001){decision={outcome:'review',code:'INVALID_STORED_PAYMENT'};}
     else{
      const endpoint=deposit?'transaction':'transfer';
-     const response=await fetch(`https://api.paystack.co/${endpoint}/verify/${encodeURIComponent(job.reference)}`,{method:'GET',headers:{Authorization:'Bearer '+env('PAYSTACK_SECRET_KEY')},signal:AbortSignal.timeout(10000)});
+     const response=await fetch(`https://api.paystack.co/${endpoint}/verify/${encodeURIComponent(job.reference)}`,{method:'GET',headers:{Authorization:'Bearer '+env('PAYSTACK_SECRET_KEY')},signal:AbortSignal.timeout(8000)});
      let verified;
      try{verified=await response.json();}catch{verified=null;}
      if(response.ok&&verified?.status===true&&verified.data){
@@ -61,7 +92,8 @@ export async function handleReconciliation(req:Request):Promise<Response>{
   try{const finish=await rpc('finish_payment_reconciliation',{p_transaction_id:job.transaction_id,p_lease_token:job.lease_token,p_outcome:decision.outcome,p_code:decision.code});counts.processed++;const final=finish.state==='ready'?'retry':finish.state;if(final==='done'||final==='retry'||final==='review')counts[final]++;else counts.incomplete++;}
   catch{counts.incomplete++;}
  }
- return reply(counts.incomplete?503:200,counts);
+ const dispatch=env('BANK_PAYOUTS_ENABLED')==='true'?await dispatchQueuedPayouts(rpc,env('PAYSTACK_SECRET_KEY')):{dispatch_submitted:0,dispatch_cancelled:0,dispatch_retry:0,dispatch_review:0,dispatch_incomplete:0};
+ return reply(counts.incomplete||dispatch.dispatch_incomplete?503:200,{...counts,...dispatch});
 }
 const runtime=globalThis as unknown as {Deno?:{serve?:(h:(req:Request)=>Promise<Response>)=>void}};
 if(runtime.Deno?.serve)runtime.Deno.serve(handleReconciliation);
