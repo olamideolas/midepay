@@ -17,3 +17,8 @@
 \ir ./migrations/20261116060000_independent_review_hardening.sql
 
 \ir ./migrations/20261116070000_email_proof_treasury_controls.sql
+
+\ir ./migrations/20261118160728_payment_reconciliation_queue.sql
+
+\ir ./migrations/20261118161218_recovery_scheduler_permissions.sql
+\ir ./migrations/20261118161813_signed_reconciliation_invocations.sql

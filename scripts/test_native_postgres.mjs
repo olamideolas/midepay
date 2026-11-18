@@ -132,6 +132,24 @@ try{
   assert.equal(await bal(alice),'10000.00');assert.equal(await bal(bob),'10000.00');
   assert.equal(await scalar(`SELECT count(*) FROM wallets WHERE user_id IN ('${alice}','${bob}') AND (balance<0 OR balance<>ledger_balance);`),'0');
  });
+
+ await test('parallel recovery workers claim every synthetic job at most once',async()=>{
+  for(let i=0;i<10;i++)await sql(`INSERT INTO transactions(wallet_id,user_id,type,category,amount,fee,status,counterparty_name,reference,gateway_provider,created_at) SELECT id,user_id,'inflow','deposit',1000,0,'pending','Synthetic','MDP-PSK-NATIVE-RECOVERY-${i}','paystack',now()-interval '1 minute' FROM wallets WHERE user_id='${user}';`);
+  const results=await Promise.all(Array.from({length:8},()=>sql(asService('SELECT claim_payment_reconciliation(5)'))));
+  const claimed=results.flatMap(r=>JSON.parse(r.out.split('\n').at(-1)));
+  assert.equal(new Set(claimed.map(j=>j.transaction_id)).size,claimed.length);
+  const targets=claimed.filter(j=>j.reference.startsWith('MDP-PSK-NATIVE-RECOVERY-'));assert.equal(targets.length,10);
+  fs.writeFileSync(path.join(dir,'recovery-claim-evidence.json'),JSON.stringify(claimed,null,2));
+  const job=targets[0];await sql(`UPDATE private.payment_reconciliation_jobs SET leased_until=now()-interval '1 second' WHERE transaction_id='${job.transaction_id}';`);
+  const next=JSON.parse((await sql(asService('SELECT claim_payment_reconciliation(5)'))).out.split('\n').at(-1));
+  assert.ok(next.some(j=>j.transaction_id===job.transaction_id&&j.lease_token!==job.lease_token));
+  const stale=JSON.parse((await sql(asService(`SELECT finish_payment_reconciliation('${job.transaction_id}','${job.lease_token}','retry','TEST')`))).out.split('\n').at(-1));assert.equal(stale.code,'STALE_LEASE');
+ });
+ await test('client roles cannot authorize or claim recovery jobs',async()=>{
+  for(const role of ['anon','authenticated'])for(const call of ["authorize_payment_reconciliation('wrong')",'claim_payment_reconciliation(5)']){
+   const r=await sql(`SET ROLE ${role};SELECT ${call};`,{allowError:true});assert.notEqual(r.code,0);assert.match(r.err,/permission denied/);
+  }
+ });
  console.log(`${checks} passed; 0 failed`);
 }finally{
  if(started)run('pg_ctl',['-D',data,'-m','fast','-w','stop']);
