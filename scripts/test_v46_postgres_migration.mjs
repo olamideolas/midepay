@@ -145,7 +145,7 @@ console.log('===================================================================
 // ============================================================================
 // [1/12] CLEAN DATABASE MIGRATION FROM SCRATCH
 // ============================================================================
-console.log('[1/12] Testing clean database migration from scratch (all 16 migrations)...');
+console.log('[1/12] Testing clean database migration from scratch (all 17 migrations)...');
 const db = await createSupabasePostgres();
 const verRes = await db.query('SELECT version() AS v');
 console.log(`  ℹ️  Engine: ${verRes.rows[0].v}`);
@@ -153,7 +153,7 @@ console.log(`  ℹ️  Engine: ${verRes.rows[0].v}`);
 for (const file of allMigrations) {
   await db.exec(fs.readFileSync(path.join(migDir, file), 'utf8'));
 }
-assertPg(allMigrations.length === 16, `All ${allMigrations.length}/16 migrations executed cleanly in order on real PostgreSQL`);
+assertPg(allMigrations.length === 17, `All ${allMigrations.length}/17 migrations executed cleanly in order on real PostgreSQL`);
 
 const expectedTables = [
   'profiles', 'wallets', 'transactions', 'payment_requests', 'virtual_cards',

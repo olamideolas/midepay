@@ -7,9 +7,11 @@
  * - Clean offline fallback notification when mobile data is unavailable
  */
 
-const CACHE_NAME = 'midepay-pwa-static-v4.8.1-bank-logos';
+const CACHE_NAME = 'midepay-pwa-static-v4.9-payment-review';
 
 const STATIC_ASSETS = [
+  '/payment-review.css',
+  '/payment-review.js',
   "/assets/banks/opay.png",
   "/assets/banks/palmpay.png",
   "/assets/banks/kuda.png",

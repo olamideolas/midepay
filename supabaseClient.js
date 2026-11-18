@@ -1222,6 +1222,18 @@
       return { success: false, code: 'TREASURY_APPROVAL_REQUIRED', error: 'Use a funded treasury request and independent approval.' };
     },
 
+    async enrollPaymentReviewMfa() {
+      if(!this.client?.auth?.mfa)return {error:'MFA is unavailable.'};
+      const {data,error}=await this.client.auth.mfa.enroll({factorType:'totp',friendlyName:'MidePay operations '+Date.now()});
+      return error?{error:error.message}:{factorId:data.id,qrCode:data.totp.qr_code};
+    },
+
+    async getPaymentReview(filter='attention', cursor=null) {
+      if(!this.isConfigured()||!this.client)return {success:false,code:'UNAVAILABLE'};
+      const {data,error}=await this.client.rpc('get_operator_payment_review',{p_filter:filter,p_before:cursor?.before||null,p_before_id:cursor?.id||null});
+      return error?{success:false,code:'UNAVAILABLE'}:(data||{success:false,code:'UNAVAILABLE'});
+    },
+
     async treasuryRpc(name, args = {}) {
       if (!this.isConfigured() || !this.client) return { success: false, error: 'Authenticated backend required.' };
       const { data, error } = await this.client.rpc(name, args);
