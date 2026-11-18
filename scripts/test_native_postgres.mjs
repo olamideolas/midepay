@@ -19,7 +19,7 @@ const data=path.join(dir,'data'),log=path.join(dir,'server.log');
 const server=net.createServer();await new Promise((ok,bad)=>{server.once('error',bad);server.listen(0,'127.0.0.1',ok)});
 const port=server.address().port;await new Promise(ok=>server.close(ok));
 const env={...process.env,PGHOST:'127.0.0.1',PGHOSTADDR:'127.0.0.1',PGPORT:String(port),PGUSER:'postgres',PGDATABASE:'postgres',PGPASSWORD:'',PGSERVICE:'',PGSERVICEFILE:path.join(dir,'no-service'),PGPASSFILE:path.join(dir,'no-passfile'),PGSSLMODE:'disable',PGCONNECT_TIMEOUT:'5',PGOPTIONS:'-c statement_timeout=15000 -c lock_timeout=10000'};
-function run(name,args){const r=spawnSync(exe(name),args,{env,encoding:'utf8',timeout:60000,windowsHide:true});if(r.status!==0)throw Error(`${name}: ${r.error?.message||r.stderr||r.stdout}`);return r.stdout;}
+function run(name,args){const r=spawnSync(exe(name),args,{env,encoding:'utf8',timeout:60000,windowsHide:true});if(r.status!==0){const serverLog=name==='pg_ctl'&&fs.existsSync(log)?'\n'+fs.readFileSync(log,'utf8'):'';throw Error(`${name}: ${r.error?.message||r.stderr||r.stdout}${serverLog}`);}return r.stdout;}
 async function sql(text,{allowError=false}={}){
  const client=new Client({host:'127.0.0.1',port,user:'postgres',database:'postgres',password:'',ssl:false,connectionTimeoutMillis:5000,statement_timeout:15000,options:'-c lock_timeout=10000'});
  try{await client.connect();const raw=await client.query(text);const results=Array.isArray(raw)?raw:[raw];const out=results.flatMap(r=>r.rows||[]).map(row=>Object.values(row).map(v=>v===null?'':typeof v==='object'?JSON.stringify(v):String(v)).join('|')).join('\n');return{code:0,out,err:''};}
@@ -34,7 +34,9 @@ let checks=0,started=false;
 async function test(label,fn){await fn();checks++;console.log('PASS '+label)}
 try{
  run('initdb',['-D',data,'-U','postgres','-A','trust','--encoding=UTF8','--no-locale']);
- run('pg_ctl',['-D',data,'-l',log,'-o',`-h 127.0.0.1 -p ${port} -c max_connections=40 -c wal_level=logical`,'-w','start']);started=true;
+ // Linux packages default to a system-owned Unix socket directory. All tests use TCP.
+ const socketOption=process.platform==='win32'?'':" -c unix_socket_directories=''";
+ run('pg_ctl',['-D',data,'-l',log,'-o',`-h 127.0.0.1 -p ${port} -c max_connections=40 -c wal_level=logical${socketOption}`,'-w','start']);started=true;
  console.log('Native '+await scalar('SHOW server_version;'));
  await test('independent PostgreSQL sessions actually overlap',async()=>{
   const probes=await Promise.all(Array.from({length:8},()=>sql("SELECT json_build_object('pid',pg_backend_pid(),'started',clock_timestamp())::text;SELECT pg_sleep(0.5);SELECT clock_timestamp()::text;")));
