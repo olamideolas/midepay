@@ -77,7 +77,7 @@ async function resolveNubanAccount(
       message?: string;
       data?: { account_name?: string; account_number?: string };
     };
-    if (!res.ok || !json.status || !json.data?.account_name) {
+    if (!res.ok || !json.status || !json.data?.account_name?.trim() || json.data.account_number !== accountNumber) {
       throw new Error(json.message || 'Unable to resolve NUBAN via Paystack NIP.');
     }
     return {
@@ -106,7 +106,7 @@ async function resolveNubanAccount(
     message?: string;
     data?: { account_name?: string; account_number?: string };
   };
-  if (!res.ok || json.status !== 'success' || !json.data?.account_name) {
+  if (!res.ok || json.status !== 'success' || !json.data?.account_name?.trim() || json.data.account_number !== accountNumber) {
     throw new Error(json.message || 'Unable to resolve NUBAN via Flutterwave NIP.');
   }
   return {
@@ -307,9 +307,10 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     );
   }
 
-  // Resolve beneficiary name on gateway if not already verified
-  let beneficiaryName = body.account_name?.trim() || '';
-  if (!beneficiaryName) {
+  // Browser-supplied account_name is display input, never proof of account ownership.
+  // Always resolve the exact destination server-side before reserving wallet funds.
+  let beneficiaryName = '';
+  {
     try {
       const resolved = await resolveNubanAccount(provider, accountNumber, bankCode);
       beneficiaryName = resolved.account_name;

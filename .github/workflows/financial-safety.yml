@@ -1,0 +1,50 @@
+name: Isolated financial safety checks
+
+on:
+  pull_request:
+  push:
+    branches: [fix-v46-migration-repair]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  money-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install local PostgreSQL with extensions
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-16 postgresql-contrib
+      - name: Run independent sessions in a disposable loopback-only database
+        env:
+          MIDEPAY_PG_BIN: /usr/lib/postgresql/16/bin
+          MIDEPAY_PG_TEST_ROOT: ${{ runner.temp }}/midepay-native
+        run: npm run test:postgres-concurrency
+      - name: Run existing migration, authorization and payment regressions
+        env:
+          STAGING_TEST_OUTPUT: ${{ runner.temp }}/midepay-artifacts
+        run: |
+          set -euo pipefail
+          for suite in validate_production.js test_payment_webhook.js test_e2e_runtime.js test_security_penetration.js test_v46_postgres_migration.mjs test_independent_database.mjs test_independent_webhook.mjs test_phase1_security.mjs test_phase1_handlers.mjs test_payout_boundaries.mjs test_password_recovery.js test_paystack_pipeline.mjs test_paystack_client.js test_browser_sdk.js test_staging_preview.js; do
+            node "scripts/$suite"
+          done
+      - name: Preserve isolated database evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-postgres-evidence
+          path: |
+            ${{ runner.temp }}/midepay-native/**/server.log
+            ${{ runner.temp }}/midepay-native/**/*evidence.json
+            ${{ runner.temp }}/midepay-native/**/opposing-p2p-results.json
+          retention-days: 7

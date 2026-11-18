@@ -3,9 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import net from 'node:net';
-import {spawn,spawnSync} from 'node:child_process';
+import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+const pgModule=await import(process.env.MIDEPAY_PG_MODULE ? pathToFileURL(process.env.MIDEPAY_PG_MODULE).href : 'pg');
+const {Client}=pgModule.default||pgModule;
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const bin=process.env.MIDEPAY_PG_BIN;
 if(!bin)throw Error('Set MIDEPAY_PG_BIN to a native PostgreSQL bin directory.');
@@ -18,7 +20,12 @@ const server=net.createServer();await new Promise((ok,bad)=>{server.once('error'
 const port=server.address().port;await new Promise(ok=>server.close(ok));
 const env={...process.env,PGHOST:'127.0.0.1',PGHOSTADDR:'127.0.0.1',PGPORT:String(port),PGUSER:'postgres',PGDATABASE:'postgres',PGPASSWORD:'',PGSERVICE:'',PGSERVICEFILE:path.join(dir,'no-service'),PGPASSFILE:path.join(dir,'no-passfile'),PGSSLMODE:'disable',PGCONNECT_TIMEOUT:'5',PGOPTIONS:'-c statement_timeout=15000 -c lock_timeout=10000'};
 function run(name,args){const r=spawnSync(exe(name),args,{env,encoding:'utf8',timeout:60000,windowsHide:true});if(r.status!==0)throw Error(`${name}: ${r.error?.message||r.stderr||r.stdout}`);return r.stdout;}
-function sql(text,{allowError=false}={}){return new Promise((resolve,reject)=>{const child=spawn(exe('psql'),['-X','-qAt','-v','ON_ERROR_STOP=1'],{env,windowsHide:true});let out='',err='';child.stdout.on('data',b=>out+=b);child.stderr.on('data',b=>err+=b);child.on('error',reject);child.on('close',code=>code&&!allowError?reject(Error(err)):resolve({code,out:out.trim(),err}));child.stdin.end(text);});}
+async function sql(text,{allowError=false}={}){
+ const client=new Client({host:'127.0.0.1',port,user:'postgres',database:'postgres',password:'',ssl:false,connectionTimeoutMillis:5000,statement_timeout:15000,options:'-c lock_timeout=10000'});
+ try{await client.connect();const raw=await client.query(text);const results=Array.isArray(raw)?raw:[raw];const out=results.flatMap(r=>r.rows||[]).map(row=>Object.values(row).map(v=>v===null?'':typeof v==='object'?JSON.stringify(v):String(v)).join('|')).join('\n');return{code:0,out,err:''};}
+ catch(e){if(!allowError)throw e;return{code:1,out:'',err:e.message};}
+ finally{await client.end().catch(()=>{});}
+}
 const scalar=async text=>(await sql(text)).out.split('\n').at(-1);
 const user='a0000000-0000-4000-8000-000000000001';
 const asService=text=>`BEGIN;SET LOCAL ROLE service_role;${text};COMMIT;`;
@@ -29,6 +36,13 @@ try{
  run('initdb',['-D',data,'-U','postgres','-A','trust','--encoding=UTF8','--no-locale']);
  run('pg_ctl',['-D',data,'-l',log,'-o',`-h 127.0.0.1 -p ${port} -c max_connections=40 -c wal_level=logical`,'-w','start']);started=true;
  console.log('Native '+await scalar('SHOW server_version;'));
+ await test('independent PostgreSQL sessions actually overlap',async()=>{
+  const probes=await Promise.all(Array.from({length:8},()=>sql("SELECT json_build_object('pid',pg_backend_pid(),'started',clock_timestamp())::text;SELECT pg_sleep(0.5);SELECT clock_timestamp()::text;")));
+  const windows=probes.map(r=>{const lines=r.out.split('\n');const a=JSON.parse(lines[0]);return{pid:a.pid,start:Date.parse(a.started),end:Date.parse(lines.at(-1))}});
+  assert.equal(new Set(windows.map(x=>x.pid)).size,8);
+  assert.ok(windows.some((a,i)=>windows.some((b,j)=>i!==j&&Math.max(a.start,b.start)<Math.min(a.end,b.end))));
+  fs.writeFileSync(path.join(dir,'overlap-evidence.json'),JSON.stringify(windows,null,2));
+ });
  await sql(`CREATE ROLE anon NOLOGIN;CREATE ROLE authenticated NOLOGIN;CREATE ROLE service_role NOLOGIN BYPASSRLS;
  CREATE SCHEMA auth;CREATE SCHEMA extensions;
  CREATE EXTENSION "uuid-ossp" WITH SCHEMA extensions;CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
@@ -47,7 +61,22 @@ try{
  // Synthetic local-only funding to isolate locking from provider behavior.
  const fund=amount=>sql(`UPDATE wallets SET balance=${amount},ledger_balance=${amount} WHERE user_id='${user}';`);
  await test('16 simultaneous requests with one payout reference debit exactly once',async()=>{
-  await fund(10000);await Promise.all(Array.from({length:16},()=>sql(debit('native-same'))));
+  await fund(10000);
+  const blocker=new Client({host:'127.0.0.1',port,user:'postgres',database:'postgres',password:'',ssl:false,connectionTimeoutMillis:5000});
+  await blocker.connect();let pending;let observed=0;
+  try{
+   await blocker.query(`BEGIN;SELECT id FROM wallets WHERE user_id='${user}' FOR UPDATE;`);
+   pending=Promise.all(Array.from({length:16},()=>sql(debit('native-same'))));
+   // Attach rejection handling immediately while the coordinator inspects lock waits.
+   pending.catch(()=>{});
+   for(let i=0;i<100;i++){
+    observed=Number(await scalar("SELECT count(*) FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND query LIKE '%native-same%' AND state='active' AND wait_event_type='Lock';"));
+    if(observed>=2)break;
+    await new Promise(resolve=>setTimeout(resolve,25));
+   }
+   fs.writeFileSync(path.join(dir,'financial-lock-evidence.json'),JSON.stringify({blockedFinancialSessions:observed}));
+  }finally{await blocker.query('ROLLBACK').catch(()=>{});await blocker.end();}
+  await pending;assert.ok(observed>=2,'Financial calls must demonstrably wait concurrently on PostgreSQL locks');
   assert.equal(await balance(),'9000.00');assert.equal(await scalar("SELECT count(*) FROM transactions WHERE reference='native-same';"),'1');
  });
  await test('20 simultaneous distinct payouts cannot overdraw a 10000 wallet',async()=>{
@@ -70,6 +99,36 @@ try{
  });
  await test('client roles cannot call service-only financial settlement APIs',async()=>{
   for(const role of ['anon','authenticated']){const r=await sql(`SET ROLE ${role};SELECT settle_gateway_deposit('native-deposit','paystack',100000,'native-receipt','{}');`,{allowError:true});assert.notEqual(r.code,0);assert.match(r.err,/permission denied/);}
+ });
+
+ const alice='b0000000-0000-4000-8000-000000000001',bob='b0000000-0000-4000-8000-000000000002';
+ for(const [id,email] of [[alice,'alice@example.invalid'],[bob,'bob@example.invalid']]){
+  await sql(`INSERT INTO auth.users(id,email,email_confirmed_at) VALUES('${id}','${email}',now());SELECT attest_verified_email('${id}','${email}');`);
+  const setup=await sql(`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${id}';SELECT set_user_transaction_pin('4829');COMMIT;`);
+  assert.ok(setup.out.includes('"success":true'));
+ }
+ const p2p=(sender,recipient,key)=>`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${sender}';SELECT transfer_funds('${sender}','${recipient}',1000,'Native test','4829','${key}');COMMIT;`;
+ const bal=id=>scalar(`SELECT balance::text FROM wallets WHERE user_id='${id}' AND currency='NGN';`);
+ const reset=()=>sql(`UPDATE wallets SET balance=10000,ledger_balance=10000 WHERE user_id IN ('${alice}','${bob}');`);
+ const result=r=>JSON.parse(r.out.split('\n').at(-1));
+ await test('16 duplicate P2P requests create exactly one paired transfer',async()=>{
+  await reset();const key='c0000000-0000-4000-8000-000000000001';
+  const rows=await Promise.all(Array.from({length:16},()=>sql(p2p(alice,bob,key))));
+  assert.ok(rows.every(r=>result(r).success===true));assert.equal(await bal(alice),'9000.00');assert.equal(await bal(bob),'11000.00');
+  assert.equal(await scalar(`SELECT count(*) FROM transactions WHERE idempotency_key='${key}';`),'1');
+  assert.equal(await scalar(`SELECT count(*) FROM transactions WHERE user_id IN ('${alice}','${bob}');`),'2');
+ });
+ await test('20 distinct P2P requests cannot overspend the sender wallet',async()=>{
+  await reset();const rows=await Promise.all(Array.from({length:20},(_,i)=>sql(p2p(alice,bob,'d0000000-0000-4000-8000-'+String(i+1).padStart(12,'0')))));
+  const values=rows.map(result);assert.equal(values.filter(r=>r.success===true).length,10);assert.equal(values.filter(r=>r.code==='INSUFFICIENT_FUNDS').length,10);
+  assert.equal(await bal(alice),'0.00');assert.equal(await bal(bob),'20000.00');
+ });
+ await test('opposing P2P transfers complete without deadlocks and conserve money',async()=>{
+  await reset();const rows=await Promise.all(Array.from({length:20},(_,i)=>sql(p2p(i%2?alice:bob,i%2?bob:alice,'e0000000-0000-4000-8000-'+String(i+1).padStart(12,'0')),{allowError:true})));
+  fs.writeFileSync(path.join(dir,'opposing-p2p-results.json'),JSON.stringify(rows,null,2));
+  assert.ok(rows.every(r=>r.code===0&&result(r).success===true),JSON.stringify(rows.filter(r=>r.code!==0||!result(r).success)));
+  assert.equal(await bal(alice),'10000.00');assert.equal(await bal(bob),'10000.00');
+  assert.equal(await scalar(`SELECT count(*) FROM wallets WHERE user_id IN ('${alice}','${bob}') AND (balance<0 OR balance<>ledger_balance);`),'0');
  });
  console.log(`${checks} passed; 0 failed`);
 }finally{

@@ -34,7 +34,7 @@ try {
  await test('payout quarantine is enforced by server',async()=>{delete process.env.BANK_PAYOUTS_ENABLED;rpcCalls=[];assert.equal((await bank(req())).status,503);assert.equal(rpcCalls.length,0)});
  process.env.BANK_PAYOUTS_ENABLED='true';
  await test('invalid payout PIN is delegated to SQL without Edge counter writes',async()=>{validPin=false;rpcCalls=[];updates=0;assert.equal((await bank(req())).status,401);assert.deepEqual(rpcCalls,['verify_user_transaction_pin']);assert.equal(updates,0)});
- validPin=true;globalThis.fetch=async()=>{fetches++;throw Error('ambiguous timeout')};
+ validPin=true;globalThis.fetch=async(url)=>{if(url.includes('/bank/resolve'))return new Response(JSON.stringify({status:true,data:{account_name:'Verified Test',account_number:'1234567890'}}),{status:200});fetches++;throw Error('ambiguous timeout')};
  await test('ambiguous payout transport failure stays pending without refund',async()=>{rpcCalls=[];const res=await bank(req());assert.equal(res.status,202);assert.equal((await res.json()).reconciliation_required,true);assert.ok(rpcCalls.includes('debit_wallet_for_payout'));assert.ok(!rpcCalls.includes('reverse_failed_payout'))});
  await test('payout retry does not dispatch another provider request',async()=>{duplicate=true;fetches=0;rpcCalls=[];const res=await bank(req());assert.equal(res.status,200);assert.equal(fetches,0)});
 } finally {globalThis.fetch=realFetch;delete globalThis.__auditClientFactory;fs.unlinkSync(temp);for(const k of envKeys){if(prior[k]===undefined)delete process.env[k];else process.env[k]=prior[k]}}
