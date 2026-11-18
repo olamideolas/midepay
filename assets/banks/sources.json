@@ -1,0 +1,105 @@
+{
+  "note": "Third-party brand marks identify transfer destinations only; no affiliation is implied. Directory assets are not independently certified as the latest brand revisions.",
+  "logos": [
+    {
+      "id": "opay",
+      "name": "OPay Digital Services Limited (OPay)",
+      "file": "assets/banks/opay.png",
+      "source": "https://www.opayweb.com/favicon.png",
+      "sourceType": "official website icon",
+      "retrieved": "2026-11-18",
+      "sha256": "572698aa2067f1ff397c493099781a032ab8129c02b8e58712315d59070f3092",
+      "bytes": 1106
+    },
+    {
+      "id": "palmpay",
+      "name": "PalmPay",
+      "file": "assets/banks/palmpay.png",
+      "source": "https://nigerianbanks.xyz/logo/palmpay.png",
+      "sourceType": "Nigerian Banks directory brand asset",
+      "retrieved": "2026-11-18",
+      "sha256": "d61f8367a859ddf9ef49a677e78296fbda16c5d63eab2a9309e04e55614bfe80",
+      "bytes": 13879
+    },
+    {
+      "id": "kuda",
+      "name": "Kuda Bank",
+      "file": "assets/banks/kuda.png",
+      "source": "https://www.kuda.com/wp-content/uploads/2026/07/cropped-Favicon-1-192x192.png",
+      "sourceType": "official website icon",
+      "retrieved": "2026-11-18",
+      "sha256": "6c5ecd7d96fc8c2d0f9f6ada7c580524afacdb88eebd896903902a9d37855ef9",
+      "bytes": 1797
+    },
+    {
+      "id": "moniepoint",
+      "name": "Moniepoint MFB",
+      "file": "assets/banks/moniepoint.png",
+      "source": "https://nigerianbanks.xyz/logo/moniepoint-mfb-ng.png",
+      "sourceType": "Nigerian Banks directory brand asset",
+      "retrieved": "2026-11-18",
+      "sha256": "18177b908381c6f6280175bdb611dfa7ba710a381ec247fc73329bc4852b356b",
+      "bytes": 91977
+    },
+    {
+      "id": "gtbank",
+      "name": "Guaranty Trust Bank",
+      "file": "assets/banks/gtbank.png",
+      "source": "https://nigerianbanks.xyz/logo/guaranty-trust-bank.png",
+      "sourceType": "Nigerian Banks directory brand asset",
+      "retrieved": "2026-11-18",
+      "sha256": "3f6f171bd8a496e678eb7f42a9c8bb2799d0b6839e76c90263e8e5df50832a6a",
+      "bytes": 2941
+    },
+    {
+      "id": "access",
+      "name": "Access Bank",
+      "file": "assets/banks/access.png",
+      "source": "https://nigerianbanks.xyz/logo/access-bank.png",
+      "sourceType": "Nigerian Banks directory brand asset",
+      "retrieved": "2026-11-18",
+      "sha256": "b4234c54a0a55003df2c30a93552dcdfdd56449dd31b14bc419424de0a555e81",
+      "bytes": 9071
+    },
+    {
+      "id": "zenith",
+      "name": "Zenith Bank",
+      "file": "assets/banks/zenith.png",
+      "source": "https://nigerianbanks.xyz/logo/zenith-bank.png",
+      "sourceType": "Nigerian Banks directory brand asset",
+      "retrieved": "2026-11-18",
+      "sha256": "00ad3fea04e5b6c058605103bb497c9b31fb0b6042dbfb90fd30995944cc3fdf",
+      "bytes": 14530
+    },
+    {
+      "id": "uba",
+      "name": "United Bank For Africa",
+      "file": "assets/banks/uba.png",
+      "source": "https://nigerianbanks.xyz/logo/united-bank-for-africa.png",
+      "sourceType": "Nigerian Banks directory brand asset",
+      "retrieved": "2026-11-18",
+      "sha256": "8f652966921ed560b6b056bcfdd24a1913218823b99a6f4949f89cf917bd46b2",
+      "bytes": 11393
+    },
+    {
+      "id": "firstbank",
+      "name": "First Bank of Nigeria",
+      "file": "assets/banks/firstbank.png",
+      "source": "https://nigerianbanks.xyz/logo/first-bank-of-nigeria.png",
+      "sourceType": "Nigerian Banks directory brand asset",
+      "retrieved": "2026-11-18",
+      "sha256": "2097480281a7c5a8e7a087aea0318cbe8c851ec19ea336b71d159f4e7c6f0c5c",
+      "bytes": 20116
+    },
+    {
+      "id": "providus",
+      "name": "Providus Bank",
+      "file": "assets/banks/providus.png",
+      "source": "https://www.providusbank.com/apple-touch-icon.png",
+      "sourceType": "official website icon",
+      "retrieved": "2026-11-18",
+      "sha256": "7bc5d50e8d8c2e9bd41445d7176c18af9725f75eb0cd836f1bfc35c57994c335",
+      "bytes": 3302
+    }
+  ]
+}

@@ -167,3 +167,7 @@
 .midepay-ui .form-label{color:var(--text-primary)}
 .midepay-ui:has(.modal-overlay:not(.hidden)){overflow:hidden}
 .midepay-ui .vault-actions .btn-text{color:var(--primary-emerald)}
+
+/* Original brand assets, kept on a neutral surface in both themes. */
+.midepay-ui .bank-badge-icon.bank-brand-logo{background:#fff;border:1px solid #e4e9ed;box-shadow:none;padding:4px;overflow:hidden}
+.midepay-ui .bank-brand-logo img{display:block;width:100%;height:100%;object-fit:contain;border-radius:5px}
