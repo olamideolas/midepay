@@ -26,3 +26,5 @@
 \ir ./migrations/20261118165154_payout_dispatch_outbox.sql
 
 \ir ./migrations/20261118172733_operator_payment_review.sql
+
+\ir ./migrations/20261119041317_accounting_amount_boundaries.sql

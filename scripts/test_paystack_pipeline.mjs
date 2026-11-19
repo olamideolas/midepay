@@ -58,6 +58,7 @@ try{
  await test('an unknown signed reference cannot create a deposit',async()=>{assert.equal((await webhook(event('unregistered-reference',{id:'unknown-receipt'}))).status,500);assert.equal(await balance(),1000)});
  const pending=await (await initialize()).json();
  await test('a signed underpayment cannot credit a pending deposit',async()=>{assert.equal((await webhook(event(pending.reference,{amount:99999,id:'underpaid'}))).status,500);assert.equal(await balance(),1000)});
+ await test('a signed overpayment cannot silently credit a different amount',async()=>{assert.equal((await webhook(event(pending.reference,{amount:100001,id:'overpaid'}))).status,500);assert.equal(await balance(),1000)});
  await test('a signed wrong-currency event cannot credit the wallet',async()=>{assert.equal((await webhook(event(pending.reference,{currency:'USD',id:'wrong-currency'}))).status,400);assert.equal(await balance(),1000)});
  await test('the same provider receipt cannot fund a second pending reference',async()=>{assert.equal((await webhook(event(pending.reference))).status,500);assert.equal(await balance(),1000)});
  await test('staging rejects a signed live-domain payment event',async()=>{assert.equal((await webhook(event(pending.reference,{domain:'live',id:'live-receipt'}))).status,400);assert.equal(await balance(),1000)});
