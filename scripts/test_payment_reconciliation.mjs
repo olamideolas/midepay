@@ -13,7 +13,7 @@ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'midepay-reconcile-')),file=path.
 async function rpc(name,args){return db.transaction(async tx=>{await tx.exec('SET LOCAL ROLE service_role');const values=Object.values(args);const r=await tx.query(`SELECT public.${name}(${Object.keys(args).map((k,i)=>k+'=> $'+(i+1)).join(',')}) AS result`,values.map(v=>v&&typeof v==='object'?JSON.stringify(v):v));return r.rows[0].result})}
 globalThis.__reconciliationClient=()=>{clientCalls++;return{rpc:async(name,args)=>{rpcCalls.push(name);try{if(name==='finish_payment_reconciliation'&&finishFailure)throw Error('Synthetic acknowledgement loss');return{data:await rpc(name,args),error:null}}catch(e){return{data:null,error:{message:e.message}}}}}};
 fs.writeFileSync(file,fs.readFileSync(path.join(root,'supabase/functions/reconcile-payments/index.ts'),'utf8').replace("import { createClient } from 'npm:@supabase/supabase-js@2.119.0';",'const createClient=globalThis.__reconciliationClient;'));
-const {handleReconciliation:handle,dispatchQueuedPayouts:dispatch}=await import(pathToFileURL(file));
+const {handleReconciliation:handle,dispatchQueuedPayouts:dispatch,verifyStagingRefund:verifyRefund}=await import(pathToFileURL(file));
 let tick=0;
 const makeToken=(time)=>time+'.'+crypto.createHmac('sha256',Buffer.from(secret,'hex')).update('midepay-reconcile:v1:'+time).digest('hex');
 const request=(headers={},method='POST')=>new Request('http://localhost/reconcile',{method,headers:{authorization:'Bearer '+makeToken(Math.floor(Date.now()/1000)+(++tick)),...headers}});
@@ -79,5 +79,20 @@ try{
  await outboxTest('legacy pending payouts are never backfilled into the send queue',async()=>{await db.query('UPDATE wallets SET balance=10000,ledger_balance=10000 WHERE user_id=$1',[user]);const args={p_user_id:user,p_amount:1000,p_fee:0,p_reference:'MDP-OUT-LEGACY-'+crypto.randomUUID(),p_provider:'paystack',p_counterparty_name:'Verified owner',p_counterparty_bank:'001',p_counterparty_nuban:'0000000000'};await rpc('debit_wallet_for_payout',args);const again=await rpc('enqueue_wallet_payout',args);assert.equal(again.already_debited,true);assert.equal(again.dispatch_status,'legacy_review');assert.equal(await balance(),9000);assert.deepEqual(await rpc('claim_payout_dispatch',{}),[])});
  await outboxTest('the scheduled worker cannot dispatch when the server payout flag is off',async()=>{resetDispatch();const q=await queue();delete process.env.BANK_PAYOUTS_ENABLED;rpcCalls=[];assert.equal((await handle(request())).status,200);assert.equal(moneyPosts,0);assert.equal(recipientPosts,0);assert.ok(!rpcCalls.includes('claim_payout_dispatch'));assert.equal((await outbox(q.id)).state,'ready')});
  await outboxTest('client roles cannot inspect, claim, cancel or begin payout dispatch',async()=>{for(const role of ['anon','authenticated'])for(const query of ['SELECT * FROM private.payout_dispatch_outbox','SELECT claim_payout_dispatch()',"SELECT cancel_undispatched_payout('00000000-0000-4000-8000-000000000000')"]){await assert.rejects(()=>db.transaction(async tx=>{await tx.exec('SET LOCAL ROLE '+role);await tx.exec(query)}),e=>e.code==='42501')}});
+ await test('refund lookup validates provider identity and test mode using GET only',async()=>{const saved=globalThis.fetch;try{let payload={id:19221040,transaction:6774684861,domain:'test',currency:'NGN',amount:10000,status:'processed'};globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.paystack.co/refund/19221040');assert.equal(options.method,'GET');assert.equal(options.redirect,'error');return new Response(JSON.stringify({status:true,data:payload}))};const r=await verifyRefund('19221040','sk_test_synthetic');assert.equal(r.wallet_changed,false);assert.equal(r.amount_kobo,10000);assert.equal(r.transaction_id,'6774684861');for(const change of [{id:1},{domain:'live'},{currency:'USD'},{amount:1.5},{amount:0},{transaction:null},{status:'unexpected'}]){const original=payload;payload={...payload,...change};await assert.rejects(()=>verifyRefund('19221040','sk_test_synthetic'));payload=original}await assert.rejects(()=>verifyRefund('../bad','sk_test_synthetic'));await assert.rejects(()=>verifyRefund('19221040','sk_live_synthetic'));globalThis.fetch=async()=>{throw Error('timeout')};await assert.rejects(()=>verifyRefund('19221040','sk_test_synthetic'));}finally{globalThis.fetch=saved}});
+ await test('refund action requires one-use authorization and cannot claim jobs or change balances',async()=>{
+  const saved=globalThis.fetch,before=await balance();let calls=0;
+  const headers=request().headers,body=JSON.stringify({action:'verify_refund',refund_id:'19221040'});
+  const make=(h=headers,b=body)=>new Request('http://localhost/reconcile',{method:'POST',headers:h,body:b});
+  try{
+   globalThis.fetch=async()=>{calls++;return new Response(JSON.stringify({status:true,data:{id:19221040,transaction:6774684861,domain:'test',currency:'NGN',amount:10000,status:'processed'}}))};
+   assert.equal((await handle(make({authorization:'Bearer wrong'}))).status,401);assert.equal(calls,0);
+   rpcCalls=[];const response=await handle(make());assert.equal(response.status,200);assert.equal((await response.json()).verification.status,'processed');
+   assert.deepEqual(rpcCalls,['authorize_payment_reconciliation']);assert.equal(await balance(),before);
+   assert.equal((await handle(make())).status,401);assert.equal(calls,1);
+   assert.equal((await handle(make(request().headers,'{"action":"unknown"}'))).status,400);assert.equal(calls,1);
+   assert.equal((await handle(make(request().headers,'not json'))).status,400);assert.equal(calls,1);
+  }finally{globalThis.fetch=saved}
+ });
  console.log(`${passed} passed; 0 failed`);
 }finally{await db.close();globalThis.fetch=oldFetch;delete globalThis.__reconciliationClient;for(const k of envKeys){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k]}fs.rmSync(dir,{recursive:true,force:true})}

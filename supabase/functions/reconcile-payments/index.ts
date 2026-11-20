@@ -38,6 +38,16 @@ export async function dispatchQueuedPayouts(rpc:(name:string,args:Record<string,
  }
  return counts;
 }
+/** Read-only provider lookup. The caller must pass the signed worker gate first. */
+export async function verifyStagingRefund(id:unknown,secret:string):Promise<Record<string,unknown>>{
+ if(typeof id!=='string'||!/^[1-9][0-9]{0,15}$/.test(id)||!secret.startsWith('sk_test_'))throw Error('INVALID_REFUND_LOOKUP');
+ const response=await fetch('https://api.paystack.co/refund/'+id,{method:'GET',redirect:'error',headers:{Authorization:'Bearer '+secret},signal:AbortSignal.timeout(8000)});
+ const result=await response.json();const p=result?.data;
+ const tx=p?.transaction&&typeof p.transaction==='object'?p.transaction.id:p?.transaction;
+ const safeId=(v:unknown)=>/^[1-9][0-9]{0,19}$/.test(String(v??''))&&(typeof v!=='number'||Number.isSafeInteger(v));
+ if(!response.ok||result.status!==true||!p||!safeId(p.id)||String(p.id)!==id||p.domain!=='test'||p.currency!=='NGN'||!safeId(tx)||!Number.isSafeInteger(p.amount)||p.amount<=0||p.amount>99999999999999||!['pending','processing','processed','failed','needs-attention'].includes(p.status))throw Error('REFUND_NOT_VERIFIED');
+ return {refund_id:String(p.id),transaction_id:String(tx),domain:p.domain,currency:p.currency,amount_kobo:p.amount,status:p.status,source:'paystack_refund_api',wallet_changed:false};
+}
 export async function handleReconciliation(req:Request):Promise<Response>{
  const reply=(status:number,data:unknown)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
  if(req.method!=='POST')return reply(405,{code:'METHOD_NOT_ALLOWED'});
@@ -49,6 +59,16 @@ export async function handleReconciliation(req:Request):Promise<Response>{
  const rpc=async(name:string,args:Record<string,unknown>)=>{const {data,error}=await client.rpc(name,args);if(error||data?.success===false)throw Error('DATABASE_RETRY_REQUIRED');return data;};
  try{if(await rpc('authorize_payment_reconciliation',{p_token:auth.slice(7)})!==true)return reply(401,{code:'UNAUTHORIZED_OR_DISABLED'});}
  catch{return reply(503,{code:'WORKER_AUTH_UNAVAILABLE'});}
+ // Explicit server-only lookup; ordinary scheduled requests remain unchanged.
+ if(req.body){
+  let body;try{const raw=await req.text();if(raw.length>1024)return reply(400,{code:'INVALID_REQUEST'});body=raw?JSON.parse(raw):{};}catch{return reply(400,{code:'INVALID_REQUEST'});}
+  if(!body||typeof body!=='object'||Array.isArray(body))return reply(400,{code:'INVALID_REQUEST'});
+  if(body.action==='verify_refund'){
+   try{return reply(200,{success:true,verification:await verifyStagingRefund(body.refund_id,env('PAYSTACK_SECRET_KEY'))});}
+   catch{return reply(503,{success:false,code:'REFUND_VERIFICATION_RETRY_REQUIRED'});}
+  }
+  if(body.action!==undefined)return reply(400,{code:'UNKNOWN_ACTION'});
+ }
  let jobs:Job[];
  try{jobs=await rpc('claim_payment_reconciliation',{p_limit:3});if(!Array.isArray(jobs)||jobs.length>3)throw Error('INVALID_BATCH');}
  catch{return reply(503,{code:'QUEUE_UNAVAILABLE'});}
