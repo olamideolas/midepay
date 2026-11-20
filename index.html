@@ -1695,6 +1695,20 @@
         <div class="payment-review-tools"><label for="payment-review-filter">Show payments<select id="payment-review-filter"><option value="attention">Needs attention</option><option value="pending">Pending payments</option><option value="all">All payments</option></select></label><button type="button" class="btn btn-outline-sm" id="payment-review-refresh">Refresh</button><span class="payment-review-checked" id="payment-review-checked"></span></div>
         <p id="payment-review-message" class="payment-review-message" role="status" aria-live="polite">Open this tab to load payment records.</p>
         <form id="payment-review-auth" class="payment-review-auth" hidden><label for="payment-review-code">Authenticator code</label><input id="payment-review-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="6-digit code" required><button type="submit" class="btn btn-primary btn-sm" id="payment-review-verify">Verify authenticator</button><button type="button" class="btn btn-outline-sm" id="payment-review-enroll">Set up authenticator</button><p>Executive access requires a recent authenticator check. Use your existing authenticator or set one up here.</p><img id="payment-review-qr" alt="Scan to set up your authenticator" hidden></form>
+        <section class="payment-review-card" aria-labelledby="refund-review-title">
+          <h3 id="refund-review-title">Refund approvals</h3>
+          <p>Review processed test refunds. A different executive must approve each wallet adjustment.</p>
+          <button type="button" id="refund-review-refresh" class="btn btn-outline-sm">Load refund queue</button>
+          <p id="refund-review-message" role="status" aria-live="polite">Verify your authenticator above, then load the queue.</p>
+          <div id="refund-review-rows"></div>
+          <form id="refund-review-form" hidden>
+            <p id="refund-review-selection"></p>
+            <label for="refund-review-reason">Reason</label><input id="refund-review-reason" minlength="5" maxlength="500" autocomplete="off">
+            <label for="refund-review-pin">Your transaction PIN</label><input id="refund-review-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+            <button type="submit" id="refund-review-submit" class="btn btn-primary btn-sm">Confirm</button>
+            <button type="button" id="refund-review-cancel" class="btn btn-outline-sm">Cancel</button>
+          </form>
+        </section>
         <div id="payment-review-summary" class="payment-review-summary" aria-label="Payment totals"></div>
         <div id="payment-review-rows" aria-label="Payment records"></div>
         <nav class="payment-review-pagination" aria-label="Payment result pages"><button type="button" id="payment-review-newer" class="btn btn-outline-sm" disabled>Newer</button><button type="button" id="payment-review-older" class="btn btn-outline-sm" disabled>Older</button></nav>
@@ -3520,5 +3534,6 @@
   <script src="app.js?v=4.7"></script>
   <script src="ui-polish.js?v=1"></script>
   <script src="payment-review.js?v=1"></script>
+  <script src="refund-review.js?v=1"></script>
 </body>
 </html>
