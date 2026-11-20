@@ -63,8 +63,17 @@ export async function handleReconciliation(req:Request):Promise<Response>{
  if(req.body){
   let body;try{const raw=await req.text();if(raw.length>1024)return reply(400,{code:'INVALID_REQUEST'});body=raw?JSON.parse(raw):{};}catch{return reply(400,{code:'INVALID_REQUEST'});}
   if(!body||typeof body!=='object'||Array.isArray(body))return reply(400,{code:'INVALID_REQUEST'});
-  if(body.action==='verify_refund'){
-   try{return reply(200,{success:true,verification:await verifyStagingRefund(body.refund_id,env('PAYSTACK_SECRET_KEY'))});}
+  if(body.action==='verify_refund'||body.action==='verify_refund_for_accounting'){
+   try{
+    const verification=await verifyStagingRefund(body.refund_id,env('PAYSTACK_SECRET_KEY'));
+    if(body.action==='verify_refund_for_accounting'){
+     if(verification.status!=='processed')return reply(409,{success:false,code:'REFUND_NOT_PROCESSED'});
+     const verification_id=await rpc('attest_processed_test_refund',{p_refund_id:verification.refund_id,p_receipt:verification.transaction_id,p_amount_kobo:verification.amount_kobo});
+     if(typeof verification_id!=='string'||!/^[0-9a-f-]{36}$/.test(verification_id))throw Error('VERIFICATION_NOT_RECORDED');
+     return reply(200,{success:true,verification,verification_id});
+    }
+    return reply(200,{success:true,verification});
+   }
    catch{return reply(503,{success:false,code:'REFUND_VERIFICATION_RETRY_REQUIRED'});}
   }
   if(body.action!==undefined)return reply(400,{code:'UNKNOWN_ACTION'});

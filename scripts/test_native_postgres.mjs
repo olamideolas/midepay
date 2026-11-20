@@ -188,6 +188,36 @@ try{
   const replacement=JSON.parse((await sql(asService('SELECT claim_payout_dispatch()'))).out.split('\n').at(-1));assert.equal(replacement.length,1);assert.notEqual(replacement[0].lease_token,job.lease_token);
   const old=JSON.parse((await sql(asService(`SELECT begin_payout_dispatch('${job.transaction_id}','${job.lease_token}','RCP_NATIVE')`))).out.split('\n').at(-1));assert.equal(old.success,false);
  });
+ const refundActors=['f1000000-0000-4000-8000-000000000001','f1000000-0000-4000-8000-000000000002','f1000000-0000-4000-8000-000000000003','f1000000-0000-4000-8000-000000000004'];
+ const [refundMember,refundMaker,refundChecker,refundRecipient]=refundActors;
+ for(const [i,id] of refundActors.entries()){
+  await sql(`INSERT INTO auth.users(id,email,email_confirmed_at) VALUES('${id}','refund${i}@native.invalid',now());SELECT attest_verified_email('${id}','refund${i}@native.invalid');`);
+  await sql(`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${id}';SELECT set_user_transaction_pin('4829');COMMIT;`);
+ }
+ await sql(`UPDATE profiles SET role='executive' WHERE id IN ('${refundMaker}','${refundChecker}');UPDATE private.refund_accounting_control SET enabled=true;`);
+ const asRefundOperator=(who,statement)=>`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${who}';SET LOCAL request.jwt.claims='${JSON.stringify({aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)}]})}';${statement};COMMIT;`;
+ let refundSequence=8000;
+ const refundFund=async()=>{const receipt=String(++refundSequence);await sql(`INSERT INTO transactions(wallet_id,user_id,type,category,amount,fee,status,counterparty_name,reference,gateway_provider) SELECT id,user_id,'inflow','deposit',100,0,'pending','Synthetic','REFUND-${receipt}','paystack' FROM wallets WHERE user_id='${refundMember}';`);await sql(asService(`SELECT settle_gateway_deposit('REFUND-${receipt}','paystack',10000,'${receipt}','{"data":{"domain":"test","currency":"NGN","amount":10000}}')`));return receipt};
+ const refundRequest=async(receipt,amount=10000)=>{const v=await scalar(asService(`SELECT attest_processed_test_refund('${++refundSequence}','${receipt}',${amount})`));return result(await sql(asRefundOperator(refundMaker,`SELECT request_refund_adjustment('${v}','Native verified refund','4829')`))).request_id};
+ const refundApprove=id=>sql(asRefundOperator(refundChecker,`SELECT approve_refund_adjustment('${id}','4829')`));
+ await test('16 simultaneous refund approvals debit once with one balanced journal',async()=>{
+  const id=await refundRequest(await refundFund());const values=(await Promise.all(Array.from({length:16},()=>refundApprove(id)))).map(result);
+  assert.equal(values.filter(v=>v.status==='applied').length,1);assert.equal(values.filter(v=>v.status==='duplicate').length,15);
+  assert.equal(await bal(refundMember),'0.00');assert.equal(await scalar(`SELECT count(*) FROM private.refund_adjustment_journal WHERE request_id='${id}';`),'1');
+ });
+ await test('parallel partial refunds cannot exceed their original charge',async()=>{
+  const receipt=await refundFund(),a=await refundRequest(receipt,6000),b=await refundRequest(receipt,6000);
+  const values=(await Promise.all([refundApprove(a),refundApprove(b)])).map(result);
+  assert.equal(values.filter(v=>v.status==='applied').length,1);assert.equal(values.filter(v=>v.code==='REFUND_EXCEEDS_PAYMENT').length,1);assert.equal(await bal(refundMember),'40.00');
+ });
+ await test('refund racing a customer transfer cannot overspend the wallet',async()=>{
+  const receipt=await refundFund(),id=await refundRequest(receipt); // Existing 40 plus fresh 100; competing 100 operations cannot both win.
+  const transfer=`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${refundMember}';SELECT transfer_funds('${refundMember}','${refundRecipient}',100,'Native refund race','4829','f2000000-0000-4000-8000-000000000001');COMMIT;`;
+  const values=(await Promise.all([refundApprove(id),sql(transfer)])).map(result);
+  assert.equal(values.filter(v=>v.success===true).length,1);assert.equal(await bal(refundMember),'40.00');
+  assert.equal(await scalar(`SELECT verify_wallet_ledger_reconciliation(id)->>'ok' FROM wallets WHERE user_id='${refundMember}';`),'true');
+  fs.writeFileSync(path.join(dir,'refund-race-evidence.json'),JSON.stringify(values,null,2));
+ });
  console.log(`${checks} passed; 0 failed`);
 }finally{
  if(started)run('pg_ctl',['-D',data,'-m','fast','-w','stop']);

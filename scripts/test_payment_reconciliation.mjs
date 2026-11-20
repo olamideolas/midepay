@@ -94,5 +94,16 @@ try{
    assert.equal((await handle(make(request().headers,'not json'))).status,400);assert.equal(calls,1);
   }finally{globalThis.fetch=saved}
  });
+ await test('accounting attestation accepts only freshly verified processed refunds',async()=>{
+  const saved=globalThis.fetch;let state='pending';
+  const ref=await deposit();await db.query("UPDATE transactions SET status='successful',gateway_reference='6774684861',webhook_payload=$2 WHERE reference=$1",[ref,JSON.stringify({data:{domain:'test'}})]);
+  try{
+   globalThis.fetch=async()=>new Response(JSON.stringify({status:true,data:{id:19221040,transaction:6774684861,domain:'test',currency:'NGN',amount:10000,status:state}}));
+   const invoke=()=>handle(new Request('http://localhost/reconcile',{method:'POST',headers:request().headers,body:JSON.stringify({action:'verify_refund_for_accounting',refund_id:'19221040'})}));
+   rpcCalls=[];assert.equal((await invoke()).status,409);assert.ok(!rpcCalls.includes('attest_processed_test_refund'));
+   state='processed';const r=await invoke();assert.equal(r.status,200);const id=(await r.json()).verification_id;assert.match(id,/^[0-9a-f-]{36}$/);assert.equal(Number((await db.query('SELECT amount_kobo FROM private.refund_verifications WHERE id=$1',[id])).rows[0].amount_kobo),10000);
+   rpcCalls=[];globalThis.fetch=async()=>{throw Error('timeout')};assert.equal((await invoke()).status,503);assert.ok(!rpcCalls.includes('attest_processed_test_refund'));
+  }finally{globalThis.fetch=saved}
+ });
  console.log(`${passed} passed; 0 failed`);
 }finally{await db.close();globalThis.fetch=oldFetch;delete globalThis.__reconciliationClient;for(const k of envKeys){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k]}fs.rmSync(dir,{recursive:true,force:true})}

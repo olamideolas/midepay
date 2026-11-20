@@ -38,6 +38,7 @@ jobs:
           for suite in validate_production.js test_payment_webhook.js test_e2e_runtime.js test_security_penetration.js test_v46_postgres_migration.mjs test_independent_database.mjs test_independent_webhook.mjs test_phase1_security.mjs test_phase1_handlers.mjs test_payout_boundaries.mjs test_password_recovery.js test_paystack_pipeline.mjs test_paystack_client.js test_browser_sdk.js test_staging_preview.js test_payment_reconciliation.mjs test_operator_payment_review.mjs test_accounting_boundaries.mjs test_provider_cases.mjs; do
             node "scripts/$suite"
           done
+          node scripts/test_refund_accounting.mjs
       - name: Preserve isolated database evidence
         if: always()
         uses: actions/upload-artifact@v4
