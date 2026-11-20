@@ -175,7 +175,7 @@ export async function handleInitPaymentRequest(req: Request): Promise<Response> 
         p_reference: tx.reference, p_provider: 'paystack', p_amount_kobo_or_ngn: payment.amount,
         p_gateway_ref: String(payment.id), p_raw_payload: {
           event: 'charge.success', verification_source: 'paystack_verify_api',
-          data: { id: payment.id, reference: payment.reference, status: payment.status, domain: payment.domain, currency: payment.currency, amount: payment.amount }
+          data: { id: payment.id, reference: payment.reference, status: payment.status, domain: payment.domain, currency: payment.currency, amount: payment.amount, fees: payment.fees ?? null }
         }
       });
       if (settlementError || settlement?.success !== true) return respond(503, { code: 'SETTLEMENT_RETRY_REQUIRED' });

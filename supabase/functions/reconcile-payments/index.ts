@@ -77,7 +77,7 @@ export async function handleReconciliation(req:Request):Promise<Response>{
       const recipientMatches=deposit||(p.recipient?.details?.account_number===job.account_number&&p.recipient?.details?.bank_code===job.bank_code&&typeof p.transfer_code==='string'&&/^TRF_[a-zA-Z0-9]+$/.test(p.transfer_code)&&(job.gateway_reference===null||job.gateway_reference===job.reference||job.gateway_reference===p.transfer_code));
       if(!matches||!recipientMatches)decision={outcome:'review',code:'PROVIDER_PAYMENT_MISMATCH'};
       else if(deposit&&p.status==='success'){
-       const settled=await rpc('settle_gateway_deposit',{p_reference:job.reference,p_provider:'paystack',p_amount_kobo_or_ngn:p.amount,p_gateway_ref:String(receipt),p_raw_payload:{event:'charge.success',verification_source:'scheduled_paystack_verification',data:{id:receipt,reference:p.reference,status:p.status,domain:p.domain,currency:p.currency,amount:p.amount}}});
+       const settled=await rpc('settle_gateway_deposit',{p_reference:job.reference,p_provider:'paystack',p_amount_kobo_or_ngn:p.amount,p_gateway_ref:String(receipt),p_raw_payload:{event:'charge.success',verification_source:'scheduled_paystack_verification',data:{id:receipt,reference:p.reference,status:p.status,domain:p.domain,currency:p.currency,amount:p.amount,fees:p.fees??null}}});
        decision=settled?.success===true?{outcome:'done',code:'DEPOSIT_SETTLED'}:{outcome:'retry',code:'SETTLEMENT_RETRY_REQUIRED'};
       }else if(payout&&['success','failed','reversed'].includes(p.status)){
        const success=p.status==='success';

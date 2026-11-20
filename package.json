@@ -21,7 +21,8 @@
     "test:paystack-pipeline": "node scripts/test_paystack_pipeline.mjs && node scripts/test_paystack_client.js",
     "test:reconciliation": "node scripts/test_payment_reconciliation.mjs",
     "test:operator-review": "node scripts/test_operator_payment_review.mjs",
-    "test:accounting": "node scripts/test_accounting_boundaries.mjs"
+    "test:accounting": "node scripts/test_accounting_boundaries.mjs",
+    "test:provider-cases": "node scripts/test_provider_cases.mjs"
   },
   "keywords": [
     "fintech",

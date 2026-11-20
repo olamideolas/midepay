@@ -28,3 +28,5 @@
 \ir ./migrations/20261118172733_operator_payment_review.sql
 
 \ir ./migrations/20261119041317_accounting_amount_boundaries.sql
+
+\ir ./migrations/20261120090704_provider_case_intake_and_fees.sql

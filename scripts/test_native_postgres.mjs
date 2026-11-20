@@ -91,6 +91,20 @@ try{
   await Promise.all(Array.from({length:16},()=>sql(asService("SELECT settle_gateway_deposit('native-deposit','paystack',100000,'native-receipt','{}')"))));
   assert.equal(await balance(),'1000.00');
  });
+ await test('16 simultaneous refund deliveries retain exactly one case and event without wallet changes',async()=>{
+  const before=await balance();
+  const payload=JSON.stringify({id:90001,domain:'test',transaction:{reference:'native-deposit'},currency:'NGN',amount:1000,status:'processed'});
+  await Promise.all(Array.from({length:16},()=>sql(asService(`SELECT record_paystack_case_event('refund.processed','${payload}'::jsonb)`))));
+  assert.equal(await scalar("SELECT count(*) FROM private.payment_provider_cases WHERE provider_case_id='90001';"),'1');
+  assert.equal(await scalar("SELECT count(*) FROM private.payment_provider_case_events e JOIN private.payment_provider_cases c ON c.id=e.case_id WHERE c.provider_case_id='90001';"),'1');
+  assert.equal(await balance(),before);
+ });
+ await test('16 concurrent verified fee observations deduplicate without crediting again',async()=>{
+  const before=await balance();
+  await Promise.all(Array.from({length:16},()=>sql(asService(`SELECT settle_gateway_deposit('native-deposit','paystack',100000,'native-receipt','{"event":"charge.success","data":{"domain":"test","fees":1500}}')`))));
+  assert.equal(await scalar("SELECT count(*) FROM private.payment_charge_observations WHERE gateway_receipt='native-receipt' AND fee_kobo=1500;"),'1');
+  assert.equal(await balance(),before);
+ });
  await test('16 simultaneous verified payout reversals refund exactly once',async()=>{
   await Promise.all(Array.from({length:16},()=>sql(asService(`SELECT reverse_failed_payout('native-same','test','{"event":"transfer.failed"}')`))));
   assert.equal(await balance(),'2000.00');

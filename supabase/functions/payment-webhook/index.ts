@@ -15,6 +15,7 @@
  */
 
 export interface WebhookDependencies {
+  recordProviderCase?: (args: { p_event: string; p_data: Record<string, unknown> }) => Promise<{ data: unknown; error: { message: string } | null }>;
   paystackSecret?: string;
   flutterwaveWebhookHash?: string;
   flutterwaveSecretKey?: string;
@@ -185,7 +186,30 @@ export async function handlePaymentWebhookRequest(
   }
 
   // 1. Read raw bytes BEFORE any JSON parsing
-  const rawBody = await req.text();
+  let rawBody = '';
+  try {
+    const reader = req.body?.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > 262144) {
+          await reader.cancel();
+          return new Response(JSON.stringify({ error: 'Webhook body too large.' }), { status: 413, headers: jsonHeaders });
+        }
+        chunks.push(value);
+      }
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+      rawBody = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    }
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid webhook body.' }), { status: 400, headers: jsonHeaders });
+  }
   if (!rawBody) {
     return new Response(JSON.stringify({ error: 'Empty webhook body.' }), {
       status: 401,
@@ -233,6 +257,7 @@ export async function handlePaymentWebhookRequest(
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(rawBody) as Record<string, unknown>;
+    if (!payload || Array.isArray(payload) || typeof payload !== 'object' || !payload.data || Array.isArray(payload.data) || typeof payload.data !== 'object') throw new Error('Invalid event object');
   } catch {
     return new Response(JSON.stringify({ error: 'Malformed JSON payload.' }), {
       status: 400,
@@ -297,11 +322,34 @@ export async function handlePaymentWebhookRequest(
     const eventType = String(payload.event ?? '');
     const data = (payload.data ?? {}) as Record<string, unknown>;
     const reference = String(data.reference ?? '').trim();
+    const caseEvents = ['refund.pending', 'refund.processing', 'refund.processed', 'refund.failed', 'charge.dispute.create', 'charge.dispute.remind', 'charge.dispute.resolve'];
+    const isCase = caseEvents.includes(eventType);
+    const transaction = data.transaction && typeof data.transaction === 'object' && !Array.isArray(data.transaction) ? data.transaction as Record<string, unknown> : {};
+    const domain = isCase ? data.domain ?? transaction.domain : data.domain;
 
     // A staging deployment must never settle a live payment, even after a secret misconfiguration.
     if (getEnv('SUPABASE_URL') === 'https://ajbhsmcosxgymrtawlmd.supabase.co' &&
-        (!paystackSecret.startsWith('sk_test_') || data.domain !== 'test')) {
+        (!paystackSecret.startsWith('sk_test_') || domain !== 'test')) {
       return new Response(JSON.stringify({ error: 'Staging accepts only Paystack test events.' }), { status: 400, headers: jsonHeaders });
+    }
+
+    if (isCase) {
+      if (!/^[1-9][0-9]{0,19}$/.test(String(data.id ?? '')) || (typeof data.id === 'number' && !Number.isSafeInteger(data.id)) || !['test', 'live'].includes(String(domain))) {
+        return new Response(JSON.stringify({ error: 'Invalid provider case identity.' }), { status: 400, headers: jsonHeaders });
+      }
+      try {
+        const args = { p_event: eventType, p_data: data };
+        const result = deps.recordProviderCase ? await deps.recordProviderCase(args) : await (await getAdminClient()).rpc('record_paystack_case_event', args);
+        const recorded = result.data as { success?: boolean; recorded?: boolean } | null;
+        if (result.error || recorded?.success !== true || recorded?.recorded !== true) throw new Error('Intake unavailable');
+        return new Response(JSON.stringify({ received: true, provider: 'paystack', review_required: true, wallet_changed: false }), { status: 200, headers: jsonHeaders });
+      } catch {
+        // Never acknowledge durable delivery until the database commits it.
+        return new Response(JSON.stringify({ received: false, code: 'CASE_INTAKE_RETRY_REQUIRED' }), { status: 503, headers: jsonHeaders });
+      }
+    }
+    if (eventType.startsWith('refund.') || eventType.startsWith('charge.dispute.')) {
+      return new Response(JSON.stringify({ received: false, code: 'UNSUPPORTED_CASE_EVENT' }), { status: 503, headers: jsonHeaders });
     }
 
     if (eventType === 'charge.success' && data.status === 'success' && reference) {
