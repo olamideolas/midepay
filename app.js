@@ -6190,14 +6190,12 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     const elWallets = document.getElementById('admin-wallets-val');
     const elWaitlist = document.getElementById('admin-waitlist-val');
     const elMargin = document.getElementById('admin-margin-val');
-    const elKyc2 = document.getElementById('admin-kyc2-count');
 
-    const totalVolume = adminTxList.reduce((acc, t) => acc + (Number(t.amount) || 0), 48500000);
-    if (elTpv) elTpv.textContent = formatNaira(totalVolume);
-    if (elWallets) elWallets.textContent = `${adminUsersList.length + 1245} Users`;
-    if (elKyc2) elKyc2.textContent = `${adminUsersList.length + 1238}`;
-    if (elWaitlist) elWaitlist.textContent = `${adminWaitlistEntries.length + 480} Leads`;
-    if (elMargin) elMargin.textContent = formatNaira(384150.00 + (adminTxList.length * 25));
+    // Loaded records are not network-wide financial or verified KYC totals.
+    if (elTpv) elTpv.textContent = String(adminTxList.length);
+    if (elWallets) elWallets.textContent = String(adminUsersList.length);
+    if (elWaitlist) elWaitlist.textContent = String(adminWaitlistEntries.length);
+    if (elMargin) elMargin.textContent = 'Unavailable';
 
     // Update Tab Counters
     const tabUsersCount = document.getElementById('tab-count-users');

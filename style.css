@@ -6433,3 +6433,8 @@ main > section:first-of-type p {
     font-size: 1.15rem;
   }
 }
+
+/* Keep every executive section visible without horizontal scrolling. */
+.admin-tab-nav { flex-wrap: wrap; overflow-x: visible; }
+.admin-tab-btn { white-space: normal; text-align: left; }
+@media(max-width: 600px) { .admin-tab-nav .admin-tab-btn { flex: 1 1 45%; padding: .75rem; min-width: 0; } }
