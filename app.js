@@ -6710,8 +6710,8 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     const holderName = state.user?.fullName || 'MidePay Account Holder';
     const holderEmail = state.user?.email || 'member@midepay.ng';
     const holderTag = state.user?.tag || '@midepay';
-    const holderNuban = formatNubanDisplay(state.user?.nuban || '9021849102');
-    const kycLabel = state.kycTier === 3 ? 'Tier 3 Unlimited' : `Tier ${state.kycTier || 2} Verified`;
+    const holderNuban = state.user?.nuban ? formatNubanDisplay(state.user.nuban) : 'Not assigned';
+    const kycLabel = isProductionEnv() ? 'Test wallet · identity verification unavailable' : 'Demo wallet · identity not verified';
 
     let totalInflow = 0;
     let totalOutflow = 0;
@@ -6742,7 +6742,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     if (stmtNameEl) stmtNameEl.textContent = holderName;
     if (stmtMetaEl) stmtMetaEl.textContent = `${holderEmail} • ${holderTag}`;
     if (stmtNubanEl) stmtNubanEl.textContent = holderNuban;
-    if (stmtKycEl) stmtKycEl.textContent = `Providus Bank • CBN ${kycLabel}`;
+    if (stmtKycEl) stmtKycEl.textContent = kycLabel;
     if (stmtBalEl) stmtBalEl.textContent = formatNaira(state.dashBalance);
     if (stmtInEl) stmtInEl.textContent = `+${formatNaira(totalInflow)}`;
     if (stmtOutEl) stmtOutEl.textContent = `-${formatNaira(totalOutflow)}`;
