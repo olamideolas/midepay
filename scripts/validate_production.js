@@ -411,10 +411,11 @@ const hasSwAssets = ['index.html', 'style.css', 'liquid-glass.css', 'loading-ani
   .every(asset => swTxt.includes(asset));
 const cacheVersion = swTxt.match(/CACHE_NAME\s*=\s*['"]midepay-pwa-static-v(\d+)\.(\d+)(?:\.(\d+))?(?:-[a-z0-9-]+)?['"]/);
 const hasBumpedSwCache = !!cacheVersion && (Number(cacheVersion[1]) > 4 || (Number(cacheVersion[1]) === 4 && Number(cacheVersion[2]) >= 8)) && swTxt.includes('/ui-polish.css') && swTxt.includes('/ui-polish.js');
-if (!hasSwAssets || !hasBumpedSwCache || !appJs.includes("serviceWorker.register('sw.js')")) {
+const hasSwRegistration = /serviceWorker\.register\(\s*['"]sw\.js['"]\s*(?:,\s*\{\s*updateViaCache:\s*['"]none['"]\s*\})?\s*\)/.test(appJs);
+if (!hasSwAssets || !hasBumpedSwCache || !hasSwRegistration) {
   fail('sw.js missing required cached assets (/vendor/supabase.js), versioned UI CACHE_NAME, or app.js missing serviceWorker.register("sw.js").');
 } else {
-  pass('sw.js UI cache version and new presentation assets, self-hosted vendor/supabase.js, cache-first static assets & network-first routing verified.');
+  pass('Service-worker registration, version and asset references verified; behavioral update checks run separately.');
 }
 
 if (
