@@ -6062,16 +6062,27 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   async function renderAdminPortal() {
     const isProd = Boolean(window.MidePayDB && window.MidePayDB.isProduction());
     adminUsersList = isProd ? [] : getAccountsRegistry();
+    adminTxList = []; adminWaitlistEntries = [];
+    const syncStatus = document.getElementById('admin-db-status');
+    if (syncStatus) syncStatus.textContent = 'Loading operations records…';
+    if (isProd) {
+      renderAdminUsersTable(); renderAdminTxTable(); renderAdminWaitlistTable();
+      for (const id of ['admin-tpv-val','admin-wallets-val','admin-waitlist-val']) {
+        const field=document.getElementById(id);if(field)field.textContent='—';
+      }
+    }
 
     // Fetch live member profiles & wallets from Supabase if connected (permitted by RLS for executives)
     if (window.MidePayDB && window.MidePayDB.isConfigured() && window.MidePayDB.client) {
       try {
-        const [{ data: supaProfiles }, { data: supaWallets }, { data: supaTxs }] = await Promise.all([
+        const [{ data: supaProfiles, error: profilesError }, { data: supaWallets, error: walletsError }, { data: supaTxs, error: transactionsError }] = await Promise.all([
           window.MidePayDB.client.from('profiles').select('id, full_name, email, phone, tag, kyc_tier, role, is_frozen, frozen_by_admin, created_at'),
           window.MidePayDB.client.from('wallets').select('*'),
           window.MidePayDB.client.from('transactions').select('*').order('created_at', { ascending: false }).limit(50)
         ]);
 
+        if (profilesError || walletsError || transactionsError) throw new Error('Operations records unavailable');
+        if (syncStatus) syncStatus.textContent = 'Loaded database records · latest 50 transactions';
         const walletByUser = new Map();
         if (Array.isArray(supaWallets)) {
           supaWallets.forEach(w => {
@@ -6128,10 +6139,13 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
             status: tx.status || 'successful'
           }));
         } else {
-          adminTxList = isProd ? [...state.transactions] : [...state.transactions, ...loadUserTransactions(), ...DEFAULT_DEMO_TRANSACTIONS];
+          adminTxList = isProd ? [] : [...state.transactions, ...loadUserTransactions(), ...DEFAULT_DEMO_TRANSACTIONS];
         }
       } catch (err) {
         console.warn('[MidePay] Executive portal Supabase sync notice:', err);
+        adminUsersList = []; adminTxList = [];
+        if (syncStatus) syncStatus.textContent = 'Records unavailable · refresh to retry';
+        if (isProd) return;
       }
     } else {
       const userTxs = loadUserTransactions();
@@ -6149,7 +6163,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     // 3. Gather waitlist leads
     adminWaitlistEntries = [];
     try {
-      const localWaitlist = JSON.parse(localStorage.getItem('midepay_waitlist_leads') || '[]');
+      const localWaitlist = isProd ? [] : JSON.parse(localStorage.getItem('midepay_waitlist_leads') || '[]');
       adminWaitlistEntries = localWaitlist;
     } catch (e) {}
 
