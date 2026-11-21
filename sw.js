@@ -7,7 +7,7 @@
  * - Clean offline fallback notification when mobile data is unavailable
  */
 
-const CACHE_NAME = 'midepay-pwa-static-v5.0-statements';
+const CACHE_NAME = 'midepay-pwa-static-v5.1-network-shell';
 
 const STATIC_ASSETS = [
   '/payment-review.css',
@@ -101,14 +101,15 @@ const OFFLINE_FALLBACK_HTML = `<!DOCTYPE html>
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting())
+    // UI code is network-only. A missing optional image must never block an update.
+    Promise.resolve().then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+      Promise.all(keys.filter((key) => key.startsWith('midepay-pwa-static-') && key !== CACHE_NAME).map((key) => caches.delete(key)))
     ).then(() => self.clients.claim())
   );
 });

@@ -6868,7 +6868,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       window.location.hostname === '127.0.0.1';
 
     if (canRegisterSw && typeof navigator.serviceWorker.register === 'function') {
-      navigator.serviceWorker.register('sw.js').catch((err) => {
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch((err) => {
         console.warn('[MidePay PWA] Service Worker registration notice:', err?.message || err);
       });
     }

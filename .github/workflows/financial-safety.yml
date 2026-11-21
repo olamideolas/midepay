@@ -40,6 +40,7 @@ jobs:
           done
           node scripts/test_refund_accounting.mjs
           node scripts/test_statement_totals.cjs
+          node scripts/test_sw_updates.cjs
       - name: Preserve isolated database evidence
         if: always()
         uses: actions/upload-artifact@v4
