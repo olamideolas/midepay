@@ -7,11 +7,12 @@
  * - Clean offline fallback notification when mobile data is unavailable
  */
 
-const CACHE_NAME = 'midepay-pwa-static-v4.9-payment-review';
+const CACHE_NAME = 'midepay-pwa-static-v5.0-statements';
 
 const STATIC_ASSETS = [
   '/payment-review.css',
   '/payment-review.js',
+  '/refund-review.js',
   "/assets/banks/opay.png",
   "/assets/banks/palmpay.png",
   "/assets/banks/kuda.png",
@@ -129,6 +130,19 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+
+  // Financial screens must use the deployed code, never an older cached shell.
+  // Only images/fonts below may use the offline cache. Fail closed without a network.
+  if (url.origin === self.location.origin &&
+      (request.mode === 'navigate' || /\.(?:html|js|css)$/.test(url.pathname) || url.pathname.startsWith('/api/'))) {
+    event.respondWith(fetch(request, { cache: 'no-store' }).catch(() => {
+      if (request.mode === 'navigate') return new Response(OFFLINE_FALLBACK_HTML, {
+        status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      });
+      return new Response('Network required to load current MidePay code', { status: 503 });
+    }));
+    return;
+  }
 
   // 1. Network-First for Supabase API calls & dynamic runtime config
   if (isSupabaseOrApiRequest(url)) {
