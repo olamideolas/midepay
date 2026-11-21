@@ -963,15 +963,6 @@ function renderDashboardTransactions() {
 }
 
 // Global active receipt state
-// Technical 30-digit NIBSS Session ID Generator (CBN NIP technical specification)
-function generateNibssSessionId() {
-  const switchCode = '999048'; // 999 = NIBSS switch prefix, 048 = MidePay routing code
-  const datePart = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // 6 digits YYMMDD
-  const timePart = Date.now().toString().slice(-6); // 6 digits
-  const randPart = Math.floor(100000000000 + Math.random() * 900000000000).toString(); // 12 digits
-  return `${switchCode}${datePart}${timePart}${randPart}`;
-}
-
 let activeReceiptData = null;
 
 // Open Official Standard Transaction Receipt Modal
@@ -1018,18 +1009,18 @@ function openReceiptModal(receiptData) {
     tokenContainer.classList.add('hidden');
   }
 
-  // CBN Standard: Mandatory 30-Digit NIBSS Session ID
+  // Only a provider integration may supply a settlement identifier.
   const elSessionId = document.getElementById('receipt-session-id');
-  if (!receiptData.nibssSessionId) {
-    receiptData.nibssSessionId = generateNibssSessionId();
-  }
-  if (elSessionId) elSessionId.textContent = receiptData.nibssSessionId;
+  const providerSession = !isProductionEnv() && /^\d{30}$/.test(String(receiptData.nibssSessionId || '')) ? receiptData.nibssSessionId : null;
+  if (elSessionId) elSessionId.textContent = providerSession || 'Not supplied by provider';
 
   // Wire copy NIBSS Session ID button
   const btnCopySession = document.getElementById('btn-copy-session');
   if (btnCopySession) {
+    btnCopySession.disabled = !providerSession;
     btnCopySession.onclick = () => {
-      navigator.clipboard.writeText(receiptData.nibssSessionId || '').then(() => {
+      if (!providerSession) return;
+      navigator.clipboard.writeText(providerSession).then(() => {
         showToast('✓ NIBSS Session ID copied to clipboard!');
       });
     };
