@@ -5377,6 +5377,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Download Receipt (PDF Print)
   if (btnDownloadReceipt) {
     btnDownloadReceipt.addEventListener('click', () => {
+      document.body.classList.remove('print-statement');
+      document.body.classList.add('print-receipt');
       showToast('Opening standard receipt for printing / saving as PDF...');
       setTimeout(() => {
         window.print();
@@ -6832,6 +6834,8 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   }
   if (btnPrintStatement) {
     btnPrintStatement.addEventListener('click', () => {
+      document.body.classList.remove('print-receipt');
+      document.body.classList.add('print-statement');
       if (typeof window !== 'undefined' && typeof window.print === 'function') {
         window.print();
       } else {
