@@ -998,7 +998,7 @@ function openReceiptModal(receiptData) {
   if (elBeneficiary) elBeneficiary.textContent = receiptData.beneficiary || receiptData.title || 'MidePay Beneficiary';
   if (elNarration) elNarration.textContent = receiptData.narration || receiptData.title || 'MidePay Financial Transaction';
   const elSourceAcc = document.getElementById('receipt-source-account');
-  if (elSourceAcc) elSourceAcc.textContent = `${state.user?.bank || 'Providus Bank'} • ${state.user?.nuban || '9000 0000 00'}`;
+  if (elSourceAcc) elSourceAcc.textContent = state.user?.nuban ? `Internal test wallet • ${state.user.nuban}` : 'Wallet identifier unavailable';
 
   // 20-digit Prepaid Electricity Token Container
   if (receiptData.token && tokenContainer) {
@@ -1029,12 +1029,11 @@ function openReceiptModal(receiptData) {
   // CBN Standard: EMTL Levy (₦50 on electronic inflows >= ₦10,000 per Finance Act)
   const elEmtl = document.getElementById('receipt-emtl-levy');
   if (elEmtl) {
-    if (receiptData.type === 'inflow' && (receiptData.amount || 0) >= 10000) {
-      elEmtl.textContent = '₦50.00 (Statutory EMTL)';
-    } else {
-      elEmtl.textContent = '₦0.00 (Exempt)';
-    }
+    elEmtl.textContent = 'Not verified for this test payment';
   }
+  const receiptFee = document.getElementById('receipt-service-fee');
+  const fee = receiptData.fee;
+  if (receiptFee) receiptFee.textContent = fee !== undefined && fee !== null && /^\d+(\.\d{1,2})?$/.test(String(fee)) && Number.isFinite(Number(fee)) ? formatNaira(Number(fee)) : 'Not supplied';
 
   modalReceipt.classList.remove('hidden');
 }
@@ -1097,7 +1096,7 @@ function syncUserToDashboard() {
   if (receiptSender) receiptSender.textContent = displayName;
 
   const receiptSourceAcc = document.getElementById('receipt-source-account');
-  if (receiptSourceAcc) receiptSourceAcc.textContent = `${user.bank || 'Providus Bank'} • ${displayNuban}`;
+  if (receiptSourceAcc) receiptSourceAcc.textContent = `Internal test wallet • ${displayNuban}`;
 
   // Keep saved in localStorage
   try {
