@@ -6719,6 +6719,27 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   }
   window.exportAccountStatementCsv = exportAccountStatementCsv;
 
+  function statementSettledTotals(txs) {
+    let inflow = 0, outflow = 0, fees = 0;
+    const kobo = value => {
+      const text = String(value ?? 0);
+      if (!/^\d+(\.\d{1,2})?$/.test(text)) throw new Error('Invalid statement amount');
+      const [whole, fraction = ''] = text.split('.');
+      const result = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+      if (!Number.isSafeInteger(result)) throw new Error('Statement amount exceeds supported range');
+      return result;
+    };
+    for (const tx of txs) {
+      if (String(tx.status || '').toLowerCase() !== 'successful') continue;
+      if (!['inflow', 'outflow'].includes(tx.type)) throw new Error('Invalid statement direction');
+      const amount = kobo(tx.amount), fee = kobo(tx.fee);
+      if (tx.type === 'inflow') inflow += amount; else outflow += amount;
+      fees += fee;
+      if (![inflow, outflow, fees].every(Number.isSafeInteger)) throw new Error('Statement total exceeds supported range');
+    }
+    return { totalInflow: inflow / 100, totalOutflow: outflow / 100, totalFees: fees / 100 };
+  }
+
   function openOfficialStatementModal() {
     const txs = getStatementTransactions();
     const holderName = state.user?.fullName || 'MidePay Account Holder';
@@ -6727,16 +6748,10 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     const holderNuban = state.user?.nuban ? formatNubanDisplay(state.user.nuban) : 'Not assigned';
     const kycLabel = isProductionEnv() ? 'Test wallet · identity verification unavailable' : 'Demo wallet · identity not verified';
 
-    let totalInflow = 0;
-    let totalOutflow = 0;
-    let totalFees = 0;
-    txs.forEach(tx => {
-      const amt = Number(tx.amount || 0);
-      const fee = Number(tx.fee || 0);
-      if (tx.type === 'inflow') totalInflow += amt;
-      else totalOutflow += amt;
-      totalFees += fee;
-    });
+    let totals;
+    try { totals = statementSettledTotals(txs); }
+    catch { showToast('Statement amounts could not be verified. Refresh your history and try again.', 'error'); return; }
+    const { totalInflow, totalOutflow, totalFees } = totals;
 
     const now = new Date();
     const stmtRefEl = document.getElementById('stmt-ref-id');
