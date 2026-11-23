@@ -2,6 +2,8 @@
 
 Local feature branch increment, 2026-11-23. Not deployed to staging or production.
 
+Staging deployment update: migration applied as `20261123161517_refund_review_cancellation`; frontend deployment `dpl_71hVYCQbeUkVRc2z8vUmBcU4ErMZ` READY and assigned to the stable staging alias. The refund script returned HTTP 200 with the cancellation control and RPC binding. Adjustments remain disabled; request count is zero. Staging wallet balances/ledger balances are 0/0, 200/200 and 5000/5000. No cancellation or money adjustment was performed during deployment. Anonymous and service-role execution of cancellation is denied. Actual browser cancellation remains untested because no staging request exists. This paragraph supersedes the local-only deployment status above; production was not accessed.
+
 An active executive who originally requested an adjustment may close a pending or manual-review request with a 5–500 character reason, fresh TOTP MFA and transaction PIN. Another executive, the wallet owner, anonymous callers and direct service-role callers cannot use this API to cancel. The UI offers the action only on the maker's pending/manual-review requests, including when accounting is disabled.
 
 Cancellation never changes wallets, transactions or the immutable financial journal. It preserves the original review code and appends an audit entry containing the actor, reason and old/new status. Repeated cancellation returns a duplicate result without a second audit entry. Applied adjustments cannot be cancelled. A cancelled provider refund remains reserved by the original unique request: depositing money or replaying a proposal cannot reopen it.
