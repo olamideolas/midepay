@@ -7,3 +7,16 @@
 .midepay-ui #view-admin:has(#pane-admin-payments:not(.hidden)) .admin-kpi-grid,.midepay-ui #view-admin:has(#pane-admin-payments:not(.hidden)) #admin-export-csv-btn{display:none}
 @media(max-width:700px){.payment-review-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.midepay-ui .payment-review-header{display:block}.payment-review-row-top{flex-direction:column;gap:14px}.payment-review-card{padding:16px}.payment-review-card dl{grid-template-columns:1fr;gap:5px}.payment-review-card dd{margin-bottom:8px}.payment-review-checked{margin-left:0;width:100%}.payment-review-auth input{width:100%;margin:0 0 12px}.payment-review-auth button{margin:0 5px 8px 0}.midepay-ui .admin-tab-nav{overflow-x:auto;max-width:100%;display:flex}.midepay-ui .admin-tab-btn{flex-shrink:0}.midepay-ui .admin-top-bar{flex-wrap:wrap}.midepay-ui .admin-header-actions{flex-wrap:wrap}.midepay-ui .admin-container{min-width:0}}
 .midepay-ui #view-admin:has(#pane-admin-payments:not(.hidden)) #admin-db-status{display:none}
+
+/* Keep review actions usable on narrow screens and long provider references. */
+#refund-review-form:not([hidden]) { display:grid; gap:12px; margin-top:18px; }
+#refund-review-form input { box-sizing:border-box; width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid var(--border-medium); border-radius:8px; background:var(--bg-input); color:var(--text-primary); }
+#refund-review-rows article, #refund-review-selection { min-width:0; overflow-wrap:anywhere; }
+#refund-review-rows button { margin:8px 8px 0 0; white-space:normal; min-height:44px; }
+@media(max-width:700px) {
+ .midepay-ui #view-admin .admin-tab-nav { flex-wrap:wrap; overflow-x:visible; }
+ .midepay-ui #view-admin .admin-tab-btn { flex:1 1 45%; min-width:0; white-space:normal; text-align:left; }
+ #refund-review-form button, #refund-review-refresh { width:100%; min-height:44px; }
+ .payment-review-tools label { width:100%; }
+ .payment-review-tools select { box-sizing:border-box; width:100%; }
+}
