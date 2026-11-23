@@ -4,11 +4,14 @@ const {PGlite}=await import(pathToFileURL(path.join(moduleDir,'dist/index.js')))
 const db=new PGlite({extensions:{pgcrypto,uuid_ossp}});let count=0;
 const operator=crypto.randomUUID(),member=crypto.randomUUID(),unverified=crypto.randomUUID();
 const fresh=()=>({aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)}]});
-const call=(id,filter='all',cursor=null,claims=fresh())=>db.transaction(async tx=>{await tx.query("SELECT set_config('request.jwt.claim.sub',$1,true),set_config('request.jwt.claims',$2,true)",[id,JSON.stringify({sub:id,role:'authenticated',...claims})]);await tx.exec('SET LOCAL ROLE authenticated');return (await tx.query('SELECT get_operator_payment_review($1,$2,$3) AS result',[filter,cursor?.before||null,cursor?.id||null])).rows[0].result;});
+const call=(id,filter='all',cursor=null,claims=fresh())=>db.transaction(async tx=>{await tx.query("SELECT set_config('request.jwt.claim.sub',$1,true),set_config('request.jwt.claims',$2,true)",[id,JSON.stringify({session_id:id,sub:id,role:'authenticated',...claims})]);await tx.exec('SET LOCAL ROLE authenticated');return (await tx.query('SELECT get_operator_payment_review($1,$2,$3) AS result',[filter,cursor?.before||null,cursor?.id||null])).rows[0].result;});
 async function test(label,fn){await fn();count++;console.log('PASS '+label)}
 try{
  await db.exec(`CREATE ROLE anon NOLOGIN;CREATE ROLE authenticated NOLOGIN;CREATE ROLE service_role NOLOGIN BYPASSRLS;CREATE SCHEMA auth;CREATE SCHEMA extensions;CREATE EXTENSION "uuid-ossp";CREATE EXTENSION pgcrypto;
  CREATE TABLE auth.users(id uuid PRIMARY KEY,email text UNIQUE,phone text,email_confirmed_at timestamptz,raw_user_meta_data jsonb DEFAULT '{}',raw_app_meta_data jsonb DEFAULT '{}',created_at timestamptz DEFAULT now());
+ CREATE TABLE auth.sessions(id uuid PRIMARY KEY,user_id uuid NOT NULL REFERENCES auth.users(id),not_after timestamptz);
+ CREATE FUNCTION auth.create_test_session() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN INSERT INTO auth.sessions(id,user_id) VALUES(NEW.id,NEW.id);RETURN NEW;END $$;
+ CREATE TRIGGER test_session AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION auth.create_test_session();
  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claim.role',true),''),current_user::text) $$;
  GRANT USAGE ON SCHEMA public,auth,extensions TO anon,authenticated,service_role;GRANT SELECT ON auth.users TO service_role;CREATE PUBLICATION supabase_realtime;`);
@@ -36,5 +39,13 @@ try{
  await test('frozen or demoted executive immediately loses read authorization',async()=>{await db.query('UPDATE profiles SET frozen_by_admin=true WHERE id=$1',[operator]);assert.equal((await call(operator)).code,'FORBIDDEN');await db.query("UPDATE profiles SET frozen_by_admin=false,role='user' WHERE id=$1",[operator]);assert.equal((await call(operator)).code,'FORBIDDEN');await db.query("UPDATE profiles SET role='executive' WHERE id=$1",[operator])});
  await test('email changes invalidate review access until new proof exists',async()=>{await db.query("UPDATE auth.users SET email='changed@example.invalid' WHERE id=$1",[operator]);assert.equal((await call(operator)).code,'EMAIL_VERIFICATION_REQUIRED');await db.query("UPDATE auth.users SET email='operator@example.invalid' WHERE id=$1",[operator])});
  await test('review reads do not alter money, queue attempts or transaction states',async()=>{const snapshot=async()=>JSON.stringify((await db.query("SELECT (SELECT jsonb_agg(to_jsonb(w)) FROM wallets w) AS wallets,(SELECT jsonb_agg(to_jsonb(t)) FROM transactions t) AS transactions,(SELECT jsonb_agg(to_jsonb(j)) FROM private.payment_reconciliation_jobs j) AS jobs")).rows);const before=await snapshot();await call(operator,'all');await call(operator,'pending');await call(operator,'attention');assert.equal(await snapshot(),before);assert.equal((await db.query("SELECT provolatile FROM pg_proc WHERE oid='public.get_operator_payment_review(text,timestamptz,uuid)'::regprocedure")).rows[0].provolatile,'s')});
+ await test('deleted, expired, missing, malformed and mismatched sessions cannot read operations',async()=>{
+  for(const sid of [null,'not-a-session',crypto.randomUUID(),member])assert.equal((await call(operator,'all',null,{...fresh(),session_id:sid})).code,'SESSION_REQUIRED');
+  await db.query("UPDATE auth.sessions SET not_after=now()-interval '1 second' WHERE id=$1",[operator]);assert.equal((await call(operator)).code,'SESSION_REQUIRED');
+  await db.query('UPDATE auth.sessions SET not_after=NULL WHERE id=$1',[operator]);assert.equal((await call(operator)).success,true);
+  await db.query('DELETE FROM auth.sessions WHERE id=$1',[operator]);assert.equal((await call(operator)).code,'SESSION_REQUIRED');
+  await db.query('INSERT INTO auth.sessions(id,user_id) VALUES($1,$1)',[operator]);assert.equal((await call(operator)).success,true);
+ });
+ await test('clients cannot bypass the active-session gate through private helpers',async()=>{for(const role of ['anon','authenticated','service_role'])await assert.rejects(()=>db.transaction(async tx=>{await tx.exec('SET LOCAL ROLE '+role);await tx.exec("SELECT private.operator_payment_review_authorized('all',NULL,NULL)")}),e=>e.code==='42501')});
  console.log(`${count} passed; 0 failed`);
 }finally{await db.close()}

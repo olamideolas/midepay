@@ -4,7 +4,7 @@ const root=path.resolve(import.meta.dirname,'..'),dir=process.env.PGLITE_MODULE_
 const {PGlite}=await import(pathToFileURL(path.join(dir,'dist/index.js'))),{pgcrypto}=await import(pathToFileURL(path.join(dir,'dist/contrib/pgcrypto.js'))),{uuid_ossp}=await import(pathToFileURL(path.join(dir,'dist/contrib/uuid_ossp.js')));
 const db=new PGlite({extensions:{pgcrypto,uuid_ossp}}),ids=Object.fromEntries(['member','maker','checker'].map(k=>[k,crypto.randomUUID()]));let count=0,n=100;
 const fresh=()=>({aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)}]});
-const call=(who,sql,args=[],claims=fresh())=>db.transaction(async tx=>{await tx.query("SELECT set_config('request.jwt.claim.sub',$1,true),set_config('request.jwt.claim.role','authenticated',true),set_config('request.jwt.claims',$2,true)",[ids[who],JSON.stringify(claims)]);await tx.exec('SET LOCAL ROLE authenticated');return(await tx.query(sql,args)).rows[0].r});
+const call=(who,sql,args=[],claims=fresh())=>db.transaction(async tx=>{await tx.query("SELECT set_config('request.jwt.claim.sub',$1,true),set_config('request.jwt.claim.role','authenticated',true),set_config('request.jwt.claims',$2,true)",[ids[who],JSON.stringify({session_id:ids[who],...claims})]);await tx.exec('SET LOCAL ROLE authenticated');return(await tx.query(sql,args)).rows[0].r});
 const service=(sql,args=[])=>db.transaction(async tx=>{await tx.exec('SET LOCAL ROLE service_role');return(await tx.query(sql,args)).rows[0].r});
 const req=(v,who='maker',claims=fresh(),pin='4829')=>call(who,'SELECT request_refund_adjustment($1,$2,$3) AS r',[v,'Reconcile verified provider refund',pin],claims);
 const approve=(r,who='checker',claims=fresh(),pin='4829')=>call(who,'SELECT approve_refund_adjustment($1,$2) AS r',[r,pin],claims);
@@ -15,6 +15,9 @@ async function test(label,fn){await fn();count++;console.log('PASS '+label)}
 try{
  await db.exec(`CREATE ROLE anon NOLOGIN;CREATE ROLE authenticated NOLOGIN;CREATE ROLE service_role NOLOGIN BYPASSRLS;CREATE SCHEMA auth;CREATE SCHEMA extensions;CREATE EXTENSION "uuid-ossp";CREATE EXTENSION pgcrypto;
  CREATE TABLE auth.users(id uuid PRIMARY KEY,email text UNIQUE,phone text,email_confirmed_at timestamptz,raw_user_meta_data jsonb DEFAULT '{}',raw_app_meta_data jsonb DEFAULT '{}',created_at timestamptz DEFAULT now());
+ CREATE TABLE auth.sessions(id uuid PRIMARY KEY,user_id uuid NOT NULL REFERENCES auth.users(id),not_after timestamptz);
+ CREATE FUNCTION auth.create_test_session() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN INSERT INTO auth.sessions(id,user_id) VALUES(NEW.id,NEW.id);RETURN NEW;END $$;
+ CREATE TRIGGER test_session AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION auth.create_test_session();
  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claim.role',true),''),current_user::text) $$;
  GRANT USAGE ON SCHEMA public,auth,extensions TO anon,authenticated,service_role;GRANT SELECT ON auth.users TO service_role;CREATE PUBLICATION supabase_realtime;`);
