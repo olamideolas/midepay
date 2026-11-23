@@ -134,6 +134,17 @@
 .midepay-ui .login-security-alert-banner{font-size:11px;padding:10px 13px;box-shadow:none}
 .midepay-ui #modal-cbn-kyc .kyc-tier-grid{display:none}.midepay-ui .ui-verification-note{font-size:13px;line-height:1.85;color:var(--text-secondary);padding:17px;background:var(--ui-soft);border:1px solid var(--border-subtle);border-radius:12px;margin-bottom:20px}
 .midepay-ui .payroll-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px}.midepay-ui .payroll-grid>*{min-width:0}
+/* Signed-in navigation needs two rows on phones to keep every action reachable. */
+@media(max-width:720px){
+ .midepay-ui:has(#view-dashboard:not(.hidden)) .site-header,
+ .midepay-ui:has(#view-admin:not(.hidden)) .site-header{height:auto;min-height:68px}
+ .midepay-ui:has(#view-dashboard:not(.hidden)) .header-container,
+ .midepay-ui:has(#view-admin:not(.hidden)) .header-container{flex-wrap:wrap;padding:12px 0;box-sizing:border-box}
+ .midepay-ui:has(#view-dashboard:not(.hidden)) .nav-right-cluster,
+ .midepay-ui:has(#view-admin:not(.hidden)) .nav-right-cluster{flex:1 1 100%;min-width:0;flex-wrap:wrap;margin-left:0}
+ .midepay-ui .nav-dashboard-actions{flex-wrap:wrap;min-width:0;flex:1 1 0}
+ .midepay-ui .nav-dashboard-actions button{max-width:100%;white-space:normal}
+}
 @media(min-width:1200px){.midepay-ui .dash-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:1020px){.midepay-ui .hero-container{gap:35px}.midepay-ui .dashboard-grid{grid-template-columns:minmax(0,1fr)}.midepay-ui .dash-side-col{position:static;order:0}.midepay-ui .dash-action-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.midepay-ui .nav-menu{gap:15px}.midepay-ui .nav-link{font-size:12px}}
 @media(max-width:720px){
