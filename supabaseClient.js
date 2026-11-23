@@ -1003,10 +1003,10 @@
             TEST_RECONCILIATION_UNAVAILABLE: 'The staging Paystack test key needs configuration.',
             PROVIDER_PAYMENT_MISMATCH: 'Paystack payment details do not match this deposit.'
           };
-          return { success: false, error: messages[code] || 'Could not verify the payment. Try again shortly.' };
+          return { success: false, error: messages[code] || 'Payment status could not be confirmed. Check this payment again shortly; do not start another payment yet.' };
         }
         return data || { success: false, error: 'Payment verification returned no result.' };
-      } catch (_) { return { success: false, error: 'Could not connect to payment verification.' }; }
+      } catch (_) { return { success: false, error: 'Connection lost while checking payment. Its outcome is still unknown. Check this payment again before paying again.' }; }
     },
 
     async initializeGatewayDeposit({ provider = 'paystack', amount, callbackUrl = null }) {

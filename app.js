@@ -4467,7 +4467,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnGatewayPaystack) {
     btnGatewayPaystack.addEventListener('click', () => {
       if (!gatewaysLive && !stagingPaystackTest) {
-        showToast('🗓️ Paystack online card checkout goes live November 30, 2026. Use Instant Direct Top-Up now!');
+        showToast('Paystack checkout is unavailable in this environment. No wallet credit has been made.', 'error');
         return;
       }
       selectGatewayProvider('paystack');
@@ -4476,7 +4476,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnGatewayFlutterwave) {
     btnGatewayFlutterwave.addEventListener('click', () => {
       if (!gatewaysLive) {
-        showToast('🗓️ Flutterwave online card checkout goes live November 30, 2026. Use Instant Direct Top-Up now!');
+        showToast('Flutterwave checkout is not connected in this preview.', 'error');
         return;
       }
       selectGatewayProvider('flutterwave');
@@ -4541,6 +4541,10 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.assign(initRes.authorizationUrl);
           }
           return;
+        } catch (_) {
+          const message = 'Checkout could not be opened. Check your existing payment status before trying another payment.';
+          if (topupErrorAlert && topupErrorText) { topupErrorText.textContent = message; topupErrorAlert.classList.remove('hidden'); }
+          else showToast(message, 'error');
         } finally {
           if (confirmTopupBtn) {
             confirmTopupBtn.disabled = false;
