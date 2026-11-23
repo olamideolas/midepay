@@ -4444,14 +4444,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!stagingPaystackTest || !window.MidePayDB?.verifyGatewayDeposit) return;
     await withSubmitLock('verify-paystack-deposit', verifyDepositBtn, 'Checking Paystack...', async () => {
       if (status) status.textContent = 'Checking the existing payment with Paystack...';
-      const result = await window.MidePayDB.verifyGatewayDeposit();
-      if (!result.success) {
-        if (status) status.textContent = result.error || 'Paystack has not confirmed this deposit as successful. Do not pay again yet.';
+      let result;
+      try { result = await window.MidePayDB.verifyGatewayDeposit(); }
+      catch { if(status)status.textContent='Payment status could not be confirmed. Check this payment again before paying again.'; return; }
+      if (result?.success !== true || result.status !== 'successful') {
+        if (status) status.textContent = result?.error || 'Paystack has not confirmed this deposit as successful. Do not pay again yet.';
         return;
       }
       try {
-        await loadDashboardData();
-        await rehydrateBalanceFromServer();
+        const loaded = await loadDashboardData();
+        const refreshed = await rehydrateBalanceFromServer();
+        if (loaded === false || refreshed === false) throw new Error('Balance refresh incomplete');
       } catch (_) {
         if (status) status.textContent = 'Payment verified. Reload your dashboard to refresh the balance.';
         return;
