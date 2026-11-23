@@ -14,7 +14,8 @@
     try{
      const result=await client.auth.signInWithOtp({email,options:{shouldCreateUser:false}});
      if(result.error)throw Error('Could not send a code. Wait a minute and try again.');
-    }finally{busy=false;}
+    }catch(_){throw Error('Could not send a code. Wait a minute and try again.');}
+    finally{busy=false;}
    },
    async resetPassword({email:address,token,password,confirmation}){
     const email=emailOf(address);
@@ -34,6 +35,8 @@
      let sessionsRevoked=false;
      try{sessionsRevoked=!(await client.auth.signOut({scope:'global'})).error;}catch(_){/* Password update succeeded; report revocation separately. */}
      return {success:true,sessionsRevoked};
+    }catch(_){
+     throw Error('Recovery could not be confirmed. If you already submitted a new password, try signing in with it before requesting another code.');
     }finally{
      try{await client.auth.signOut({scope:'local'});}catch(_){}
      busy=false;
