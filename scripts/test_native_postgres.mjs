@@ -218,6 +218,14 @@ try{
   assert.equal(await scalar(`SELECT verify_wallet_ledger_reconciliation(id)->>'ok' FROM wallets WHERE user_id='${refundMember}';`),'true');
   fs.writeFileSync(path.join(dir,'refund-race-evidence.json'),JSON.stringify(values,null,2));
  });
+ await test('refund cancellation racing approval has one final outcome and no double movement',async()=>{
+  const id=await refundRequest(await refundFund()),before=Number(await bal(refundMember));
+  const values=(await Promise.all([refundApprove(id),sql(asRefundOperator(refundMaker,`SELECT cancel_refund_adjustment('${id}','Native cancellation race','4829')`))])).map(result);
+  assert.equal(values.filter(v=>v.success===true).length,1);
+  const status=await scalar(`SELECT status FROM private.refund_adjustment_requests WHERE id='${id}';`);
+  assert.ok(['applied','cancelled'].includes(status));assert.equal(Number(await bal(refundMember)),before-(status==='applied'?100:0));
+  assert.equal(await scalar(`SELECT count(*) FROM private.refund_adjustment_journal WHERE request_id='${id}';`),status==='applied'?'1':'0');
+ });
  console.log(`${checks} passed; 0 failed`);
 }finally{
  if(started)run('pg_ctl',['-D',data,'-m','fast','-w','stop']);
