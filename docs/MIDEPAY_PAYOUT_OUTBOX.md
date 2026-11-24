@@ -48,7 +48,7 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ### Active-session payout gate — local, 24 November 2026
 
-Migration 20261124113951_payout_active_session_gate.sql exposes only a boolean has_current_auth_session RPC to authenticated callers. It delegates to the existing private Auth-session predicate using the caller's JWT context, checking session row ownership, existence and not_after. Clients receive no Auth session-table access; anonymous and service-role execution is revoked.
+Migration 20261124114627_payout_active_session_gate.sql exposes only a boolean has_current_auth_session RPC to authenticated callers. It delegates to the existing private Auth-session predicate using the caller's JWT context, checking session row ownership, existence and not_after. Clients receive no Auth session-table access; anonymous and service-role execution is revoked.
 
 The bank-payout handler checks this RPC before profile/PIN/provider work, then checks again after recipient lookup and immediately before enqueue. RPC errors, thrown transport failures or anything other than literal true fail closed as SESSION_REQUIRED. Tests cover inactive/malformed results and revocation between lookup and reservation. Actual local SQL tests cover missing, malformed, wrong-owner, expired and deleted sessions and restricted grants.
 
@@ -111,3 +111,10 @@ Scoped gate follow-up also passed operator review, phase-one security, independe
 CI 45385708124 passed for 233e1c0c34f7d61ad421e0fdbf7dc09876e1ea07. Deployed bank-payout version 12, applied scoped_test_payout_gate migration (hosted version 20261124113818), then deployed reconcile-payments version 9. Filename aligned with the hosted version without rewriting migration history.
 
 Postchecks confirm unknown transactions fail the new gate, anon/authenticated have no EXECUTE while service_role does, dispatch remains false, refund adjustments remain false, outbox count zero and test-wallet total unchanged at NGN5200. Security advisors checked before/after. No payout, test-wallet debit or change to server PAYOUT_TEST_USER_ID was made. This records deployment, not activation or a completed bank transfer. Active-session enforcement on money-changing endpoints and controlled activation remain outstanding.
+
+
+## Payout session gate staging rollout — 24 November 2026
+
+CI 45386541407 passed for 3b265f825eca51e7e27defdcf9659876db34c6ab. Applied payout_active_session_gate as hosted version 20261124114627 and deployed bank-payout version 13 with JWT verification retained. Local migration filename aligned to hosted history.
+
+Hosted checks confirm missing session returns false; authenticated callers can execute only the boolean wrapper, while anon/service_role cannot; clients cannot execute the private helper. No real session was revoked. Dispatch and refund controls remain disabled, outbox count zero, wallet total NGN5200 unchanged. Security advisors checked before/after. Actual authenticated two-session revocation and provider transfer round trip remain outstanding, as does server test-identity configuration.
