@@ -2389,15 +2389,17 @@
             <span id="topup-error-text">Please enter a valid top-up amount.</span>
           </div>
 
-          <button type="submit" class="btn btn-primary w-full btn-lg" id="confirm-topup-btn">
-            <span id="confirm-topup-btn-text">Credit Wallet Instantly</span>
-          </button>
         </form>
         <div id="pending-deposit-tools" class="hidden">
           <p>Already completed a Paystack test payment? Check its status before paying again.</p>
           <button type="button" class="btn btn-outline w-full" id="verify-latest-deposit-btn">Check latest Paystack deposit</button>
           <p id="pending-deposit-status" role="status" aria-live="polite"></p>
         </div>
+      </div>
+      <div class="add-money-footer">
+        <button type="submit" form="add-funds-form" class="btn btn-primary w-full btn-lg" id="confirm-topup-btn">
+          <span id="confirm-topup-btn-text">Continue to checkout</span>
+        </button>
       </div>
     </div>
   </div>
