@@ -75,6 +75,12 @@ Next: fresh CI run; a controlled real Paystack TEST payout and verification of i
 
 ## Reference compatibility staging rollout — 24 November 2026
 
+### Provider balance preflight deployment — 24 November 2026
+
+CI run 45384389084 passed for 4e9a20f82156e6cacdd96ca1ddfb3c64f8dd68d0. Deployed reconcile-payments version 8 with the existing signed server-only authentication unchanged. Invoked inspect_test_payout_balance through pg_net using private.build_reconciliation_authorization(), so the signing header and Paystack key were never returned to the client or copied into local files.
+
+Request 8354 returned HTTP 200: success=true, mode=test, currency=NGN, balance_kobo=510000, key_access_verified=true, transfer_access_verified=false, wallet_changed=false. This is actual Paystack balance evidence, not a mocked response. The provider test balance is NGN5100 and is separate from MidePay wallet balances. Transfer permissions, recipient creation and settlement are still unproven. No transfer endpoint was called.
+
 GitHub run 45377290944 passed for b249b0c720743d2b19cee2bfc42dccd55510435c. Deployed reconcile-payments version 7 first (existing signed-worker authentication retained), applied migration 20261124104448, then deployed bank-payout version 11 with JWT verification enabled. Local migration filename aligned to the actual hosted version; no migration history was rewritten.
 
 Read-only postchecks: lowercase reference generation present; anonymous and authenticated clients cannot enqueue payouts; payout dispatch and refund adjustments remain disabled; outbox contains zero rows; test-wallet total remains NGN5200 before/after. Security advisors ran before/after; existing definer endpoint and password-protection findings remain launch work. No provider payout or hosted wallet mutation was performed for this rollout.
