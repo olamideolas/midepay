@@ -46,6 +46,8 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ## Operation and next release gates
 
+CI follow-up: run 45376466563 failed its regression step. Running the broader suite locally reproduced an operator-review fixture failure: its new-payout fixture still used the uppercase format and therefore created no outbox row. The fixture now uses the canonical lowercase format and explicitly asserts that its outbox row exists before marking it ambiguous. All 14 operator-review groups and all 9 staging-preview groups pass. The other local regression suites rerun during diagnosis passed. No hosted migration or Edge Function rollout was performed while this CI failure was unresolved; the fixture fix requires a fresh CI run.
+
 ### Independent boundary review — 24 November 2026
 
 Local bank-payout changes add an 8-second recipient-lookup deadline, reject redirects, validate bank codes as 3–10 digits and replace provider/transport diagnostics with safe user messages. Both standalone lookup and lookup before reservation fail without queuing a transfer. The mocked boundary suite passed 22 groups, including three new regression groups. These changes are not yet deployed; no provider call, wallet reservation or live payout was performed by this test run.
