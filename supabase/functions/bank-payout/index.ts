@@ -243,6 +243,9 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ code: 'INVALID_AMOUNT_PRECISION' }), { status: 400, headers: corsHeaders });
   }
   const amountNgn = Math.round(scaledAmount) / 100;
+  if (isStaging && (getEnv('PAYOUT_TEST_USER_ID') !== user.id || amountNgn > 100)) {
+    return new Response(JSON.stringify({ code: 'TEST_PAYOUT_SCOPE_REQUIRED', error: 'Only the designated test wallet may request a bank payout of up to ₦100.' }), { status: 403, headers: corsHeaders });
+  }
   const rawPin = String(body.pin ?? '').trim();
   const narration = String(body.narration ?? 'Transfer via MidePay').trim().slice(0, 60) || 'Transfer via MidePay';
 

@@ -46,6 +46,14 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ## Operation and next release gates
 
+### Scoped staging payout gate — local, 24 November 2026
+
+Owner nominated olamidesunkanmi727@gmail.com, the existing staging executive account, for the controlled test. No debit has been authorized or performed by this implementation step. The staged bank handler requires PAYOUT_TEST_USER_ID to match the authenticated user and limits requested amounts to NGN100 before recipient lookup or reservation. The existing minimum is NGN50. This is a per-payout cap, not a cumulative testing budget.
+
+The scheduled worker cannot claim dispatch jobs unless that server identity is a UUID and BANK_PAYOUTS_ENABLED is true. Before provider access it invokes the new service-only authorize_scoped_test_payout RPC to check the stored transaction owner, pending Paystack outflow state, canonical reference and amount plus fee between NGN50 and NGN100. Existing dispatch lease/freeze/kill-switch checks still run afterward. The RPC does not change wallets or queues, and clients cannot execute it. A denied preparation follows existing retry/cancel handling and cannot send money.
+
+Local targeted suites: payout boundaries 24 groups, recovery/dispatch 44 groups and migration/security 55 groups passed, including wrong/missing identity, over-cap amount, database ownership checks, restricted execution privileges and worker scope denial before provider access. Tests use synthetic identities and mocked Paystack, without real payouts. Migration 20261124113305_scoped_test_payout_gate.sql and both Edge handlers require CI and staging rollout. PAYOUT_TEST_USER_ID has not been configured by this step; both payout switches remain unchanged. Active-session checks on money-changing paths and a narrow activation window are still required before conducting the actual test.
+
 ### Read-only provider preflight — local, 24 November 2026
 
 The signed server-only worker now supports inspect_test_payout_balance. It uses GET /balance with the existing staging-only test-key restriction, an 8-second deadline and redirects rejected. It accepts exactly one NGN balance expressed as nonnegative safe integer kobo. It returns key_access_verified and explicitly transfer_access_verified=false: balance access does not prove transfer permission or settlement readiness. It does not claim queues, create recipients, reserve money or send transfers. It retains the one-use signed invocation gate and returns sanitized failure codes.
@@ -86,3 +94,5 @@ GitHub run 45377290944 passed for b249b0c720743d2b19cee2bfc42dccd55510435c. Depl
 Read-only postchecks: lowercase reference generation present; anonymous and authenticated clients cannot enqueue payouts; payout dispatch and refund adjustments remain disabled; outbox contains zero rows; test-wallet total remains NGN5200 before/after. Security advisors ran before/after; existing definer endpoint and password-protection findings remain launch work. No provider payout or hosted wallet mutation was performed for this rollout.
 
 Actual Paystack TEST payout, exact signed webhook/verification round trip, provider approval behavior, active-session enforcement on money-changing endpoints and production operational gates remain outstanding. This deployment does not make external transfers ready for public use.
+
+Scoped gate follow-up also passed operator review, phase-one security, independent webhook and provider case regression suites. The signed worker was exercised against the actual local SQL gate with a mocked Paystack: exactly one NGN100 transfer POST was produced, a second invocation did not send again, and the synthetic wallet was debited once. No hosted account or provider payout was touched.
