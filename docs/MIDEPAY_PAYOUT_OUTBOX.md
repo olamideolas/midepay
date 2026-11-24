@@ -54,7 +54,7 @@ Local bank-payout changes add an 8-second recipient-lookup deadline, reject redi
 
 The independent review found the previous queue generated `MDP-OUT-` plus 40 hexadecimal characters, while current Paystack documentation specifies lowercase reference characters. Source: https://paystack.com/docs/transfers/single-transfers/ .
 
-Local follow-up migration 20261124103207_payout_reference_compatibility.sql generates new `mdp-out-` plus 40 hex references and queues only that format. Existing references are never rewritten or backfilled. Enqueue checks the old hashed identity before creating a new reference, so retrying an older request cannot reserve funds twice. A request advisory lock serializes the lookup/create decision. Function privileges remain unchanged through CREATE OR REPLACE.
+Local follow-up migration 20261124104448_payout_reference_compatibility.sql generates new `mdp-out-` plus 40 hex references and queues only that format. Existing references are never rewritten or backfilled. Enqueue checks the old hashed identity before creating a new reference, so retrying an older request cannot reserve funds twice. A request advisory lock serializes the lookup/create decision. Function privileges remain unchanged through CREATE OR REPLACE.
 
 The worker sends only the new canonical format and still accepts legacy references for read-only recovery. Exact stored references continue through dispatch and settlement; webhook lookup already uses exact references without a prefix requirement. Legacy unsent uppercase jobs are not automatically converted or dispatched and require review/cancellation under the existing controls. Payout dispatch remains disabled. This is local-only pending CI, staging deployment and an actual Paystack TEST round trip.
 
@@ -65,3 +65,12 @@ Do not enable outbound dispatch yet. Review private.payout_dispatch_outbox joine
 New invocations can be stopped using the existing reconciliation enable switch and scheduler controls; dispatch additionally honors BANK_PAYOUTS_ENABLED and payout_dispatch_enabled. An already authorized external call may finish. Service-only cancellation is safe only while the RPC proves no dispatch marker exists; legacy/ambiguous payouts require provider verification and operator review.
 
 Next: fresh CI run; a controlled real Paystack TEST payout and verification of its actual response/webhook/OTP behavior; operator review/alert UI; explicit procedure for ambiguous sends; fee/chargeback/refund accounting; broader hosted failure/load testing. Provider approvals, identity checks, legal/compliance and production operational readiness remain separate launch blockers.
+
+
+## Reference compatibility staging rollout — 24 November 2026
+
+GitHub run 45377290944 passed for b249b0c720743d2b19cee2bfc42dccd55510435c. Deployed reconcile-payments version 7 first (existing signed-worker authentication retained), applied migration 20261124104448, then deployed bank-payout version 11 with JWT verification enabled. Local migration filename aligned to the actual hosted version; no migration history was rewritten.
+
+Read-only postchecks: lowercase reference generation present; anonymous and authenticated clients cannot enqueue payouts; payout dispatch and refund adjustments remain disabled; outbox contains zero rows; test-wallet total remains NGN5200 before/after. Security advisors ran before/after; existing definer endpoint and password-protection findings remain launch work. No provider payout or hosted wallet mutation was performed for this rollout.
+
+Actual Paystack TEST payout, exact signed webhook/verification round trip, provider approval behavior, active-session enforcement on money-changing endpoints and production operational gates remain outstanding. This deployment does not make external transfers ready for public use.
