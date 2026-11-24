@@ -18,7 +18,7 @@ export async function dispatchQueuedPayouts(rpc:(name:string,args:Record<string,
   const args={p_transaction_id:job.transaction_id,p_lease_token:job.lease_token};
   try{
    const kobo=Number(job.amount)*100;
-   if(!/^MDP-OUT-[A-Za-z0-9-]+$/.test(job.reference)||!/^\d{10}$/.test(job.account_number)||!/^\d{3,10}$/.test(job.bank_code)||!Number.isSafeInteger(Math.round(kobo))||kobo<=0||Math.abs(kobo-Math.round(kobo))>0.0000001)throw Error('INVALID_STORED_PAYOUT');
+   if(!/^mdp-out-[a-f0-9]{40}$/.test(job.reference)||!/^\d{10}$/.test(job.account_number)||!/^\d{3,10}$/.test(job.bank_code)||!Number.isSafeInteger(Math.round(kobo))||kobo<=0||Math.abs(kobo-Math.round(kobo))>0.0000001)throw Error('INVALID_STORED_PAYOUT');
    const recipientResponse=await fetch('https://api.paystack.co/transferrecipient',{method:'POST',headers:{Authorization:'Bearer '+secret,'Content-Type':'application/json'},signal:AbortSignal.timeout(8000),body:JSON.stringify({type:'nuban',name:job.account_name,account_number:job.account_number,bank_code:job.bank_code,currency:'NGN'})});
    const recipient=await recipientResponse.json();const d=recipient?.data;
    if(!recipientResponse.ok||recipient.status!==true||typeof d?.recipient_code!=='string'||!/^RCP_[A-Za-z0-9]+$/.test(d.recipient_code)||d.details?.account_number!==job.account_number||d.details?.bank_code!==job.bank_code||d.currency!=='NGN')throw Error('RECIPIENT_NOT_CONFIRMED');
@@ -92,7 +92,7 @@ export async function handleReconciliation(req:Request):Promise<Response>{
     const payout=job.type==='outflow'&&job.category==='transfer';
     const prefix=deposit?'MDP-PSK-':'MDP-OUT-';
     const expected=Number(job.amount)*100;
-    if((!deposit&&!payout)||typeof job.reference!=='string'||!job.reference.startsWith(prefix)||!Number.isSafeInteger(Math.round(expected))||expected<=0||Math.abs(expected-Math.round(expected))>0.0000001){decision={outcome:'review',code:'INVALID_STORED_PAYMENT'};}
+    if((!deposit&&!payout)||typeof job.reference!=='string'||!(job.reference.startsWith(prefix)||(payout&&/^mdp-out-[a-f0-9]{40}$/.test(job.reference)))||!Number.isSafeInteger(Math.round(expected))||expected<=0||Math.abs(expected-Math.round(expected))>0.0000001){decision={outcome:'review',code:'INVALID_STORED_PAYMENT'};}
     else{
      const endpoint=deposit?'transaction':'transfer';
      const response=await fetch(`https://api.paystack.co/${endpoint}/verify/${encodeURIComponent(job.reference)}`,{method:'GET',headers:{Authorization:'Bearer '+env('PAYSTACK_SECRET_KEY')},signal:AbortSignal.timeout(8000)});
