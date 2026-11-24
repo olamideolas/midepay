@@ -52,6 +52,8 @@ Browser verification reproduced the offline fallback on both stable /test-payout
 
 Five service-worker regression groups and static/syntax validation passed locally. This repair does not weaken Vercel protection, enable payouts or change account data. A new share-link request was rejected by automatic approval review and was not retried through another mechanism; the fresh hostname check used ordinary existing browser access.
 
+Repair commit c24fecf was deployed to staging preview dpl_BxaUFnjaWqg1zASWDA5J8A96aq1z (READY) and assigned the stable alias. Browser verification then loaded the stable /test-payout page successfully and resolved the fixed Paystack test recipient as QA TEST. The PIN/consent form appeared. Neither PIN entry nor transfer confirmation was performed; no dispatch controls were enabled. The page was kept open for the user. The repair has local tests but still needs its own pushed CI run.
+
 ### Controlled test page — local, 24 November 2026
 
 test-payout.html is a separate staging-only page for the nominated user. It fixes the recipient to Paystack's published Zenith test account 1000000001, bank 057, and amount NGN100. It verifies the provider-returned destination before exposing confirmation, requires the user to review and enter their PIN, clears PIN input after submit and never stores it. Ordinary Send Money and FINANCIAL_RPCS_LIVE remain unchanged.
