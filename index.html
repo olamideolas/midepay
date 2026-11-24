@@ -782,7 +782,12 @@
           </div>
 
           <h2 class="auth-title">Create your digital wallet</h2>
-          <p class="auth-subtitle">Start with your email. We’ll help you verify it and set up your wallet.</p>
+          <p class="auth-subtitle">Create your account, verify your email, then choose a transaction PIN.</p>
+          <ol class="account-setup-steps" aria-label="Account setup steps">
+            <li aria-current="step"><span>1</span> Your details</li>
+            <li><span>2</span> Verify email</li>
+            <li><span>3</span> Create PIN</li>
+          </ol>
         </div>
 
         <!-- Inline error alert -->
@@ -3390,7 +3395,7 @@
       </div>
 
       <p class="otp-modal-subtitle">
-        Enter the 6-digit security code sent to <strong id="otp-target-email">member@midepay.ng</strong> to activate your NUBAN wallet.
+        Enter the 6-digit security code sent to <strong id="otp-target-email">your email address</strong> to verify your email and continue.
       </p>
 
       <div class="auth-alert hidden" id="otp-feedback-alert" role="alert"></div>
@@ -3432,17 +3437,17 @@
     <div class="modal-box pin-onboarding-box">
       <div class="modal-header">
         <div class="modal-title-with-badge">
-          <h3 class="modal-title" id="pin-onboarding-title">Create Your 4-Digit Transaction PIN</h3>
-          <span class="badge-emerald-sm">Required Lock</span>
+          <h3 class="modal-title" id="pin-onboarding-title">Protect your wallet</h3>
+          <span class="badge-emerald-sm">Finish setup</span>
         </div>
       </div>
 
       <p class="otp-modal-subtitle">
-        To protect your NUBAN wallet against unauthorized transfers, configure your encrypted 4-digit Transaction PIN before accessing your dashboard.
+        Choose a 4-digit transaction PIN to confirm transfers. This is separate from your sign-in password. After saving it, you’ll continue to your dashboard.
       </p>
 
       <div class="pin-onboarding-meta" id="pin-onboarding-login-meta">
-        🔒 Verified Session • Server-Side pgcrypto Bcrypt Vault (5-Strike Lockout)
+        Email verified. Identity verification is a separate check and may be required for financial features.
       </div>
 
       <div class="auth-alert error hidden" id="pin-onboarding-error" role="alert"></div>
@@ -3480,7 +3485,7 @@
         </div>
 
         <button type="submit" class="btn btn-primary w-full btn-lg" id="btn-submit-pin-onboarding">
-          Encrypt PIN &amp; Unlock Wallet
+          Save PIN &amp; Continue
         </button>
       </form>
 

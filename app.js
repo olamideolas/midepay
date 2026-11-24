@@ -2007,7 +2007,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (pinOnboardingLoginMeta && loginAuditInfo?.device) {
         const plat = loginAuditInfo.device.platform || 'Web';
         const tz = loginAuditInfo.device.timezone || 'UTC';
-        pinOnboardingLoginMeta.textContent = `🔒 Verified Session (${plat} • ${tz}) • Server pgcrypto Bcrypt Vault`;
+        pinOnboardingLoginMeta.textContent = `Email verified. Signed in on ${plat} (${tz}). Identity verification is a separate check.`;
       }
       modalPinOnboarding?.classList.remove('hidden');
       pinOnboardingNewInput?.focus();
@@ -2166,7 +2166,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      await withSubmitLock('pin-onboarding-submit', btnSubmitPinOnboarding, 'Encrypting PIN...', async () => {
+      await withSubmitLock('pin-onboarding-submit', btnSubmitPinOnboarding, 'Saving PIN...', async () => {
         if (!window.MidePayDB || !state.user?.id) {
           if (pinOnboardingError) {
             pinOnboardingError.textContent = 'Authenticated session required to configure your PIN.';
@@ -2186,7 +2186,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (state.user) state.user.hasTransactionPin = true;
         enforceMandatoryPinOnboardingLock(false);
-        showToast('🔐 4-Digit Transaction PIN encrypted & active! Your MidePay wallet is now unlocked.', 'success');
+        if (pinOnboardingNewInput) pinOnboardingNewInput.value = '';
+        if (pinOnboardingConfirmInput) pinOnboardingConfirmInput.value = '';
+        showToast('Transaction PIN saved. Your dashboard is ready.', 'success');
       });
     });
   }
