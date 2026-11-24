@@ -46,6 +46,12 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ## Operation and next release gates
 
+### Read-only provider preflight — local, 24 November 2026
+
+The signed server-only worker now supports inspect_test_payout_balance. It uses GET /balance with the existing staging-only test-key restriction, an 8-second deadline and redirects rejected. It accepts exactly one NGN balance expressed as nonnegative safe integer kobo. It returns key_access_verified and explicitly transfer_access_verified=false: balance access does not prove transfer permission or settlement readiness. It does not claim queues, create recipients, reserve money or send transfers. It retains the one-use signed invocation gate and returns sanitized failure codes.
+
+All 40 recovery/dispatch groups passed locally with mocked provider responses, including malformed/duplicate/currency-mismatched balances and network failure. No actual provider balance was checked yet. Source: https://paystack.com/docs/api/transfer-control/ . This change requires CI and staging deployment before a privileged read-only invocation. Actual test payouts still require an isolated test wallet and narrowly scoped dispatch authorization; do not enable the shared dispatch switch for ordinary users merely to run this preflight.
+
 CI follow-up: run 45376466563 failed its regression step. Running the broader suite locally reproduced an operator-review fixture failure: its new-payout fixture still used the uppercase format and therefore created no outbox row. The fixture now uses the canonical lowercase format and explicitly asserts that its outbox row exists before marking it ambiguous. All 14 operator-review groups and all 9 staging-preview groups pass. The other local regression suites rerun during diagnosis passed. No hosted migration or Edge Function rollout was performed while this CI failure was unresolved; the fixture fix requires a fresh CI run.
 
 ### Independent boundary review — 24 November 2026

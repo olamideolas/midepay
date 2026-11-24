@@ -96,6 +96,23 @@ try{
    assert.equal((await handle(make(request().headers,'not json'))).status,400);assert.equal(calls,1);
   }finally{globalThis.fetch=saved}
  });
+ await test('signed payout balance inspection performs GET only and cannot claim or change wallets',async()=>{
+  const saved=globalThis.fetch,before=await balance();let calls=0;
+  const invoke=()=>handle(new Request('http://localhost/reconcile',{method:'POST',headers:request().headers,body:JSON.stringify({action:'inspect_test_payout_balance'})}));
+  try{
+   globalThis.fetch=async(url,options)=>{calls++;assert.equal(url,'https://api.paystack.co/balance');assert.equal(options.method,'GET');assert.equal(options.redirect,'error');assert.ok(options.signal instanceof AbortSignal);return new Response(JSON.stringify({status:true,data:[{currency:'NGN',balance:100000}]}))};
+   rpcCalls=[];const r=await invoke();assert.equal(r.status,200);const data=await r.json();assert.equal(data.balance_kobo,100000);assert.equal(data.transfer_access_verified,false);assert.equal(data.wallet_changed,false);assert.deepEqual(rpcCalls,['authorize_payment_reconciliation']);assert.equal(await balance(),before);assert.equal(calls,1);
+  }finally{globalThis.fetch=saved}
+ });
+ await test('invalid provider balances and transport errors fail closed without leaking diagnostics',async()=>{
+  const saved=globalThis.fetch;const invoke=()=>handle(new Request('http://localhost/reconcile',{method:'POST',headers:request().headers,body:JSON.stringify({action:'inspect_test_payout_balance'})}));
+  try{
+   for(const rows of [[],[{currency:'USD',balance:100}],[{currency:'NGN',balance:-1}],[{currency:'NGN',balance:'100'}],[{currency:'NGN',balance:0.1}],[{currency:'NGN',balance:1},{currency:'NGN',balance:2}]]){
+    globalThis.fetch=async()=>new Response(JSON.stringify({status:true,data:rows}));rpcCalls=[];assert.equal((await invoke()).status,503);assert.deepEqual(rpcCalls,['authorize_payment_reconciliation']);
+   }
+   globalThis.fetch=async()=>{throw Error('sensitive provider diagnostic')};const r=await invoke();assert.equal(r.status,503);assert.ok(!(await r.text()).includes('sensitive provider diagnostic'));
+  }finally{globalThis.fetch=saved}
+ });
  await test('accounting attestation accepts only freshly verified processed refunds',async()=>{
   const saved=globalThis.fetch;let state='pending';
   const ref=await deposit();await db.query("UPDATE transactions SET status='successful',gateway_reference='6774684861',webhook_payload=$2 WHERE reference=$1",[ref,JSON.stringify({data:{domain:'test'}})]);

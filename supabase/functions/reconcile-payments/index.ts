@@ -48,6 +48,16 @@ export async function verifyStagingRefund(id:unknown,secret:string):Promise<Reco
  if(!response.ok||result.status!==true||!p||!safeId(p.id)||String(p.id)!==id||p.domain!=='test'||p.currency!=='NGN'||!safeId(tx)||!Number.isSafeInteger(p.amount)||p.amount<=0||p.amount>99999999999999||!['pending','processing','processed','failed','needs-attention'].includes(p.status))throw Error('REFUND_NOT_VERIFIED');
  return {refund_id:String(p.id),transaction_id:String(tx),domain:p.domain,currency:p.currency,amount_kobo:p.amount,status:p.status,source:'paystack_refund_api',wallet_changed:false};
 }
+/** Read-only preflight: key access and NGN balance are not transfer approval. */
+export async function inspectTestPayoutBalance(secret:string):Promise<Record<string,unknown>>{
+ if(!secret.startsWith('sk_test_'))throw Error('TEST_KEY_REQUIRED');
+ const response=await fetch('https://api.paystack.co/balance',{method:'GET',redirect:'error',signal:AbortSignal.timeout(8000),headers:{Authorization:'Bearer '+secret}});
+ const result=await response.json();
+ if(!response.ok||result?.status!==true||!Array.isArray(result.data))throw Error('BALANCE_NOT_VERIFIED');
+ const balances=result.data.filter((b:unknown)=>b&&typeof b==='object'&&(b as {currency?:unknown}).currency==='NGN');
+ if(balances.length!==1||!Number.isSafeInteger(balances[0].balance)||balances[0].balance<0)throw Error('BALANCE_NOT_VERIFIED');
+ return {mode:'test',currency:'NGN',balance_kobo:balances[0].balance,key_access_verified:true,transfer_access_verified:false,wallet_changed:false};
+}
 export async function handleReconciliation(req:Request):Promise<Response>{
  const reply=(status:number,data:unknown)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
  if(req.method!=='POST')return reply(405,{code:'METHOD_NOT_ALLOWED'});
@@ -63,6 +73,10 @@ export async function handleReconciliation(req:Request):Promise<Response>{
  if(req.body){
   let body;try{const raw=await req.text();if(raw.length>1024)return reply(400,{code:'INVALID_REQUEST'});body=raw?JSON.parse(raw):{};}catch{return reply(400,{code:'INVALID_REQUEST'});}
   if(!body||typeof body!=='object'||Array.isArray(body))return reply(400,{code:'INVALID_REQUEST'});
+  if(body.action==='inspect_test_payout_balance'){
+   try{return reply(200,{success:true,...await inspectTestPayoutBalance(env('PAYSTACK_SECRET_KEY'))});}
+   catch{return reply(503,{success:false,code:'PAYOUT_BALANCE_UNAVAILABLE'});}
+  }
   if(body.action==='verify_refund'||body.action==='verify_refund_for_accounting'){
    try{
     const verification=await verifyStagingRefund(body.refund_id,env('PAYSTACK_SECRET_KEY'));
