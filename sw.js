@@ -7,7 +7,9 @@
  * - Clean offline fallback notification when mobile data is unavailable
  */
 
-const CACHE_NAME = 'midepay-pwa-static-v5.1-network-shell';
+const CACHE_NAME = 'midepay-pwa-static-v5.2-preview-navigation';
+// Protected staging navigation must stay with the browser so auth redirects work.
+const IS_PROTECTED_PREVIEW = new URL(self.location.origin).hostname === 'midepay-staging-ola-f90f.vercel.app';
 
 const STATIC_ASSETS = [
   '/payment-review.css',
@@ -91,9 +93,9 @@ const OFFLINE_FALLBACK_HTML = `<!DOCTYPE html>
 </head>
 <body>
   <div class="offline-card">
-    <span class="badge">Offline Mode</span>
-    <h1>No Mobile Data Connection</h1>
-    <p>MidePay could not reach the network. Your wallet and funds remain 100% secure—reconnect to refresh live balances and send transfers.</p>
+    <span class="badge">Connection unavailable</span>
+    <h1>MidePay could not load</h1>
+    <p>The current page is unavailable. Check your connection and preview access, then try again. Current balances and payment status cannot be confirmed on this screen.</p>
     <button onclick="window.location.reload()">Retry Connection</button>
   </div>
 </body>
@@ -127,6 +129,9 @@ function isSupabaseOrApiRequest(url) {
 }
 
 self.addEventListener('fetch', (event) => {
+  // No synthetic offline page or cached financial code on the protected preview.
+  // Let the browser handle the request, including any deployment login redirect.
+  if (IS_PROTECTED_PREVIEW) return;
   const { request } = event;
   if (request.method !== 'GET') return;
 

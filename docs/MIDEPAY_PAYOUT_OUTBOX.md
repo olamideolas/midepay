@@ -46,6 +46,12 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ## Operation and next release gates
 
+### Protected preview navigation repair
+
+Browser verification reproduced the offline fallback on both stable /test-payout.html and /test-payout, while the same deployment's fresh hostname loaded the correct test page. Authenticated connector fetch also returned the correct page. This isolates the failure to the stable browser/worker navigation path; no claim is made about the exact underlying network exception. The stable protected preview now bypasses service-worker fetch interception, allowing the browser to handle requests and deployment authentication normally. Other hosts retain existing network-only financial shell behavior. The worker version changes to v5.2-preview-navigation so existing clients can update. Offline wording no longer diagnoses mobile data or promises absolute fund security.
+
+Five service-worker regression groups and static/syntax validation passed locally. This repair does not weaken Vercel protection, enable payouts or change account data. A new share-link request was rejected by automatic approval review and was not retried through another mechanism; the fresh hostname check used ordinary existing browser access.
+
 ### Controlled test page — local, 24 November 2026
 
 test-payout.html is a separate staging-only page for the nominated user. It fixes the recipient to Paystack's published Zenith test account 1000000001, bank 057, and amount NGN100. It verifies the provider-returned destination before exposing confirmation, requires the user to review and enter their PIN, clears PIN input after submit and never stores it. Ordinary Send Money and FINANCIAL_RPCS_LIVE remain unchanged.
