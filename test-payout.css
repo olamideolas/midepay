@@ -1,0 +1,4 @@
+input[type="checkbox"]{width:20px;height:20px;min-height:0;padding:0;vertical-align:middle;margin:0 8px 0 0;accent-color:#0ab995}
+dd{margin:4px 0 16px;font-weight:600}dt{color:#8d9fb8;font-size:.85rem}
+#test-payout-status,#test-payout-reference,#test-recipient-name{overflow-wrap:anywhere}
+@media(max-width:480px){body{padding:16px 12px}main{padding:22px}h1{font-size:1.5rem}}

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<title>Controlled test transfer | MidePay</title>
+<link rel="stylesheet" href="password-recovery.css">
+<link rel="stylesheet" href="test-payout.css">
+<script src="vendor/supabase.js" defer></script><script src="api/config" defer></script>
+<script src="test-payout.js" defer></script>
+</head><body><main>
+<a href="/">← Back to MidePay</a><p class="badge">Staging · no real money</p>
+<h1>Controlled ₦100 test transfer</h1>
+<p>This separate test is limited to the designated account. Normal bank transfers remain unavailable.</p>
+<dl><dt>Destination</dt><dd>Paystack test recipient · Zenith Bank</dd><dt>Test account</dt><dd>1000000001</dd><dt>Amount</dt><dd>₦100.00</dd></dl>
+<p>Sign in on the main MidePay page first, then return here. Do not enter a real bank account.</p>
+<button id="resolve-test-recipient" type="button">Verify test recipient</button>
+<p id="test-recipient-name" role="status"></p>
+<form id="test-payout-form" hidden>
+<label for="test-payout-pin">Your transaction PIN</label>
+<input id="test-payout-pin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" required>
+<label><input id="test-payout-consent" type="checkbox" required> I have checked the recipient and approve this ₦100 test transfer.</label>
+<button id="submit-test-payout" type="submit">Confirm ₦100 test transfer</button>
+</form>
+<button id="check-test-payout" type="button">Check this test’s status</button>
+<p id="test-payout-status" role="status" aria-live="polite">Transfers remain subject to the server’s test controls.</p>
+<p id="test-payout-reference"></p>
+</main></body></html>

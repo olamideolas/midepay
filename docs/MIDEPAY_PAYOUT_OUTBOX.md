@@ -46,6 +46,14 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ## Operation and next release gates
 
+### Controlled test page — local, 24 November 2026
+
+test-payout.html is a separate staging-only page for the nominated user. It fixes the recipient to Paystack's published Zenith test account 1000000001, bank 057, and amount NGN100. It verifies the provider-returned destination before exposing confirmation, requires the user to review and enter their PIN, clears PIN input after submit and never stores it. Ordinary Send Money and FINANCIAL_RPCS_LIVE remain unchanged.
+
+One fixed UUID identifies this one controlled test across reloads and separate browser storage. The exact expected canonical reference is derived using the server's hashing rule. Overlapping submissions are blocked, and an ambiguous or mismatched response never claims settlement or starts another request. The read-only status button checks only the nominated user's exact transaction, amount and provider. A missing record does not prove failure. Browser recipient text is rendered using textContent.
+
+The page is intentionally unavailable against production configuration. Backend test identity, PIN, current session, amount cap and dispatch controls remain authoritative; browser checks are presentation safeguards. Eleven focused client-flow regressions and the staging packaging suite passed locally with mocked provider calls. This page is pending CI/deployment and does not turn on dispatch. Source for recipient fixture: https://paystack.com/docs/payments/test-payments/ .
+
 ### Active-session payout gate — local, 24 November 2026
 
 Migration 20261124114627_payout_active_session_gate.sql exposes only a boolean has_current_auth_session RPC to authenticated callers. It delegates to the existing private Auth-session predicate using the caller's JWT context, checking session row ownership, existence and not_after. Clients receive no Auth session-table access; anonymous and service-role execution is revoked.
