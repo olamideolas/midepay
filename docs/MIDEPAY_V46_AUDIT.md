@@ -1,3 +1,54 @@
+# Current independent review — 24 November 2026
+
+**Deployment verdict: NOT production-ready.** The verified repairs below improve staging safety; they are not proof that every feature, provider integration or operational control is complete. Production Supabase was not accessed or changed. Earlier report text is retained below as historical material, not as instructions or independent evidence.
+
+## Verified findings and repairs
+
+1. **Unclear rejected test transfers.** The browser showed “Outcome unknown” for every non-success response and permanently disabled confirmation even when failure occurred before submission. The new read-only readiness check verifies the current session and both payout switches before recipient lookup/PIN entry. Known pre-reservation rejections receive safe, specific messages and may retry the same identity; transport, queue and unrecognized failures remain unknown and locked. A rejected readiness check never initiates a transfer.
+2. **Test scope too broad.** The Edge handler previously restricted account and amount but not the exact test destination/request identity. Staging now requires the nominated user, Paystack's Zenith test recipient 1000000001/057, the fixed one-test UUID and the existing NGN100 cap. Recipient lookup is also restricted. The worker's service-only SQL gate independently checks the stored test destination, owner, amount, fee, pending state and provider before it contacts Paystack. Browser parameters are not authorization.
+3. **Fabricated wallet fallback.** Missing or malformed wallet data after login could produce a generated wallet number, a zero balance and a Tier 2 fallback. Login completion now rejects missing/mismatched profile or wallet ownership, wrong currency, invalid wallet number and unsafe monetary values before saving the dashboard identity. Valid zero balances remain supported. Missing tier metadata defaults to Tier 1 and missing bank metadata does not imply Providus provisioning.
+4. **Preview offline screen.** Earlier browser verification loaded the fresh deployment but the stable preview returned the worker's offline fallback. The protected stable preview now delegates requests to native browser navigation; it does not remove Vercel authentication. Misleading mobile-data diagnosis and absolute fund-security claims were removed. Stable-page loading was verified in the browser after that repair.
+
+## Actual validation
+
+| Check | Actual result |
+|---|---|
+| Full isolated regression run | 23/23 suites passed, before the final wallet fallback/UI ordering refinements |
+| Native PostgreSQL 18.6 concurrency | 22/22 groups passed; disposable database stopped afterward |
+| Migration/security suite | 55/55 groups passed across all 27 migrations |
+| Controlled payout client | 15 groups passed after final UI refinement |
+| Payout/deposit boundaries | 29 groups passed after exact recipient restrictions |
+| Operator/session review | 17 groups passed |
+| Recovery/dispatch | 44 groups passed |
+| Wallet-session guards | 3 groups passed, including 13 invalid wallet cases and valid zero/whole-kobo balances |
+| Affected checks after wallet refinement | Runtime E2E, adversarial security and staging packaging passed again |
+| Dependency audit | npm audit reported zero known vulnerabilities for the locked dependency tree; this excludes provider/platform assurance |
+
+Evidence: Codex workspace work/full-review-tests.json and work/full-review-tests-after.json; native evidence work/native-postgres/midepay-isolated-pg-v9sR4A. These runs use local synthetic fixtures and mocked provider responses where applicable. The earlier “124 tests” statement is not used as the current evidence total. Historical test banners saying production readiness passed are not launch approval.
+
+## Hosted staging observations
+
+The attempted controlled payout received HTTP 503 in Edge logs. No matching transaction or outbox row exists and the nominated wallet remains NGN5000. The original response's exact rejection code was not retained, so no more specific cause is asserted. The new readiness check and structured errors address that diagnostic gap. Both the server BANK_PAYOUTS_ENABLED setting and database payout dispatch have been switched off; the temporary auto-stop job was removed. No real funds moved.
+
+Staging has 27 recorded migrations, 18 public tables with RLS enabled and no private table without RLS. Readiness helper privileges were checked: authenticated-only boolean/status access, no anonymous/service-role execution and no direct Auth-session-table privileges. Current advisors still report 15 informational RLS/no-policy findings on intentionally restricted tables, the anonymous waitlist definer warning, 37 authenticated definer endpoints requiring gated authorization review, and disabled leaked-password protection. Do not blindly remove required gates to silence those categories.
+
+Deployed bank-payout version 19 and migration 20261124232549_controlled_payout_readiness.sql to staging. Frontend preview dpl_ESFUsAMPyVMC3aRXdeALu997X7U1 reached READY and received the stable staging alias. Browser checks confirmed the closed-window message with PIN entry hidden, and the main dashboard reloaded the existing NGN5000 wallet and its original funding activity after the fail-closed wallet guard was added. No transfer confirmation was performed. This release has the local checks above; its own pushed CI result must be checked separately.
+
+## Remaining launch blockers
+
+- An actual controlled Paystack TEST payout, exact webhook/verification settlement and duplicate/retry/failure behavior still need a completed hosted round trip. Key access and the previously observed NGN5100 provider test balance do not prove transfer approval. Provider account lookup has also returned a transient/unexplained rejection; no fallback recipient identity is invented.
+- Strict active-session enforcement is not yet comprehensive across P2P, savings, treasury/refund mutations and direct RLS reads. The payout handler checks before PIN work and again before enqueue; it cannot cancel an already-authorized transfer or eliminate the interval between its final check and a separate service-role reservation.
+- Real KYC/AML, provider approvals, licensed banking/safeguarding arrangements and live bank provisioning remain external launch requirements. Unintegrated cards, bills and payroll must stay disabled.
+- Refund/treasury financial adjustments remain disabled. Independent approval requires a second authorized operator; the owner currently chose one account. Insufficient refund funds must remain manual review under the owner's selected policy.
+- Production transactional email/domain deliverability, compromised-password protection, recovery/session exercises and abuse controls need operational completion. Gmail staging delivery is not production delivery assurance.
+- Backup/restore drills, incident response, monitoring, realistic load/failure exercises and full provider-fee/refund/chargeback accounting are not established by these tests. Existing refund journal checks are not a complete general ledger certification.
+
+**Safe next state:** keep live payouts and refund adjustments off; push the tested feature-branch repairs through CI; complete the restricted hosted test only after the owner is ready to enter their own PIN. No production promotion is authorized by this report.
+
+---
+
+# Earlier report retained below
+
 # MidePay v4.6 — Complete Database Compatibility & 20-Point Security Audit
 
 **Branch:** `fix-v46-migration-repair`  

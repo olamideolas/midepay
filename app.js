@@ -2042,9 +2042,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const profile = provisioned?.profile || await window.MidePayDB.getProfile(realUserId);
     const wallet = provisioned?.wallet || await window.MidePayDB.getWallet(realUserId);
 
+    // A failed wallet read must never become a fabricated account or balance.
+    const walletBalance = wallet?.balance;
+    const parsedBalance = (typeof walletBalance === 'number' || (typeof walletBalance === 'string' && walletBalance.trim() !== '')) ? Number(walletBalance) : NaN;
+    const kobo = parsedBalance * 100;
+    if (profile?.id !== realUserId || wallet?.user_id !== realUserId || !wallet?.id || wallet.currency !== 'NGN' || !/^\d{10}$/.test(String(wallet.nuban || '')) || !Number.isFinite(parsedBalance) || parsedBalance < 0 || !Number.isSafeInteger(Math.round(kobo)) || Math.abs(kobo - Math.round(kobo)) > 0.0000001) {
+      throw new Error('Wallet setup is not ready. Please sign in again or contact support. No account number has been generated.');
+    }
+
     const userName = profile?.full_name || fullName || supaUser.user_metadata?.full_name || supaUser.email.split('@')[0];
-    const userNuban = wallet?.nuban || generateUserNuban();
-    const userBalance = (wallet?.balance !== undefined && wallet?.balance !== null) ? Number(wallet.balance) : 0.00;
+    const userNuban = wallet.nuban;
+    const userBalance = parsedBalance;
     const hasPin = Boolean(
       provisioned?.hasTransactionPin ||
       loginAudit?.hasTransactionPin ||
@@ -2059,9 +2067,9 @@ document.addEventListener('DOMContentLoaded', () => {
       phone: profile?.phone || phone || supaUser.user_metadata?.phone || '',
       tag: profile?.tag || `@${userName.split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`,
       nuban: userNuban,
-      bank: wallet?.bank_name || 'MidePay / Providus Bank',
+      bank: wallet?.bank_name || 'MidePay wallet',
       balance: userBalance,
-      kycTier: profile?.kyc_tier || 2,
+      kycTier: Number.isInteger(profile?.kyc_tier) && profile.kyc_tier >= 1 && profile.kyc_tier <= 3 ? profile.kyc_tier : 1,
       isFrozen: profile?.is_frozen === true,
       role: profile?.role || 'user',
       hasTransactionPin: hasPin

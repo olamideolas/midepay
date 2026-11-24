@@ -46,6 +46,14 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ## Operation and next release gates
 
+### Verified rejection and wallet repairs — 24 November 2026
+
+The owner requested fixes instead of continuing the manual transfer. Closed database dispatch, removed the temporary test timer, and reset BANK_PAYOUTS_ENABLED=false in staging secrets; the dashboard digest confirmed the saved false value. No controlled transaction/outbox entry exists and the chosen wallet remains NGN5000. Edge logs show the prior test returned 503, but its exact rejection body was not retained.
+
+Migration 20261124232549_controlled_payout_readiness.sql adds authenticated-only read-only session/dispatch status and restricts the worker's stored destination to the official fixture. bank-payout version 19 restricts staging lookup and submission to the designated account and exact recipient, requires the fixed test UUID for submission, and returns sanitized codes for known PIN/closed-window failures. Client readiness runs before lookup/PIN entry and before submission; known pre-reservation rejections may retry the same ID, while unknown outcomes remain locked. Browser verification showed the closed-window message with no PIN form.
+
+Also removed generated account/balance/Tier 2 fallbacks from verified-session completion. The final frontend deployment dpl_ESFUsAMPyVMC3aRXdeALu997X7U1 reached READY and the stable dashboard loaded its authoritative NGN5000 wallet and original activity. Local full run: 23 suites passed, native PostgreSQL: 22 groups passed. Final affected checks also passed after refinements: controlled client 15, payout boundaries 29, wallet session guards 3, runtime E2E, adversarial security, staging packaging and syntax/static validation. npm audit reported zero known locked-dependency vulnerabilities. See the current section of MIDEPAY_V46_AUDIT.md for limits and remaining launch blockers. This is not an actual successful provider transfer or production approval.
+
 ### Protected preview navigation repair
 
 Browser verification reproduced the offline fallback on both stable /test-payout.html and /test-payout, while the same deployment's fresh hostname loaded the correct test page. Authenticated connector fetch also returned the correct page. This isolates the failure to the stable browser/worker navigation path; no claim is made about the exact underlying network exception. The stable protected preview now bypasses service-worker fetch interception, allowing the browser to handle requests and deployment authentication normally. Other hosts retain existing network-only financial shell behavior. The worker version changes to v5.2-preview-navigation so existing clients can update. Offline wording no longer diagnoses mobile data or promises absolute fund security.

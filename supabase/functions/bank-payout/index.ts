@@ -21,7 +21,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.119.0';
 export type PayoutProvider = 'paystack' | 'flutterwave';
 
 export interface BankPayoutRequest {
-  action: 'resolve_account' | 'initiate_payout';
+  action: 'resolve_account' | 'initiate_payout' | 'inspect_test_payout';
   provider?: PayoutProvider;
   account_number: string;
   bank_code: string;
@@ -209,8 +209,25 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ code: 'GATEWAY_NOT_CONFIGURED' }), { status: 503, headers: corsHeaders });
   }
 
+  if (body.action === 'inspect_test_payout') {
+    if (!isStaging || getEnv('PAYOUT_TEST_USER_ID') !== user.id || accountNumber !== '1000000001' || bankCode !== '057') {
+      return new Response(JSON.stringify({ success: false, code: 'TEST_PAYOUT_SCOPE_REQUIRED' }), { status: 403, headers: corsHeaders });
+    }
+    try {
+      const { data, error } = await userClient.rpc('get_test_payout_availability');
+      if (error || !data || typeof data.session_active !== 'boolean' || typeof data.dispatch_enabled !== 'boolean') throw new Error('Unavailable');
+      const ready = data.session_active && data.dispatch_enabled && getEnv('BANK_PAYOUTS_ENABLED') === 'true';
+      return new Response(JSON.stringify({ success: true, ready, code: ready ? 'READY' : !data.session_active ? 'SESSION_REQUIRED' : 'PAYOUTS_QUARANTINED' }), { status: 200, headers: corsHeaders });
+    } catch {
+      return new Response(JSON.stringify({ success: false, code: 'READINESS_UNAVAILABLE' }), { status: 503, headers: corsHeaders });
+    }
+  }
+
   // ACTION 1: NIP Account Name Inquiry
   if (body.action === 'resolve_account') {
+    if (isStaging && (getEnv('PAYOUT_TEST_USER_ID') !== user.id || accountNumber !== '1000000001' || bankCode !== '057')) {
+      return new Response(JSON.stringify({ success: false, code: 'TEST_PAYOUT_SCOPE_REQUIRED' }), { status: 403, headers: corsHeaders });
+    }
     try {
       const resolved = await resolveNubanAccount(provider, accountNumber, bankCode);
       return new Response(JSON.stringify({ success: true, provider, ...resolved }), {
@@ -243,7 +260,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ code: 'INVALID_AMOUNT_PRECISION' }), { status: 400, headers: corsHeaders });
   }
   const amountNgn = Math.round(scaledAmount) / 100;
-  if (isStaging && (getEnv('PAYOUT_TEST_USER_ID') !== user.id || amountNgn > 100)) {
+  if (isStaging && (getEnv('PAYOUT_TEST_USER_ID') !== user.id || amountNgn > 100 || accountNumber !== '1000000001' || bankCode !== '057' || body.idempotency_key?.toLowerCase() !== '6f2e6402-10b0-4a14-b0a8-7a3b139b7e52')) {
     return new Response(JSON.stringify({ code: 'TEST_PAYOUT_SCOPE_REQUIRED', error: 'Only the designated test wallet may request a bank payout of up to ₦100.' }), { status: 403, headers: corsHeaders });
   }
   const rawPin = String(body.pin ?? '').trim();
@@ -307,7 +324,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
   // PIN strikes must be serialized and persisted by PostgreSQL, never read/modify/write at the Edge.
   const { data: pinResult, error: pinError } = await userClient.rpc('verify_user_transaction_pin', { p_pin: rawPin });
   if (pinError || !pinResult?.valid) {
-    return new Response(JSON.stringify({ error: pinResult?.error || pinError?.message || 'PIN verification failed.' }), {
+    return new Response(JSON.stringify({ code: pinResult?.code === 'PIN_LOCKED' ? 'PIN_LOCKED' : 'PIN_NOT_VERIFIED', error: pinResult?.code === 'PIN_LOCKED' ? 'PIN is temporarily locked. Wait before trying again.' : 'PIN could not be verified.' }), {
       status: pinResult?.code === 'PIN_LOCKED' ? 429 : 401, headers: corsHeaders
     });
   }
@@ -356,7 +373,8 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
   });
 
   if (debitErr) {
-    return new Response(JSON.stringify({ error: debitErr.message }), {
+    const disabled = debitErr.message.includes('PAYOUT_DISPATCH_DISABLED');
+    return new Response(JSON.stringify({ code: disabled ? 'PAYOUTS_QUARANTINED' : 'QUEUE_REJECTED', error: disabled ? 'The test payout window is closed.' : 'Payout reservation could not be confirmed. Check its status before trying again.' }), {
       status: debitErr.message.includes('PAYOUT_DISPATCH_DISABLED') ? 503 : 400,
       headers: corsHeaders
     });
