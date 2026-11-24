@@ -199,6 +199,16 @@
 .midepay-ui #modal-add-money .add-money-footer .btn{min-height:48px;white-space:normal}
 @media(max-width:380px){.midepay-ui #modal-add-money .modal-header,.midepay-ui #modal-add-money .funding-options,.midepay-ui #modal-add-money .add-money-footer{padding-left:16px;padding-right:16px}}
 
+.midepay-ui #modal-send-money.test-wallet-transfer .bank-quick-grid{grid-template-columns:minmax(0,1fr)}
+.midepay-ui #modal-send-money.test-wallet-transfer .bank-quick-btn{flex-direction:row;justify-content:flex-start;gap:12px;min-height:64px;padding:12px}
+.midepay-ui #modal-send-money.test-wallet-transfer [hidden]{display:none!important}
+.midepay-ui .transfer-availability-note{font-size:12px;line-height:1.6;color:var(--text-secondary);margin:10px 0 0}
+.midepay-ui #modal-send-money .modal-box{scroll-padding-top:95px}
+.midepay-ui #modal-send-money .send-step>.modal-header{position:sticky;top:-26px;z-index:3;background:var(--modal-bg);padding:16px 0;border-bottom:1px solid var(--border-subtle)}
+.midepay-ui #modal-send-money .modal-form{gap:18px}
+.midepay-ui #modal-send-money .form-group{margin:0}
+@media(max-width:720px){.midepay-ui #modal-send-money .send-step>.modal-header{top:-21px}}
+
 /* Original brand assets, kept on a neutral surface in both themes. */
 .midepay-ui .bank-badge-icon.bank-brand-logo{background:#fff;border:1px solid #e4e9ed;box-shadow:none;padding:4px;overflow:hidden}
 .midepay-ui .bank-brand-logo img{display:block;width:100%;height:100%;object-fit:contain;border-radius:5px}

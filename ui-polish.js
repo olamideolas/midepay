@@ -32,6 +32,24 @@
  const preview=window.MIDEPAY_SUPABASE_CONFIG?.url==='https://ajbhsmcosxgymrtawlmd.supabase.co';
  if(preview){
   const upgrade=document.getElementById('btn-submit-tier3-upgrade');if(upgrade){upgrade.disabled=true;upgrade.textContent='Identity checks are coming later';}
+  const send=document.getElementById('modal-send-money');
+  if(send){
+   send.classList.add('test-wallet-transfer');
+   const badge=send.querySelector('#send-step-form .badge-emerald-sm');if(badge)badge.textContent='Test wallet transfer';
+   const grid=send.querySelector('#popular-banks-grid');
+   if(grid){
+    grid.querySelectorAll('[data-bank]').forEach(button=>{if(button.dataset.bank!=='MidePay'){button.disabled=true;button.hidden=true;button.title='External bank transfers are unavailable';}});
+    const label=grid.parentElement.querySelector('.form-label');if(label)label.textContent='Send to a MidePay wallet';
+    const note=document.createElement('p');note.className='transfer-availability-note';note.textContent='External bank transfers are unavailable in this preview. Use another MidePay test wallet.';grid.after(note);
+   }
+   const destination=send.querySelector('#send-destination');
+   if(destination){
+    Array.from(destination.options).forEach(option=>{if(option.dataset.bankCode!=='MIDEPAY'){option.disabled=true;option.textContent+=' — unavailable';}else{option.textContent=option.value==='MidePay'?'MidePay test wallet (wallet ID or @tag)':'MidePay tag (@username)';}});
+    destination.value='MidePay';
+    const label=send.querySelector('label[for="send-destination"]');if(label)label.textContent='Recipient type';
+   }
+   const recipientLabel=send.querySelector('label[for="send-recipient"]');if(recipientLabel)recipientLabel.textContent='Recipient wallet ID, @tag, email or phone';
+  }
  }
  refreshDialog();
 })();
