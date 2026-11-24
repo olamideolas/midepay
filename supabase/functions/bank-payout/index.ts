@@ -70,6 +70,8 @@ async function resolveNubanAccount(
     const url = `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`;
     const res = await fetch(url, {
       method: 'GET',
+      redirect: 'error',
+      signal: AbortSignal.timeout(8000),
       headers: { Authorization: `Bearer ${secret}` }
     });
     const json = (await res.json()) as {
@@ -92,6 +94,8 @@ async function resolveNubanAccount(
 
   const res = await fetch('https://api.flutterwave.com/v3/accounts/resolve', {
     method: 'POST',
+    redirect: 'error',
+    signal: AbortSignal.timeout(8000),
     headers: {
       Authorization: `Bearer ${secret}`,
       'Content-Type': 'application/json'
@@ -191,7 +195,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
   const accountNumber = String(body.account_number ?? '').trim();
   const bankCode = String(body.bank_code ?? '').trim();
 
-  if (!/^\d{10}$/.test(accountNumber) || !bankCode) {
+  if (!/^\d{10}$/.test(accountNumber) || !/^\d{3,10}$/.test(bankCode)) {
     return new Response(JSON.stringify({ error: 'Valid 10-digit NUBAN account_number and bank_code are required.' }), {
       status: 400,
       headers: corsHeaders
@@ -214,7 +218,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
         headers: corsHeaders
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'NIP account inquiry failed.';
+      const msg = 'Recipient verification is unavailable. Check the account details and try again.';
       return new Response(JSON.stringify({ error: msg }), { status: 400, headers: corsHeaders });
     }
   }
@@ -315,7 +319,7 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
       const resolved = await resolveNubanAccount(provider, accountNumber, bankCode);
       beneficiaryName = resolved.account_name;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unable to verify recipient NUBAN.';
+      const msg = 'Recipient verification is unavailable. No transfer has been queued. Check the account details and try again.';
       return new Response(JSON.stringify({ error: msg }), { status: 400, headers: corsHeaders });
     }
   }

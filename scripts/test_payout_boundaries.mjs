@@ -21,6 +21,9 @@ let pass=0,fail=0;
 async function test(label,fn){reset();try{await fn();pass++;console.log('PASS '+label)}catch(e){fail++;console.log('FAIL '+label+': '+e.message)}}
 try{
  const {handleBankPayoutRequest:handle}=await import(pathToFileURL(file));
+ await test('invalid bank codes are rejected before provider lookup or wallet reservation',async()=>{for(const bank_code of ['', 'abc', '12', '001/redirect', '1'.repeat(11)])assert.equal((await handle(req({...body,bank_code}))).status,400);assert.equal(debits,0);assert.equal(fetches.length,0)});
+ await test('recipient lookup has a deadline and refuses provider redirects',async()=>{assert.equal((await handle(req())).status,202);assert.equal(fetches[0].options.redirect,'error');assert.ok(fetches[0].options.signal instanceof AbortSignal)});
+ await test('recipient transport failure never exposes diagnostics or reserves money',async()=>{const mockedFetch=globalThis.fetch;globalThis.fetch=async()=>{throw Error('private upstream diagnostic')};try{for(const action of ['resolve_account','initiate_payout']){const response=await handle(req({...body,action}));assert.equal(response.status,400);assert.ok(!(await response.text()).includes('private upstream diagnostic'));}assert.equal(debits,0);}finally{globalThis.fetch=mockedFetch}});
  await test('non-object payloads are rejected without throwing',async()=>{for(const value of [null,[],42,'invalid'])assert.equal((await handle(req(value))).status,400);assert.equal(debits,0);assert.equal(fetches.length,0)});
  await test('unknown payout provider cannot silently route to Paystack',async()=>{assert.equal((await handle(req({...body,provider:'unknown'}))).status,400);assert.equal(debits,0);assert.equal(fetches.length,0)});
  await test('unapproved browser origin is rejected before database or gateway work',async()=>{assert.equal((await handle(req(body,{origin:'https://unapproved.example.invalid'}))).status,403);assert.equal(debits,0);assert.equal(fetches.length,0)});

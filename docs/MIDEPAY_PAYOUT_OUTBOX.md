@@ -46,6 +46,12 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ## Operation and next release gates
 
+### Independent boundary review — 24 November 2026
+
+Local bank-payout changes add an 8-second recipient-lookup deadline, reject redirects, validate bank codes as 3–10 digits and replace provider/transport diagnostics with safe user messages. Both standalone lookup and lookup before reservation fail without queuing a transfer. The mocked boundary suite passed 22 groups, including three new regression groups. These changes are not yet deployed; no provider call, wallet reservation or live payout was performed by this test run.
+
+Provider reference compatibility remains an explicit release blocker: the queue generates `MDP-OUT-` plus 40 hexadecimal characters, while current Paystack documentation specifies lowercase reference characters. Do not change only the outgoing reference: webhook lookup, reconciliation, idempotency and stored transaction references must stay consistent. Verify a compatible reference design throughout that chain before enabling dispatch. Source: https://paystack.com/docs/transfers/single-transfers/ .
+
 Do not enable outbound dispatch yet. Review private.payout_dispatch_outbox joined to transactions for ready/preparing/sending/submitted/review/cancelled/resolved state, attempts, dispatch_started_at and last_code. Review security_audit_logs for PAYOUT_DISPATCH_STARTED/PAYOUT_DISPATCH_RESULT and audit_logs for refunds/settlement. Use only privileged staging access. Never manually reset sending/review to ready merely because Paystack reports not found.
 
 New invocations can be stopped using the existing reconciliation enable switch and scheduler controls; dispatch additionally honors BANK_PAYOUTS_ENABLED and payout_dispatch_enabled. An already authorized external call may finish. Service-only cancellation is safe only while the RPC proves no dispatch marker exists; legacy/ambiguous payouts require provider verification and operator review.
