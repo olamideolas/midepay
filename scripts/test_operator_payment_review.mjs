@@ -47,5 +47,15 @@ try{
   await db.query('INSERT INTO auth.sessions(id,user_id) VALUES($1,$1)',[operator]);assert.equal((await call(operator)).success,true);
  });
  await test('clients cannot bypass the active-session gate through private helpers',async()=>{for(const role of ['anon','authenticated','service_role'])await assert.rejects(()=>db.transaction(async tx=>{await tx.exec('SET LOCAL ROLE '+role);await tx.exec("SELECT private.operator_payment_review_authorized('all',NULL,NULL)")}),e=>e.code==='42501')});
+ await test('current-session RPC uses caller identity and rejects revoked or wrong-owner sessions',async()=>{
+  const status=(sid)=>db.transaction(async tx=>{await tx.query("SELECT set_config('request.jwt.claim.sub',$1,true),set_config('request.jwt.claims',$2,true)",[member,JSON.stringify({sub:member,session_id:sid})]);await tx.exec('SET LOCAL ROLE authenticated');return(await tx.query('SELECT has_current_auth_session() AS active')).rows[0].active});
+  assert.equal(await status(member),true);
+  for(const sid of [null,'malformed',operator,crypto.randomUUID()])assert.equal(await status(sid),false);
+  await db.query("UPDATE auth.sessions SET not_after=now()-interval '1 second' WHERE id=$1",[member]);assert.equal(await status(member),false);
+  await db.query('UPDATE auth.sessions SET not_after=NULL WHERE id=$1',[member]);
+  await db.query('DELETE FROM auth.sessions WHERE id=$1',[member]);assert.equal(await status(member),false);
+  await db.query('INSERT INTO auth.sessions(id,user_id) VALUES($1,$1)',[member]);assert.equal(await status(member),true);
+ });
+ await test('session-status RPC grants neither session-table access nor anonymous/service execution',async()=>{for(const role of ['anon','service_role'])await assert.rejects(()=>db.transaction(async tx=>{await tx.exec('SET LOCAL ROLE '+role);await tx.exec('SELECT has_current_auth_session()')}),e=>e.code==='42501');await assert.rejects(()=>db.transaction(async tx=>{await tx.exec('SET LOCAL ROLE authenticated');await tx.exec('SELECT * FROM auth.sessions')}),e=>e.code==='42501')});
  console.log(`${count} passed; 0 failed`);
 }finally{await db.close()}

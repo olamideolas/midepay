@@ -267,6 +267,16 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 
+  // Use the caller's JWT context, never a browser-supplied session identifier.
+  const activeSession = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await userClient.rpc('has_current_auth_session');
+      return !error && data === true;
+    } catch { return false; }
+  };
+  const endedSession = () => new Response(JSON.stringify({ code: 'SESSION_REQUIRED', error: 'Your session has ended. Sign in again before requesting a transfer.' }), { status: 401, headers: corsHeaders });
+  if (!await activeSession()) return endedSession();
+
   const { data: profile, error: profErr } = await adminClient
     .from('profiles')
     .select('id, full_name, email_otp_verified_at, is_frozen, kyc_tier')
@@ -328,6 +338,8 @@ export async function handleBankPayoutRequest(req: Request): Promise<Response> {
   }
 
   let reference = `MDP-OUT-${user.id}-${body.idempotency_key!.toLowerCase()}`;
+  // Recipient lookup is a network round trip; recheck before reserving funds.
+  if (!await activeSession()) return endedSession();
   const payoutFee = 0.0;
 
   // Atomically lock & debit sender's NGN wallet before external network call

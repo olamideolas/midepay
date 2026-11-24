@@ -26,14 +26,14 @@ const prior=Object.fromEntries(envKeys.map(k=>[k,process.env[k]]));
 Object.assign(process.env,{SUPABASE_URL:'http://127.0.0.1:9',SUPABASE_ANON_KEY:'audit-anon',SUPABASE_SERVICE_ROLE_KEY:'audit-service',PAYSTACK_SECRET_KEY:'audit-secret'});
 let validPin=true, duplicate=false, rpcCalls=[], updates=0, fetches=0;
 const service={from:()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:{id:'a',email_otp_verified_at:'2026-01-01',is_frozen:false,kyc_tier:1},error:null}),update(){updates++;return this},then(resolve){resolve({error:null})}}),rpc:async(name,args)=>{rpcCalls.push(name);return{data:{success:true,already_debited:duplicate,status:'pending'},error:null}}};
-globalThis.__auditClientFactory=(_url,key)=>key==='audit-service'?service:{auth:{getUser:async()=>({data:{user:{id:'a0000000-0000-4000-8000-000000000001',email_confirmed_at:'2026-01-01'}},error:null})},rpc:async(name)=>{rpcCalls.push(name);return{data:{valid:validPin},error:null}}};
+globalThis.__auditClientFactory=(_url,key)=>key==='audit-service'?service:{auth:{getUser:async()=>({data:{user:{id:'a0000000-0000-4000-8000-000000000001',email_confirmed_at:'2026-01-01'}},error:null})},rpc:async(name)=>{rpcCalls.push(name);return{data:name==='has_current_auth_session'?true:{valid:validPin},error:null}}};
 fs.writeFileSync(temp,transformed);
 try {
  const {handleBankPayoutRequest:bank}=await import(temp.href+'?audit');
  const req=()=>new Request('http://localhost/payout',{method:'POST',headers:{authorization:'Bearer audit'},body:JSON.stringify({action:'initiate_payout',account_number:'1234567890',bank_code:'001',account_name:'Test',amount_ngn:1000,pin:'4829',idempotency_key:'b0000000-0000-4000-8000-000000000001'})});
  await test('payout quarantine is enforced by server',async()=>{delete process.env.BANK_PAYOUTS_ENABLED;rpcCalls=[];assert.equal((await bank(req())).status,503);assert.equal(rpcCalls.length,0)});
  process.env.BANK_PAYOUTS_ENABLED='true';
- await test('invalid payout PIN is delegated to SQL without Edge counter writes',async()=>{validPin=false;rpcCalls=[];updates=0;assert.equal((await bank(req())).status,401);assert.deepEqual(rpcCalls,['verify_user_transaction_pin']);assert.equal(updates,0)});
+ await test('invalid payout PIN is delegated to SQL without Edge counter writes',async()=>{validPin=false;rpcCalls=[];updates=0;assert.equal((await bank(req())).status,401);assert.deepEqual(rpcCalls,['has_current_auth_session','verify_user_transaction_pin']);assert.equal(updates,0)});
  validPin=true;globalThis.fetch=async(url)=>{if(url.includes('/bank/resolve'))return new Response(JSON.stringify({status:true,data:{account_name:'Verified Test',account_number:'1234567890'}}),{status:200});fetches++;throw Error('ambiguous timeout')};
  await test('bank request queues a payout without dispatching or refunding',async()=>{rpcCalls=[];fetches=0;const res=await bank(req());assert.equal(res.status,202);assert.equal((await res.json()).status,'pending');assert.ok(rpcCalls.includes('enqueue_wallet_payout'));assert.ok(!rpcCalls.includes('reverse_failed_payout'));assert.equal(fetches,0)});
  await test('payout retry does not dispatch another provider request',async()=>{duplicate=true;fetches=0;rpcCalls=[];const res=await bank(req());assert.equal(res.status,200);assert.equal(fetches,0)});

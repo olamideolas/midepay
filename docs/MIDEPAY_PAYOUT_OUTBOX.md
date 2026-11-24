@@ -46,6 +46,14 @@ Security advisors continue to show the existing anonymous waitlist and authentic
 
 ## Operation and next release gates
 
+### Active-session payout gate — local, 24 November 2026
+
+Migration 20261124113951_payout_active_session_gate.sql exposes only a boolean has_current_auth_session RPC to authenticated callers. It delegates to the existing private Auth-session predicate using the caller's JWT context, checking session row ownership, existence and not_after. Clients receive no Auth session-table access; anonymous and service-role execution is revoked.
+
+The bank-payout handler checks this RPC before profile/PIN/provider work, then checks again after recipient lookup and immediately before enqueue. RPC errors, thrown transport failures or anything other than literal true fail closed as SESSION_REQUIRED. Tests cover inactive/malformed results and revocation between lookup and reservation. Actual local SQL tests cover missing, malformed, wrong-owner, expired and deleted sessions and restricted grants.
+
+This is local pending CI and deployment. It does not cancel a transfer already accepted or authorized, and it cannot eliminate the small interval between the final session check and the separate service-role enqueue call. Queued requests remain subject to dispatch controls; ordinary P2P, savings, treasury and other financial paths still need their own review. No real account session was revoked for these tests.
+
 ### Scoped staging payout gate — local, 24 November 2026
 
 Owner nominated olamidesunkanmi727@gmail.com, the existing staging executive account, for the controlled test. No debit has been authorized or performed by this implementation step. The staged bank handler requires PAYOUT_TEST_USER_ID to match the authenticated user and limits requested amounts to NGN100 before recipient lookup or reservation. The existing minimum is NGN50. This is a per-payout cap, not a cumulative testing budget.
