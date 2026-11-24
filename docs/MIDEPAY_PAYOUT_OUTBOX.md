@@ -52,7 +52,7 @@ Owner nominated olamidesunkanmi727@gmail.com, the existing staging executive acc
 
 The scheduled worker cannot claim dispatch jobs unless that server identity is a UUID and BANK_PAYOUTS_ENABLED is true. Before provider access it invokes the new service-only authorize_scoped_test_payout RPC to check the stored transaction owner, pending Paystack outflow state, canonical reference and amount plus fee between NGN50 and NGN100. Existing dispatch lease/freeze/kill-switch checks still run afterward. The RPC does not change wallets or queues, and clients cannot execute it. A denied preparation follows existing retry/cancel handling and cannot send money.
 
-Local targeted suites: payout boundaries 24 groups, recovery/dispatch 44 groups and migration/security 55 groups passed, including wrong/missing identity, over-cap amount, database ownership checks, restricted execution privileges and worker scope denial before provider access. Tests use synthetic identities and mocked Paystack, without real payouts. Migration 20261124113305_scoped_test_payout_gate.sql and both Edge handlers require CI and staging rollout. PAYOUT_TEST_USER_ID has not been configured by this step; both payout switches remain unchanged. Active-session checks on money-changing paths and a narrow activation window are still required before conducting the actual test.
+Local targeted suites: payout boundaries 24 groups, recovery/dispatch 44 groups and migration/security 55 groups passed, including wrong/missing identity, over-cap amount, database ownership checks, restricted execution privileges and worker scope denial before provider access. Tests use synthetic identities and mocked Paystack, without real payouts. Migration 20261124113818_scoped_test_payout_gate.sql and both Edge handlers require CI and staging rollout. PAYOUT_TEST_USER_ID has not been configured by this step; both payout switches remain unchanged. Active-session checks on money-changing paths and a narrow activation window are still required before conducting the actual test.
 
 ### Read-only provider preflight — local, 24 November 2026
 
@@ -96,3 +96,10 @@ Read-only postchecks: lowercase reference generation present; anonymous and auth
 Actual Paystack TEST payout, exact signed webhook/verification round trip, provider approval behavior, active-session enforcement on money-changing endpoints and production operational gates remain outstanding. This deployment does not make external transfers ready for public use.
 
 Scoped gate follow-up also passed operator review, phase-one security, independent webhook and provider case regression suites. The signed worker was exercised against the actual local SQL gate with a mocked Paystack: exactly one NGN100 transfer POST was produced, a second invocation did not send again, and the synthetic wallet was debited once. No hosted account or provider payout was touched.
+
+
+## Scoped gate staging rollout — 24 November 2026
+
+CI 45385708124 passed for 233e1c0c34f7d61ad421e0fdbf7dc09876e1ea07. Deployed bank-payout version 12, applied scoped_test_payout_gate migration (hosted version 20261124113818), then deployed reconcile-payments version 9. Filename aligned with the hosted version without rewriting migration history.
+
+Postchecks confirm unknown transactions fail the new gate, anon/authenticated have no EXECUTE while service_role does, dispatch remains false, refund adjustments remain false, outbox count zero and test-wallet total unchanged at NGN5200. Security advisors checked before/after. No payout, test-wallet debit or change to server PAYOUT_TEST_USER_ID was made. This records deployment, not activation or a completed bank transfer. Active-session enforcement on money-changing endpoints and controlled activation remain outstanding.
