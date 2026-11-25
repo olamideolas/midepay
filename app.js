@@ -5421,10 +5421,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const formattedText = 
 `========================================
-MIDEPAY OFFICIAL TRANSACTION RECEIPT
+MIDEPAY TEST PAYMENT DETAILS
 ========================================
-Status: ${tx.status || 'Successful'}
-Transaction Ref: ${tx.ref || 'MP-TX-STANDARD'}
+Status: ${transactionStatusLabel(tx.status)}
+Transaction Ref: ${tx.ref || 'Reference not supplied'}
 Amount: ${formatNaira(tx.amount || 0)}
 Date: ${tx.date || new Date().toLocaleString('en-NG')}
 Category: ${tx.category || 'MidePay Financial Transfer'}
@@ -6155,7 +6155,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
             date: formatTxDate(tx.created_at),
             type: tx.type,
             amount: Number(tx.amount) || 0,
-            status: tx.status || 'successful'
+            status: transactionStatusLabel(tx.status)
           }));
         } else {
           adminTxList = isProd ? [] : [...state.transactions, ...loadUserTransactions(), ...DEFAULT_DEMO_TRANSACTIONS];
@@ -6362,11 +6362,11 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
         <tr>
           <td>
             <div style="font-family:monospace; font-weight:700; color:var(--primary-emerald); font-size:0.86rem;">
-              ${escapeHtml(tx.ref || 'MP-TX-20260924')}
+              ${escapeHtml(tx.ref || 'Reference not supplied')}
             </div>
-            <span style="font-size:0.7rem; color:var(--text-muted);">NIP Session: 999048...</span>
+            <span style="font-size:0.7rem; color:var(--text-muted);">Provider settlement ID not supplied</span>
           </td>
-          <td><span style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(tx.date || 'Today')}</span></td>
+          <td><span style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(tx.date || 'Date not recorded')}</span></td>
           <td><strong>${escapeHtml(tx.sender || 'Sender')}</strong></td>
           <td>
             <div>${escapeHtml(tx.beneficiary || 'Beneficiary')}</div>
@@ -6378,7 +6378,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
           </td>
           <td><span style="font-size:0.78rem; text-transform:uppercase; color:var(--text-muted);">${escapeHtml(tx.category || 'Transfer')}</span></td>
           <td>
-            <span style="color:#34D399; font-weight:700; font-size:0.75rem;">✓ Successful</span>
+            <span style="color:var(--text-secondary); font-weight:700; font-size:0.75rem;">${transactionStatusLabel(tx.status)}</span>
           </td>
         </tr>
       `;
@@ -6704,15 +6704,15 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       const amtNum = Number(tx.amount || 0).toFixed(2);
       const feeNum = Number(tx.fee || 0).toFixed(2);
       return [
-        escapeCsvCell(tx.date || dateStamp),
-        escapeCsvCell(tx.ref || tx.id || 'MDP-TX'),
+        escapeCsvCell(tx.date || 'Date not recorded'),
+        escapeCsvCell(tx.ref || 'Reference not supplied'),
         escapeCsvCell(isInflow ? 'Inflow' : 'Outflow'),
         escapeCsvCell(tx.category || 'Transfer'),
         escapeCsvCell(counterparty),
         escapeCsvCell(tx.narration || tx.title || ''),
         amtNum,
         feeNum,
-        escapeCsvCell(tx.status || 'Successful')
+        escapeCsvCell(transactionStatusLabel(tx.status))
       ].join(',');
     });
 
@@ -6804,8 +6804,8 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
         const counterparty = isInflow ? (tx.sender || 'Sender') : (tx.beneficiary || 'Beneficiary');
         return `
           <tr>
-            <td style="white-space:nowrap;">${escapeHtml(tx.date || 'Today')}</td>
-            <td style="font-family:monospace; font-weight:600;">${escapeHtml(tx.ref || tx.id || 'MDP-TX')}</td>
+            <td style="white-space:nowrap;">${escapeHtml(tx.date || 'Date not recorded')}</td>
+            <td style="font-family:monospace; font-weight:600;">${escapeHtml(tx.ref || 'Reference not supplied')}</td>
             <td>${isInflow ? 'Inflow' : 'Outflow'}</td>
             <td>
               <strong>${escapeHtml(counterparty)}</strong>
@@ -6815,7 +6815,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
               ${isInflow ? '+' : '-'}${formatNaira(tx.amount || 0)}
             </td>
             <td style="text-align:right;">${formatNaira(tx.fee || 0)}</td>
-            <td>${escapeHtml(tx.status || 'Successful')}</td>
+            <td>${transactionStatusLabel(tx.status)}</td>
           </tr>
         `;
       }).join('');
