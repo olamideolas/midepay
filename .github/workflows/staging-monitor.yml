@@ -1,0 +1,39 @@
+name: Manual staging operational monitor
+on:
+  workflow_dispatch:
+    inputs:
+      send_alert:
+        description: Send a staging warning to the selected executive email
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: midepay-staging-monitor
+  cancel-in-progress: false
+jobs:
+  check:
+    if: github.ref == 'refs/heads/fix-v46-migration-repair'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    environment: midepay-staging-alerts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check staging and optionally send attention email
+        env:
+          MIDEPAY_STAGING_DATABASE_URL: ${{ secrets.MIDEPAY_STAGING_DATABASE_URL }}
+          MIDEPAY_ALERT_SMTP_USER: ${{ secrets.MIDEPAY_ALERT_SMTP_USER }}
+          MIDEPAY_ALERT_SMTP_APP_PASSWORD: ${{ secrets.MIDEPAY_ALERT_SMTP_APP_PASSWORD }}
+          MIDEPAY_STAGING_ALERTS_ENABLED: ${{ vars.MIDEPAY_STAGING_ALERTS_ENABLED }}
+          SEND_ALERT: ${{ inputs.send_alert }}
+        run: |
+          if [ "$SEND_ALERT" = 'true' ]; then
+            node scripts/run_staging_monitor.mjs --send
+          else
+            node scripts/run_staging_monitor.mjs
+          fi

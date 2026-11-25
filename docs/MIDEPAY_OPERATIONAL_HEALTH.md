@@ -53,4 +53,6 @@ This is an offline evaluator, not a scheduled collector or delivered alert. No c
 
 Connect a real monitoring destination and test alert delivery, acknowledgment, deduplication and escalation with a named operator. No messages or external notifications were sent by this work. Thresholds above are initial staging investigation thresholds, not approved production service levels.
 
+The subsequent [email connection setup](MIDEPAY_STAGING_ALERT_SETUP.md) prepares a staging-only collector and manual Gmail delivery adapter for the selected executive mailbox. It remains unconfigured and unscheduled; real delivery, durable incident state and missing-heartbeat monitoring remain outstanding.
+
 Backup readiness requires a genuine backup restored into an isolated target, then migration/schema, ownership/RLS, record counts, ledger conservation and application recovery checks. A synthetic fresh migration run is not a backup restore. Do not restore over an active database. Agree recovery objectives, data handling and backup retention before a hosted drill. A subsequent [local synthetic backup restore drill](MIDEPAY_LOCAL_RESTORE_DRILL.md) passed; hosted backup recovery remains unverified.
