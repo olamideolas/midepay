@@ -1131,6 +1131,7 @@ function setDashboardLoadState(wallet, history) {
   if(notice)notice.classList.toggle('hidden',!loading&&!failed);
   if(message)message.textContent=loading?'Refreshing your wallet and activity…':wallet==='error'?'Wallet data is unavailable. Your balance has not been refreshed.':'Your balance is refreshed, but activity could not be loaded. Try again.';
   if(retry)retry.disabled=loading;
+  for(const id of ['btn-download-statement','btn-export-statement-csv','btn-modal-export-csv','btn-print-statement']){const button=document.getElementById(id);if(button)button.disabled=wallet!=='ready'||history!=='ready';}
   renderBalances();renderDashboardTransactions();
 }
 
@@ -6707,7 +6708,16 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
     return `"${str}"`;
   }
 
+  function statementDataAvailable() {
+    if (isProductionEnv() && (state.walletLoadState !== 'ready' || state.historyLoadState !== 'ready')) {
+      showToast('Refresh your wallet and activity before creating a statement.', 'error');
+      return false;
+    }
+    return true;
+  }
+
   function exportAccountStatementCsv() {
+    if (!statementDataAvailable()) return null;
     const txs = getStatementTransactions();
     const dateStamp = new Date().toISOString().slice(0, 10);
     const headers = [
@@ -6786,6 +6796,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   }
 
   function openOfficialStatementModal() {
+    if (!statementDataAvailable()) return;
     const txs = getStatementTransactions();
     const holderName = state.user?.fullName || 'MidePay Account Holder';
     const holderEmail = state.user?.email || 'member@midepay.ng';
