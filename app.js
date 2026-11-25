@@ -880,6 +880,13 @@ function formatTxDate(dateString) {
   return `${d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}, ${timeStr}`;
 }
 
+// Only explicit recorded states may display success.
+function transactionStatusLabel(status) {
+  const value=String(status || '').trim().toLowerCase();
+  const labels={successful:'Successful',pending:'Pending',failed:'Failed',reversed:'Reversed',refunded:'Refunded',cancelled:'Cancelled'};
+  return Object.hasOwn(labels,value) ? labels[value] : 'Status unavailable';
+}
+
 // Render Dashboard Transactions List
 function renderDashboardTransactions() {
   const listContainer = document.getElementById('dashboard-tx-list');
@@ -926,7 +933,7 @@ function renderDashboardTransactions() {
   listContainer.innerHTML = filtered.map(tx => {
     const isInflow = tx.type === 'inflow';
     return `
-      <div class="dash-tx-item" data-id="${tx.id}" role="button" tabindex="0" title="Click to view official receipt">
+      <div class="dash-tx-item" data-id="${escapeHtml(tx.id)}" role="button" tabindex="0" title="View payment details">
         <div class="dash-tx-left">
           <div class="tx-badge-icon ${isInflow ? 'tx-inflow' : 'tx-outflow'}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -936,15 +943,15 @@ function renderDashboardTransactions() {
             </svg>
           </div>
           <div class="dash-tx-details">
-            <span class="dash-tx-title">${tx.title}</span>
-            <span class="dash-tx-meta">${tx.sender} • ${tx.date}</span>
+            <span class="dash-tx-title">${escapeHtml(tx.title)}</span>
+            <span class="dash-tx-meta">${escapeHtml(tx.sender)} • ${escapeHtml(tx.date)}</span>
           </div>
         </div>
         <div class="dash-tx-right">
           <div class="dash-tx-val ${isInflow ? 'tx-positive' : 'tx-negative'}">
             ${isInflow ? '+' : '-'}${formatNaira(tx.amount)}
           </div>
-          <span class="dash-tx-status">${tx.status} • Receipt ↗</span>
+          <span class="dash-tx-status">${transactionStatusLabel(tx.status)} • Details ↗</span>
         </div>
       </div>
     `;
@@ -954,10 +961,13 @@ function renderDashboardTransactions() {
   listContainer.querySelectorAll('.dash-tx-item').forEach(item => {
     item.addEventListener('click', () => {
       const txId = item.getAttribute('data-id');
-      const found = state.transactions.find(t => t.id === txId);
+      const found = state.transactions.find(t => String(t.id) === txId);
       if (found) {
         openReceiptModal(found);
       }
+    });
+    item.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); item.click(); }
     });
   });
 }
@@ -984,15 +994,15 @@ function openReceiptModal(receiptData) {
   const elTokenDigits = document.getElementById('receipt-token-digits');
   const elTokenUnits = document.getElementById('receipt-token-units');
 
-  if (elAmount) elAmount.textContent = formatNaira(receiptData.amount || 0);
-  if (elDate) {
-    if (receiptData.date === 'Just now' || !receiptData.date) {
-      elDate.textContent = new Date().toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + new Date().toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
-    } else {
-      elDate.textContent = receiptData.date;
-    }
-  }
-  if (elRef) elRef.textContent = receiptData.ref || ('MP-TX-' + Date.now().toString().slice(-8));
+  const receiptStatus = transactionStatusLabel(receiptData.status);
+  const statusTitle = document.getElementById('receipt-status-title');
+  if (statusTitle) statusTitle.textContent = receiptStatus === 'Successful' ? 'Test payment successful' : receiptStatus === 'Status unavailable' ? receiptStatus : 'Payment ' + receiptStatus.toLowerCase();
+  const successIcon = document.getElementById('receipt-success-icon');
+  if (successIcon) successIcon.classList.toggle('hidden', receiptStatus !== 'Successful');
+  const amount = receiptData.amount;
+  if (elAmount) elAmount.textContent = amount !== null && amount !== undefined && amount !== '' && Number.isFinite(Number(amount)) && Number(amount) >= 0 ? formatNaira(Number(amount)) : 'Amount unavailable';
+  if (elDate) elDate.textContent = receiptData.date || 'Date not recorded';
+  if (elRef) elRef.textContent = receiptData.ref || 'Reference not supplied';
   if (elCategory) elCategory.textContent = receiptData.category || (receiptData.type === 'inflow' ? 'Deposit / Inflow' : 'Transfer Outflow');
   if (elSender) elSender.textContent = receiptData.sender || state.user?.fullName || 'Account Holder';
   if (elBeneficiary) elBeneficiary.textContent = receiptData.beneficiary || receiptData.title || 'MidePay Beneficiary';
@@ -1203,7 +1213,7 @@ async function loadDashboardData() {
         type: tx.type,
         amount: Number(tx.amount) || 0,
         fee: Number(tx.fee || 0),
-        status: tx.status ? (tx.status.charAt(0).toUpperCase() + tx.status.slice(1)) : 'Successful'
+        status: transactionStatusLabel(tx.status)
       }));
     } else if (!window.MidePayDB.isProduction()) {
       const saved = loadUserTransactions();
