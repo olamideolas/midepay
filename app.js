@@ -782,7 +782,7 @@ function renderBalances() {
     if (dashDisplay) dashDisplay.textContent = '••••••••';
   } else {
     if (heroDisplay) heroDisplay.textContent = formatNaira(state.heroBalance);
-    if (dashDisplay) dashDisplay.textContent = formatNaira(state.dashBalance);
+    if (dashDisplay) dashDisplay.textContent = state.walletLoadState === 'loading' ? 'Loading…' : state.walletLoadState === 'error' ? 'Unavailable' : formatNaira(state.dashBalance);
   }
 
   // Toggle eye icons in both buttons
@@ -893,6 +893,12 @@ function renderDashboardTransactions() {
   const requestsContainer = document.getElementById('dashboard-requests-list');
   if (!listContainer) return;
 
+  if (state.historyLoadState === 'loading' || state.historyLoadState === 'error') {
+    if(requestsContainer)requestsContainer.classList.add('hidden');
+    listContainer.classList.remove('hidden');
+    listContainer.textContent=state.historyLoadState === 'loading' ? 'Loading your activity…' : 'Activity is unavailable. Use Retry above to refresh it.';
+    return;
+  }
   if (state.txFilter === 'requests') {
     listContainer.classList.add('hidden');
     if (requestsContainer) {
@@ -1114,11 +1120,27 @@ function syncUserToDashboard() {
   } catch (e) {}
 }
 
+function validDashboardWallet(wallet, userId) {
+  const balance=wallet?.balance;
+  return Boolean(wallet?.id && wallet.user_id === userId && wallet.currency === 'NGN' && /^\d{10}$/.test(wallet.nuban || '') && balance !== null && balance !== undefined && balance !== '' && Number.isFinite(Number(balance)) && Number(balance) >= 0 && Number.isSafeInteger(Math.round(Number(balance)*100)) && Math.abs(Number(balance)*100-Math.round(Number(balance)*100)) < 0.000001);
+}
+function setDashboardLoadState(wallet, history) {
+  state.walletLoadState=wallet;state.historyLoadState=history;
+  const notice=document.getElementById('dashboard-data-notice'),message=document.getElementById('dashboard-data-message'),retry=document.getElementById('dashboard-data-retry');
+  const loading=wallet==='loading'||history==='loading',failed=wallet==='error'||history==='error';
+  if(notice)notice.classList.toggle('hidden',!loading&&!failed);
+  if(message)message.textContent=loading?'Refreshing your wallet and activity…':wallet==='error'?'Wallet data is unavailable. Your balance has not been refreshed.':'Your balance is refreshed, but activity could not be loaded. Try again.';
+  if(retry)retry.disabled=loading;
+  renderBalances();renderDashboardTransactions();
+}
+
 // Query and Load Live Dashboard Data from Supabase
 async function loadDashboardData() {
   if (!window.MidePayDB || !window.MidePayDB.isConfigured() || !window.MidePayDB.client) {
+    if (isProductionEnv()) setDashboardLoadState('error','error');
     return false;
   }
+  setDashboardLoadState('loading','loading');
 
   try {
     let currentUserId = state.user?.id;
@@ -1135,7 +1157,8 @@ async function loadDashboardData() {
         const profile = provisioned?.profile || await window.MidePayDB.getProfile(authUser.id);
         const walletRow = provisioned?.wallet || await window.MidePayDB.getWallet(authUser.id);
         const name = profile?.full_name || authUser.user_metadata?.full_name || state.user?.fullName || authUser.email.split('@')[0];
-        const nuban = walletRow?.nuban || state.user?.nuban || generateUserNuban();
+        if (isProductionEnv() && (!profile || profile.id !== authUser.id || !validDashboardWallet(walletRow,authUser.id))) throw new Error('Wallet refresh unavailable');
+        const nuban = walletRow?.nuban || (!isProductionEnv() ? state.user?.nuban : '') || '';
         const isFrozenFlag = profile?.is_frozen === true;
         if (profile?.kyc_tier) state.kycTier = Number(profile.kyc_tier) || state.kycTier;
         state.isAccountFrozen = isFrozenFlag;
@@ -1147,7 +1170,7 @@ async function loadDashboardData() {
           phone: profile?.phone || authUser.user_metadata?.phone || state.user?.phone || '',
           tag: profile?.tag || state.user?.tag || `@${name.split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '')}`,
           nuban: nuban,
-          bank: walletRow?.bank_name || 'MidePay / Providus Bank',
+          bank: walletRow?.bank_name || 'MidePay wallet',
           role: profile?.role || 'user',
           isFrozen: isFrozenFlag
         };
@@ -1155,8 +1178,8 @@ async function loadDashboardData() {
     }
 
     // Skip query if no user or ID is not a valid UUID (protects PostgreSQL from invalid uuid syntax)
-    if (!currentUserId || !isValidUuid(currentUserId)) {
-      return false;
+    if (!currentUserId || !isValidUuid(currentUserId) || (isProductionEnv() && !isLiveAuthenticated)) {
+      throw new Error('Session required for wallet refresh');
     }
 
     // 1. Query the wallets table for the logged-in user's persisted NUBAN & balance
@@ -1167,8 +1190,8 @@ async function loadDashboardData() {
       .eq('currency', 'NGN')
       .maybeSingle();
 
-    if (walletError) {
-      console.warn('⚠️ [MidePay] Error querying wallets table:', walletError.message);
+    if (walletError || (isProductionEnv() && !validDashboardWallet(walletData,currentUserId))) {
+      throw new Error('Wallet refresh unavailable');
     }
 
     if (walletData) {
@@ -1196,9 +1219,7 @@ async function loadDashboardData() {
       .order('created_at', { ascending: false })
       .limit(25);
 
-    if (txError) {
-      console.warn('⚠️ [MidePay] Error querying transactions table:', txError.message);
-    }
+    const historyUnavailable = Boolean(txError || !Array.isArray(txData));
 
     if (!txError && Array.isArray(txData) && isLiveAuthenticated) {
       state.transactions = txData.map(tx => ({
@@ -1235,6 +1256,8 @@ async function loadDashboardData() {
       await window.loadBusinessPayrollHistory(currentUserId);
     }
 
+    setDashboardLoadState('ready', historyUnavailable ? 'error' : 'ready');
+
     // 4. Render updated live values
     if (state.user) {
       state.user.balance = state.dashBalance;
@@ -1248,7 +1271,8 @@ async function loadDashboardData() {
     }
     return true;
   } catch (err) {
-    console.error('❌ [MidePay] Live dashboard load error:', err);
+    console.warn('[MidePay] Dashboard refresh unavailable');
+    setDashboardLoadState('error','error');
     return false;
   }
 }

@@ -51,5 +51,7 @@
    const recipientLabel=send.querySelector('label[for="send-recipient"]');if(recipientLabel)recipientLabel.textContent='Recipient wallet ID, @tag, email or phone';
   }
  }
+ const retry=document.getElementById('dashboard-data-retry');
+ if(retry)retry.addEventListener('click',async()=>{if(retry.disabled)return;retry.disabled=true;try{await window.loadDashboardData();}finally{retry.disabled=false;}});
  refreshDialog();
 })();
