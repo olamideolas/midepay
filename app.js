@@ -2099,7 +2099,7 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'Just now';
       const plat = loginAudit?.device?.platform || 'Web Browser';
       const tz = loginAudit?.device?.timezone || 'Africa/Lagos';
-      loginSecurityAlertText.textContent = `Security Login Alert: Verified session active (${loginTime} • ${plat} • ${tz}). Logged to immutable audit ledger.`;
+      loginSecurityAlertText.textContent = `Signed in at ${loginTime} • ${plat} • ${tz}.`;
       loginSecurityAlertBanner.classList.remove('hidden');
     }
 
@@ -2108,7 +2108,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast(`Email verified! Create your 4-digit Transaction PIN to unlock your wallet.`);
     } else {
       enforceMandatoryPinOnboardingLock(false);
-      showToast(`Welcome, ${verifiedUser.fullName}! NUBAN ${formatNubanDisplay(verifiedUser.nuban)} is active.`);
+      showToast(`Welcome, ${verifiedUser.fullName}! Your wallet dashboard is ready.`);
     }
   }
 
@@ -6114,7 +6114,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
               if (w) {
                 match.balance = Number(w.balance || 0);
                 match.nuban = w.nuban || match.nuban;
-                match.bank = w.bank_name || 'Providus Bank';
+                match.bank = w.bank_name || 'MidePay wallet';
               }
             } else {
               adminUsersList.push({
@@ -6124,11 +6124,11 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
                 phone: sp.phone || '',
                 tag: sp.tag || `@${(sp.full_name || 'user').toLowerCase().replace(/[^a-z0-9]/g, '')}`,
                 role: sp.role || 'user',
-                kycTier: sp.kyc_tier || 2,
+                kycTier: sp.kyc_tier ?? null,
                 isFrozen: sp.is_frozen === true,
-                nuban: w?.nuban || generateUserNuban(sp.email || sp.id),
-                bank: w?.bank_name || 'Providus Bank',
-                balance: w ? Number(w.balance || 0) : 0.00
+                nuban: w?.nuban || '',
+                bank: w?.bank_name || 'MidePay wallet',
+                balance: w?.balance ?? null
               });
             }
           });
@@ -6198,7 +6198,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
       }
     }
 
-    if (adminWaitlistEntries.length === 0) {
+    if (!isProd && adminWaitlistEntries.length === 0) {
       adminWaitlistEntries = [
         { email: 'investor.relations@ventures.ng', date: '2026-09-24T14:20:00Z', source: 'Investor Portal' },
         { email: 'temitope.ade@flutterwave.com', date: '2026-09-23T09:15:00Z', source: 'Fintech Waitlist' },
@@ -6258,10 +6258,12 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
 
     tbody.innerHTML = filtered.map(user => {
       const isFrozen = !!user.isFrozen;
-      const balance = user.balance !== undefined ? Number(user.balance) : 850000.00;
+      const balance = user.balance == null || user.balance === '' ? null : Number(user.balance);
+      const balanceLabel = balance !== null && Number.isFinite(balance) && balance >= 0 ? formatNaira(balance) : 'Unavailable';
+      const tierLabel = Number.isInteger(user.kycTier) && user.kycTier >= 1 && user.kycTier <= 3 ? 'Tier ' + user.kycTier + ' (recorded)' : 'Not recorded';
       const initials = (user.fullName || 'User').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
       const tag = user.tag || `@${(user.fullName || 'user').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-      const cleanNuban = formatNubanDisplay(user.nuban || '9021849102');
+      const cleanNuban = /^\d{10}$/.test(user.nuban || '') ? formatNubanDisplay(user.nuban) : 'Unavailable';
 
       return `
         <tr data-user-email="${escapeHtml(user.email)}">
@@ -6284,11 +6286,11 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
             <div style="font-family:monospace; font-weight:700; color:var(--text-primary); font-size:0.92rem;">
               ${cleanNuban}
             </div>
-            <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(user.bank || 'Providus Bank')}</span>
+            <span style="font-size:0.72rem; color:var(--text-muted);">${escapeHtml(user.bank || 'MidePay wallet')}</span>
           </td>
           <td>
             <div style="display:flex; flex-direction:column; gap:0.25rem;">
-              <span class="badge-gold-sm" style="font-size:0.72rem;">Tier 2 (BVN/NIN)</span>
+              <span class="badge-gold-sm" style="font-size:0.72rem;">${tierLabel}</span>
               ${user.role === 'executive' 
                 ? '<span style="font-size:0.68rem; font-weight:700; color:#FBBF24; display:inline-flex; align-items:center; gap:0.2rem;">★ Executive</span>' 
                 : '<span style="font-size:0.68rem; color:var(--text-muted);">Member</span>'}
@@ -6296,7 +6298,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
           </td>
           <td>
             <div style="font-weight:700; font-size:0.96rem; color:var(--text-primary);">
-              ${formatNaira(balance)}
+              ${balanceLabel}
             </div>
           </td>
           <td>
@@ -6310,7 +6312,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
                 ${isFrozen ? 'Unfreeze' : 'Freeze'}
               </button>
               <button type="button" class="btn-admin-action btn-admin-credit" data-action="credit-funds" data-email="${escapeHtml(user.email)}">
-                + Credit ₦50k
+                Request funded credit
               </button>
             </div>
           </td>
@@ -6555,7 +6557,7 @@ MidePay Technologies Ltd (CBN Sandbox Partner)
   if (adminQuickAddFundBtn) adminQuickAddFundBtn.addEventListener('click', () => openTreasuryPanel());
   if (adminKillswitchTest) {
     adminKillswitchTest.addEventListener('click', () => {
-      showToast('🔒 CBN Emergency Interlock: Operational safety systems verified and armed.');
+      showToast('This preview does not run an operational safety test. No controls were changed.');
     });
   }
 
