@@ -5,6 +5,7 @@ import os from 'node:os';
 import net from 'node:net';
 import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
+import {isDeepStrictEqual} from 'node:util';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 const pgModule=await import(process.env.MIDEPAY_PG_MODULE ? pathToFileURL(process.env.MIDEPAY_PG_MODULE).href : 'pg');
 const {Client}=pgModule.default||pgModule;
@@ -19,9 +20,12 @@ const data=path.join(dir,'data'),log=path.join(dir,'server.log');
 const server=net.createServer();await new Promise((ok,bad)=>{server.once('error',bad);server.listen(0,'127.0.0.1',ok)});
 const port=server.address().port;await new Promise(ok=>server.close(ok));
 const env={...process.env,PGHOST:'127.0.0.1',PGHOSTADDR:'127.0.0.1',PGPORT:String(port),PGUSER:'postgres',PGDATABASE:'postgres',PGPASSWORD:'',PGSERVICE:'',PGSERVICEFILE:path.join(dir,'no-service'),PGPASSFILE:path.join(dir,'no-passfile'),PGSSLMODE:'disable',PGCONNECT_TIMEOUT:'5',PGOPTIONS:'-c statement_timeout=15000 -c lock_timeout=10000'};
+delete env.PGSERVICE;
+fs.writeFileSync(env.PGSERVICEFILE,'');
+fs.writeFileSync(env.PGPASSFILE,'');
 function run(name,args){const r=spawnSync(exe(name),args,{env,encoding:'utf8',timeout:60000,windowsHide:true});if(r.status!==0){const serverLog=name==='pg_ctl'&&fs.existsSync(log)?'\n'+fs.readFileSync(log,'utf8'):'';throw Error(`${name}: ${r.error?.message||r.stderr||r.stdout}${serverLog}`);}return r.stdout;}
-async function sql(text,{allowError=false}={}){
- const client=new Client({host:'127.0.0.1',port,user:'postgres',database:'postgres',password:'',ssl:false,connectionTimeoutMillis:5000,statement_timeout:15000,options:'-c lock_timeout=10000'});
+async function sql(text,{allowError=false,database='postgres'}={}){
+ const client=new Client({host:'127.0.0.1',port,user:'postgres',database,password:'',ssl:false,connectionTimeoutMillis:5000,statement_timeout:15000,options:'-c lock_timeout=10000'});
  try{await client.connect();const raw=await client.query(text);const results=Array.isArray(raw)?raw:[raw];const out=results.flatMap(r=>r.rows||[]).map(row=>Object.values(row).map(v=>v===null?'':typeof v==='object'?JSON.stringify(v):String(v)).join('|')).join('\n');return{code:0,out,err:''};}
  catch(e){if(!allowError)throw e;return{code:1,out:'',err:e.message};}
  finally{await client.end().catch(()=>{});}
@@ -228,6 +232,49 @@ try{
   const status=await scalar(`SELECT status FROM private.refund_adjustment_requests WHERE id='${id}';`);
   assert.ok(['applied','cancelled'].includes(status));assert.equal(Number(await bal(refundMember)),before-(status==='applied'?100:0));
   assert.equal(await scalar(`SELECT count(*) FROM private.refund_adjustment_journal WHERE request_id='${id}';`),status==='applied'?'1':'0');
+ });
+ if(process.env.MIDEPAY_BACKUP_DRILL==='1')await test('local custom backup restores data, schema, policies and grants into a separate database',async()=>{
+  // Only the disposable loopback cluster created above is used. No remote URLs accepted.
+  const snapshot=async database=>{
+   const inventory=await sql("SELECT n.nspname AS schema,c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','private','auth') AND c.relkind='r' ORDER BY 1,2",{database});
+   const tables={};
+   for(const row of inventory.out.split('\n').filter(Boolean)){
+    const [schema,name]=row.split('|');const ident=x=>'"'+x.replaceAll('"','""')+'"';
+    tables[row]=(await sql(`SELECT count(*)::text||':'||md5(coalesce(string_agg(to_jsonb(t)::text,E'\\n' ORDER BY to_jsonb(t)::text),'')) FROM ${ident(schema)}.${ident(name)} t`,{database})).out;
+   }
+   const sequences={};
+   const sequenceRows=await sql("SELECT schemaname,sequencename FROM pg_sequences WHERE schemaname IN ('public','private','auth') ORDER BY 1,2",{database});
+   for(const row of sequenceRows.out.split('\n').filter(Boolean)){
+    const [schema,name]=row.split('|');const ident=x=>'"'+x.replaceAll('"','""')+'"';
+    sequences[row]=(await sql(`SELECT last_value::text||':'||is_called::text FROM ${ident(schema)}.${ident(name)}`,{database})).out;
+   }
+   const catalog=(await sql(`SELECT jsonb_build_object(
+    'tables',(SELECT jsonb_agg(jsonb_build_array(n.nspname,c.relname,c.relrowsecurity,c.relforcerowsecurity,coalesce(c.relacl,acldefault('r',c.relowner))) ORDER BY n.nspname,c.relname) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','private','auth') AND c.relkind='r'),
+    'policies',(SELECT jsonb_agg(to_jsonb(p) ORDER BY schemaname,tablename,policyname) FROM pg_policies p WHERE schemaname IN ('public','private','auth')),
+    'columns',(SELECT jsonb_agg(to_jsonb(c)-ARRAY['table_catalog','udt_catalog','domain_catalog','collation_catalog'] ORDER BY table_schema,table_name,ordinal_position) FROM information_schema.columns c WHERE table_schema IN ('public','private','auth')),
+    'constraints',(SELECT jsonb_agg(jsonb_build_array(n.nspname,c.relname,k.conname,pg_get_constraintdef(k.oid)) ORDER BY n.nspname,c.relname,k.conname) FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','private','auth')),
+    'indexes',(SELECT jsonb_agg(to_jsonb(i) ORDER BY schemaname,tablename,indexname) FROM pg_indexes i WHERE schemaname IN ('public','private','auth')),
+    'triggers',(SELECT jsonb_agg(jsonb_build_array(n.nspname,c.relname,t.tgname,pg_get_triggerdef(t.oid)) ORDER BY n.nspname,c.relname,t.tgname) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','private','auth') AND NOT t.tgisinternal),
+    'functions',(SELECT jsonb_agg(jsonb_build_array(n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),p.proacl,pg_get_functiondef(p.oid)) ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid)) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','private','auth') AND p.prokind='f')
+   )`,{database})).out;
+   return {tables,sequences,catalog:JSON.parse(catalog)};
+  };
+  const before=await snapshot('postgres');const backup=path.join(dir,'synthetic-backup.dump');
+  run('pg_dump',['--host=127.0.0.1',`--port=${port}`,'--username=postgres','--dbname=postgres','--format=custom','--file='+backup]);
+  await sql('CREATE DATABASE restore_drill TEMPLATE template0');
+  run('pg_restore',['--host=127.0.0.1',`--port=${port}`,'--username=postgres','--dbname=restore_drill','--exit-on-error',backup]);
+  await sql('ALTER DATABASE restore_drill SET search_path=public,extensions,pg_temp');
+  const after=await snapshot('restore_drill');
+  assert.ok(isDeepStrictEqual(after.tables,before.tables),'Restored table counts/content digests differ');
+  assert.ok(isDeepStrictEqual(after.sequences,before.sequences),'Restored sequence positions differ');
+  for(const key of Object.keys(before.catalog))assert.ok(isDeepStrictEqual(after.catalog[key],before.catalog[key]),'Restored catalog differs: '+key);
+  const denied=await sql('SET ROLE anon;SELECT * FROM private.payment_reconciliation_control',{database:'restore_drill',allowError:true});
+  assert.notEqual(denied.code,0);assert.match(denied.err,/permission denied/);
+  const noSession=await sql('BEGIN;SET LOCAL ROLE authenticated;SELECT has_current_auth_session() AS active;SELECT count(*) FROM wallets;ROLLBACK',{database:'restore_drill'});
+  assert.equal(noSession.out,'false\n0');
+  const reconciled=await sql(asService(`SELECT verify_wallet_ledger_reconciliation(id)->>'ok' FROM wallets WHERE user_id='${refundMember}'`),{database:'restore_drill'});
+  assert.equal(reconciled.out,'true');
+  fs.writeFileSync(path.join(dir,'backup-restore-evidence.json'),JSON.stringify({syntheticOnly:true,tableCount:Object.keys(before.tables).length,exactDataAndCatalogMatch:true,anonymousPrivateAccessDenied:true,missingSessionDenied:true,ledgerReconciled:true,backupBytes:fs.statSync(backup).size},null,2));
  });
  console.log(`${checks} passed; 0 failed`);
 }finally{

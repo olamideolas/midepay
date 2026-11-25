@@ -29,6 +29,7 @@ jobs:
         env:
           MIDEPAY_PG_BIN: /usr/lib/postgresql/16/bin
           MIDEPAY_PG_TEST_ROOT: ${{ runner.temp }}/midepay-native
+          MIDEPAY_BACKUP_DRILL: '1'
         run: npm run test:postgres-concurrency
       - name: Run existing migration, authorization and payment regressions
         env:
