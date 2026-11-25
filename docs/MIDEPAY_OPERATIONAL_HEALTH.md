@@ -37,7 +37,19 @@ This is a point-in-time observation. Review items are unresolved work, not healt
 
 Use the existing Payment Review screen for individual records. No recipient details, transaction references or amounts are included in this aggregate diagnostic. Escalate ambiguous outcomes for independent review; do not bypass the second-approver requirement.
 
-## Still required
+## Offline health evaluator
+
+`node scripts/evaluate_staging_health.mjs snapshot.json` evaluates the raw aggregate object or the SQL export shape `[{"health": {...}}]`. Omitting the filename reads standard input. Export only the diagnostic result, not SQL-editor metadata or MCP prose. The SQL includes the expected staging project label; that label is a provenance check, not cryptographic proof of which server produced a file.
+
+Exit codes: **0** means no configured operational signal was detected; **1** means attention is required; **2** means invalid/unreadable input. Neither 0 nor a successful HTTP response is a production readiness verdict. The evaluator rejects missing fields, invalid counters, wrong project, malformed queue states and invalid timestamps. It flags snapshots older than five minutes or more than 30 seconds ahead, and scheduler successes absent for over five minutes. Run on a host with a synchronized clock.
+
+Output contains fixed alert codes/severities only. It does not echo provider text, references or unknown input fields. Review rows remain warnings even when all HTTP requests returned 200. Expired leases and overdue jobs request a recheck; this stateless evaluator cannot prove persistence across checks or deduplicate deliveries. Project-wide HTTP failures are explicitly labeled and must be correlated separately.
+
+Verification on 25 November 2026: **12/12 evaluator tests passed**. A fresh staging read returned 15 scheduler successes, zero scheduler failures and one recovery review item. Evaluating that recorded snapshot at its observation time returned exactly `RECOVERY_MANUAL_REVIEW` with status `attention` and alert exit code 1. This was expected, not a failed regression. Payout dispatch remained false. GitHub CI now includes evaluator regressions; its new run has not been independently observed here.
+
+This is an offline evaluator, not a scheduled collector or delivered alert. No credentials, scheduled remote connection, notification destination or messaging permission was added.
+
+## Remaining operations work
 
 Connect a real monitoring destination and test alert delivery, acknowledgment, deduplication and escalation with a named operator. No messages or external notifications were sent by this work. Thresholds above are initial staging investigation thresholds, not approved production service levels.
 

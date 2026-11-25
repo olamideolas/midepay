@@ -15,6 +15,7 @@ WITH scheduler AS (
  FROM private.payout_dispatch_outbox GROUP BY state,last_code
 )
 SELECT jsonb_build_object(
+ 'project_ref','ajbhsmcosxgymrtawlmd',
  'observed_at',now(),
  'recovery_enabled',(SELECT enabled FROM private.payment_reconciliation_control WHERE singleton),
  'payout_dispatch_enabled',(SELECT payout_dispatch_enabled FROM private.payment_reconciliation_control WHERE singleton),
