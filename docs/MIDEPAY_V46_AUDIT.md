@@ -1,3 +1,5 @@
+Updated staging review: [25 November results and launch blockers](MIDEPAY_STAGING_REVIEW_20261125.md). Current source b6da81c passed 27/27 local suites after one filesystem-permission rerun. Payout dispatch remains off; production readiness is not approved.
+
 # Current independent review — 24 November 2026
 
 **Deployment verdict: NOT production-ready.** The verified repairs below improve staging safety; they are not proof that every feature, provider integration or operational control is complete. Production Supabase was not accessed or changed. Earlier report text is retained below as historical material, not as instructions or independent evidence.
