@@ -68,6 +68,10 @@ async function createSupabasePostgres() {
       created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
     );
 
+    CREATE TABLE IF NOT EXISTS auth.sessions(id uuid PRIMARY KEY,user_id uuid NOT NULL REFERENCES auth.users(id),not_after timestamptz);
+    CREATE OR REPLACE FUNCTION auth.create_fixture_session() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN INSERT INTO auth.sessions(id,user_id) VALUES(NEW.id,NEW.id) ON CONFLICT DO NOTHING; RETURN NEW; END $$;
+    CREATE TRIGGER fixture_session AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION auth.create_fixture_session();
+
     CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID LANGUAGE sql STABLE AS $$
       SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::UUID;
     $$;
@@ -90,6 +94,7 @@ async function execAsRole(db, role, userId, sql, params = []) {
   return db.transaction(async (tx) => {
     await tx.query(`SELECT set_config('request.jwt.claim.role', $1, true)`, [role]);
     await tx.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId || '']);
+    await tx.query("SELECT set_config('request.jwt.claims',$1,true)",[JSON.stringify({sub:userId,role,session_id:userId})]);
     await tx.exec(`SET LOCAL ROLE ${role}`);
     return tx.query(sql, params);
   });

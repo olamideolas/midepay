@@ -99,6 +99,10 @@ async function createSupabasePostgres() {
       created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
     );
 
+    CREATE TABLE IF NOT EXISTS auth.sessions(id uuid PRIMARY KEY,user_id uuid NOT NULL REFERENCES auth.users(id),not_after timestamptz);
+    CREATE OR REPLACE FUNCTION auth.create_fixture_session() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN INSERT INTO auth.sessions(id,user_id) VALUES(NEW.id,NEW.id) ON CONFLICT DO NOTHING; RETURN NEW; END $$;
+    CREATE TRIGGER fixture_session AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION auth.create_fixture_session();
+
     CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID LANGUAGE sql STABLE AS $$
       SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::UUID;
     $$;
@@ -121,6 +125,7 @@ async function execAsRole(db, role, userId, sql, params = []) {
   return db.transaction(async (tx) => {
     await tx.query(`SELECT set_config('request.jwt.claim.role', $1, true)`, [role]);
     await tx.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId || '']);
+    await tx.query("SELECT set_config('request.jwt.claims',$1,true)",[JSON.stringify({sub:userId,role,session_id:userId})]);
     await tx.exec(`SET LOCAL ROLE ${role}`);
     return tx.query(sql, params);
   });
@@ -145,7 +150,7 @@ console.log('===================================================================
 // ============================================================================
 // [1/12] CLEAN DATABASE MIGRATION FROM SCRATCH
 // ============================================================================
-console.log('[1/12] Testing clean database migration from scratch (all 27 migrations)...');
+console.log('[1/12] Testing clean database migration from scratch (all 29 migrations)...');
 const db = await createSupabasePostgres();
 const verRes = await db.query('SELECT version() AS v');
 console.log(`  ℹ️  Engine: ${verRes.rows[0].v}`);
@@ -153,7 +158,7 @@ console.log(`  ℹ️  Engine: ${verRes.rows[0].v}`);
 for (const file of allMigrations) {
   await db.exec(fs.readFileSync(path.join(migDir, file), 'utf8'));
 }
-assertPg(allMigrations.length === 27, `All ${allMigrations.length}/27 migrations executed cleanly in order on real PostgreSQL`);
+assertPg(allMigrations.length === 29, `All ${allMigrations.length}/29 migrations executed cleanly in order on real PostgreSQL`);
 
 const expectedTables = [
   'profiles', 'wallets', 'transactions', 'payment_requests', 'virtual_cards',
@@ -173,11 +178,11 @@ assertPg(
 );
 
 const writePolicies = await db.query(
-  `SELECT tablename, policyname, cmd FROM pg_policies WHERE schemaname = 'public' AND cmd <> 'SELECT'`
+  `SELECT tablename, policyname, cmd FROM pg_policies WHERE schemaname = 'public' AND cmd <> 'SELECT' AND permissive = 'PERMISSIVE'`
 );
 assertPg(
   writePolicies.rows.length === 0,
-  'Zero INSERT/UPDATE/DELETE/ALL client RLS policies exist on any of the 18 public tables'
+  'Zero permissive INSERT/UPDATE/DELETE/ALL client RLS policies exist on any of the 18 public tables'
 );
 
 // ============================================================================
@@ -713,7 +718,7 @@ await expectSqlError(
   () =>
     db.transaction(async (tx) => {
       await tx.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', true)`);
-      await tx.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userA]);
+      await tx.query(`SELECT set_config('request.jwt.claim.sub', $1, true),set_config('request.jwt.claims',$2,true)`, [userA,JSON.stringify({session_id:userA,sub:userA,role:'authenticated'})]);
       await tx.exec(`SET LOCAL ROLE authenticated`);
       const step1 = await tx.query(
         `SELECT public.execute_p2p_transfer($1, 5000, '4829', gen_random_uuid(), 'Will Rollback') AS r`,
@@ -877,7 +882,7 @@ for (const [label, sql] of [
 }
 
 // Even if called internally as table owner `postgres`, they fail closed with 0 balance change!
-await db.query(`SELECT set_config('request.jwt.claim.sub', $1, false)`, [userA]);
+await db.query(`SELECT set_config('request.jwt.claim.sub', $1, false),set_config('request.jwt.claims',$2,false)`, [userA,JSON.stringify({session_id:userA,sub:userA,role:'authenticated'})]);
 const ownerTopup = await db.query(`SELECT public.concept_topup_wallet(50000) AS r`);
 const ownerExtNip = await db.query(`SELECT public.execute_external_bank_transfer(5000) AS r`);
 const ownerVtu = await db.query(`SELECT public.pay_vtu_bill('airtime', 'MTN', '08031112222', 'Airtime', 1000, '4829', gen_random_uuid()) AS r`);

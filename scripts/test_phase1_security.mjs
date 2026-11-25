@@ -68,6 +68,10 @@ async function createSupabasePostgres() {
       created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
     );
 
+    CREATE TABLE IF NOT EXISTS auth.sessions(id uuid PRIMARY KEY,user_id uuid NOT NULL REFERENCES auth.users(id),not_after timestamptz);
+    CREATE OR REPLACE FUNCTION auth.create_fixture_session() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN INSERT INTO auth.sessions(id,user_id) VALUES(NEW.id,NEW.id) ON CONFLICT DO NOTHING; RETURN NEW; END $$;
+    CREATE TRIGGER fixture_session AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION auth.create_fixture_session();
+
     CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID LANGUAGE sql STABLE AS $$
       SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::UUID;
     $$;
@@ -90,6 +94,7 @@ async function execAsRole(db, role, userId, sql, params = []) {
   return db.transaction(async (tx) => {
     await tx.query(`SELECT set_config('request.jwt.claim.role', $1, true)`, [role]);
     await tx.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId || '']);
+    await tx.query("SELECT set_config('request.jwt.claims',$1,true)",[JSON.stringify({sub:userId,role,session_id:userId})]);
     await tx.exec(`SET LOCAL ROLE ${role}`);
     return tx.query(sql, params);
   });
@@ -131,7 +136,7 @@ await test('upgrade invalidates legacy self-attestation while preserving settled
 const ids=Object.fromEntries(['maker','checker','target','treasury','outsider'].map(k=>[k,crypto.randomUUID()]));
 for(const [name,id] of Object.entries(ids))await db.query("INSERT INTO auth.users(id,email,email_confirmed_at) VALUES($1,$2,now())",[id,name+'@phase1.test']);
 async function call(name,sql,params=[],claims={}){return db.transaction(async tx=>{
- await tx.query("SELECT set_config('request.jwt.claim.sub',$1,true),set_config('request.jwt.claim.role','authenticated',true),set_config('request.jwt.claims',$2,true)",[ids[name],JSON.stringify({sub:ids[name],role:'authenticated',...claims})]);
+ await tx.query("SELECT set_config('request.jwt.claim.sub',$1,true),set_config('request.jwt.claim.role','authenticated',true),set_config('request.jwt.claims',$2,true)",[ids[name],JSON.stringify({session_id:ids[name],sub:ids[name],role:'authenticated',...claims})]);
  await tx.exec('SET LOCAL ROLE authenticated');return tx.query(sql,params);
 });}
 const fresh=()=>({aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)}]});
@@ -166,7 +171,7 @@ await test('request key is mandatory, stable on replay and bound to payload',asy
 const approve=(name,id,claims=fresh(),pin='4829')=>call(name,'SELECT approve_treasury_credit($1,$2) AS r',[id,pin],claims).then(r=>r.rows[0].r);
 await test('maker cannot approve own request',async()=>{assert.equal((await approve('maker',pending.request_id)).code,'SEPARATION_OF_DUTIES')});
 await test('checker must independently satisfy MFA and PIN',async()=>{assert.equal((await approve('checker',pending.request_id,{aal:'aal1'})).code,'MFA_REQUIRED');assert.equal((await approve('checker',pending.request_id,fresh(),'0000')).code,'INVALID_PIN')});
-await test('approval moves funded money once and conserves ledger totals',async()=>{assert.equal((await approve('checker',pending.request_id)).status,'approved');assert.equal((await approve('checker',pending.request_id)).status,'duplicate');const src=(await db.query('SELECT balance,ledger_balance FROM wallets WHERE id=$1',[wallets.treasury])).rows[0];const dst=(await db.query('SELECT balance,ledger_balance FROM wallets WHERE id=$1',[wallets.target])).rows[0];assert.equal(Number(src.balance),19000);assert.equal(Number(dst.balance),1000);assert.equal(Number(src.balance)+Number(dst.balance),20000);for(const w of [wallets.treasury,wallets.target])assert.equal((await db.query('SELECT verify_wallet_ledger_reconciliation($1) AS r',[w])).rows[0].r.ok,true)});
+await test('approval moves funded money once and conserves ledger totals',async()=>{assert.equal((await approve('checker',pending.request_id)).status,'approved');assert.equal((await approve('checker',pending.request_id)).status,'duplicate');const src=(await db.query('SELECT balance,ledger_balance FROM wallets WHERE id=$1',[wallets.treasury])).rows[0];const dst=(await db.query('SELECT balance,ledger_balance FROM wallets WHERE id=$1',[wallets.target])).rows[0];assert.equal(Number(src.balance),19000);assert.equal(Number(dst.balance),1000);assert.equal(Number(src.balance)+Number(dst.balance),20000);for(const w of [wallets.treasury,wallets.target])assert.equal((await execAsRole(db,'service_role',null,'SELECT verify_wallet_ledger_reconciliation($1) AS r',[w])).rows[0].r.ok,true)});
 await test('insufficient reserve cannot partially credit the recipient',async()=>{const q=await request('maker',20000);assert.equal((await approve('checker',q.request_id)).code,'INSUFFICIENT_TREASURY_FUNDS');assert.equal((await db.query('SELECT balance FROM wallets WHERE id=$1',[wallets.target])).rows[0].balance,'1000.00')});
 await test('unreconciled treasury funds cannot be disbursed',async()=>{const q=await request();await db.query('UPDATE wallets SET balance=balance+1,ledger_balance=ledger_balance+1 WHERE id=$1',[wallets.treasury]);assert.equal((await approve('checker',q.request_id)).code,'LEDGER_RECONCILIATION_REQUIRED');await db.query('UPDATE wallets SET balance=balance-1,ledger_balance=ledger_balance-1 WHERE id=$1',[wallets.treasury])});
 await test('disabled treasury source blocks pending approval',async()=>{const q=await request();await db.query('UPDATE private.treasury_wallets SET enabled=false');assert.equal((await approve('checker',q.request_id)).code,'TREASURY_SOURCE_DISABLED');await db.query('UPDATE private.treasury_wallets SET enabled=true')});

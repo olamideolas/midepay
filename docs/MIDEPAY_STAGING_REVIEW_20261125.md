@@ -1,3 +1,5 @@
+Subsequent update: [session hardening and current 29-migration results](MIDEPAY_SESSION_SECURITY_20261125.md). The snapshot below is historical.
+
 # MidePay staging review — 25 November 2026
 
 **Verdict: suitable for continued controlled staging evaluation; not approved for real-money launch.**

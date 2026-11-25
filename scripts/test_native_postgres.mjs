@@ -50,6 +50,9 @@ try{
  CREATE EXTENSION "uuid-ossp" WITH SCHEMA extensions;CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
  ALTER DATABASE postgres SET search_path=public,extensions,pg_temp;
  CREATE TABLE auth.users(id uuid PRIMARY KEY,email text UNIQUE,phone text,email_confirmed_at timestamptz,raw_user_meta_data jsonb DEFAULT '{}',raw_app_meta_data jsonb DEFAULT '{}',created_at timestamptz DEFAULT now());
+    CREATE TABLE IF NOT EXISTS auth.sessions(id uuid PRIMARY KEY,user_id uuid NOT NULL REFERENCES auth.users(id),not_after timestamptz);
+    CREATE OR REPLACE FUNCTION auth.create_fixture_session() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN INSERT INTO auth.sessions(id,user_id) VALUES(NEW.id,NEW.id) ON CONFLICT DO NOTHING; RETURN NEW; END $$;
+    CREATE TRIGGER fixture_session AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION auth.create_fixture_session();
  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claim.role',true),''),current_user::text) $$;
  GRANT USAGE ON SCHEMA public,auth,extensions TO anon,authenticated,service_role;GRANT SELECT ON auth.users TO service_role;
@@ -120,10 +123,10 @@ try{
  const alice='b0000000-0000-4000-8000-000000000001',bob='b0000000-0000-4000-8000-000000000002';
  for(const [id,email] of [[alice,'alice@example.invalid'],[bob,'bob@example.invalid']]){
   await sql(`INSERT INTO auth.users(id,email,email_confirmed_at) VALUES('${id}','${email}',now());SELECT attest_verified_email('${id}','${email}');`);
-  const setup=await sql(`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${id}';SELECT set_user_transaction_pin('4829');COMMIT;`);
+  const setup=await sql(`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${id}';SET LOCAL request.jwt.claims='{"session_id":"${id}"}';SELECT set_user_transaction_pin('4829');COMMIT;`);
   assert.ok(setup.out.includes('"success":true'));
  }
- const p2p=(sender,recipient,key)=>`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${sender}';SELECT transfer_funds('${sender}','${recipient}',1000,'Native test','4829','${key}');COMMIT;`;
+ const p2p=(sender,recipient,key)=>`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${sender}';SET LOCAL request.jwt.claims='{"session_id":"${sender}"}';SELECT transfer_funds('${sender}','${recipient}',1000,'Native test','4829','${key}');COMMIT;`;
  const bal=id=>scalar(`SELECT balance::text FROM wallets WHERE user_id='${id}' AND currency='NGN';`);
  const reset=()=>sql(`UPDATE wallets SET balance=10000,ledger_balance=10000 WHERE user_id IN ('${alice}','${bob}');`);
  const result=r=>JSON.parse(r.out.split('\n').at(-1));
@@ -192,10 +195,10 @@ try{
  const [refundMember,refundMaker,refundChecker,refundRecipient]=refundActors;
  for(const [i,id] of refundActors.entries()){
   await sql(`INSERT INTO auth.users(id,email,email_confirmed_at) VALUES('${id}','refund${i}@native.invalid',now());SELECT attest_verified_email('${id}','refund${i}@native.invalid');`);
-  await sql(`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${id}';SELECT set_user_transaction_pin('4829');COMMIT;`);
+  await sql(`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${id}';SET LOCAL request.jwt.claims='{"session_id":"${id}"}';SELECT set_user_transaction_pin('4829');COMMIT;`);
  }
  await sql(`UPDATE profiles SET role='executive' WHERE id IN ('${refundMaker}','${refundChecker}');UPDATE private.refund_accounting_control SET enabled=true;`);
- const asRefundOperator=(who,statement)=>`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${who}';SET LOCAL request.jwt.claims='${JSON.stringify({aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)}]})}';${statement};COMMIT;`;
+ const asRefundOperator=(who,statement)=>`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${who}';SET LOCAL request.jwt.claims='{"session_id":"${who}"}';SET LOCAL request.jwt.claims='${JSON.stringify({session_id:who,aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)}]})}';${statement};COMMIT;`;
  let refundSequence=8000;
  const refundFund=async()=>{const receipt=String(++refundSequence);await sql(`INSERT INTO transactions(wallet_id,user_id,type,category,amount,fee,status,counterparty_name,reference,gateway_provider) SELECT id,user_id,'inflow','deposit',100,0,'pending','Synthetic','REFUND-${receipt}','paystack' FROM wallets WHERE user_id='${refundMember}';`);await sql(asService(`SELECT settle_gateway_deposit('REFUND-${receipt}','paystack',10000,'${receipt}','{"data":{"domain":"test","currency":"NGN","amount":10000}}')`));return receipt};
  const refundRequest=async(receipt,amount=10000)=>{const v=await scalar(asService(`SELECT attest_processed_test_refund('${++refundSequence}','${receipt}',${amount})`));return result(await sql(asRefundOperator(refundMaker,`SELECT request_refund_adjustment('${v}','Native verified refund','4829')`))).request_id};
@@ -212,10 +215,10 @@ try{
  });
  await test('refund racing a customer transfer cannot overspend the wallet',async()=>{
   const receipt=await refundFund(),id=await refundRequest(receipt); // Existing 40 plus fresh 100; competing 100 operations cannot both win.
-  const transfer=`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${refundMember}';SELECT transfer_funds('${refundMember}','${refundRecipient}',100,'Native refund race','4829','f2000000-0000-4000-8000-000000000001');COMMIT;`;
+  const transfer=`BEGIN;SET LOCAL ROLE authenticated;SET LOCAL request.jwt.claim.sub='${refundMember}';SET LOCAL request.jwt.claims='{"session_id":"${refundMember}"}';SELECT transfer_funds('${refundMember}','${refundRecipient}',100,'Native refund race','4829','f2000000-0000-4000-8000-000000000001');COMMIT;`;
   const values=(await Promise.all([refundApprove(id),sql(transfer)])).map(result);
   assert.equal(values.filter(v=>v.success===true).length,1);assert.equal(await bal(refundMember),'40.00');
-  assert.equal(await scalar(`SELECT verify_wallet_ledger_reconciliation(id)->>'ok' FROM wallets WHERE user_id='${refundMember}';`),'true');
+  assert.equal(await scalar(asService(`SELECT verify_wallet_ledger_reconciliation(id)->>'ok' FROM wallets WHERE user_id='${refundMember}';`)),'true');
   fs.writeFileSync(path.join(dir,'refund-race-evidence.json'),JSON.stringify(values,null,2));
  });
  await test('refund cancellation racing approval has one final outcome and no double movement',async()=>{

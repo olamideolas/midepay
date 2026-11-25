@@ -46,6 +46,7 @@ jobs:
           node scripts/test_admin_record_display.cjs
           node scripts/test_receipt_status.cjs
           node scripts/test_dashboard_loading.cjs
+          node scripts/test_sensitive_sessions.mjs
       - name: Preserve isolated database evidence
         if: always()
         uses: actions/upload-artifact@v4

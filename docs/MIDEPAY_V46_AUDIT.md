@@ -1,3 +1,5 @@
+Latest security work: [session hardening results and limits](MIDEPAY_SESSION_SECURITY_20261125.md). Staging now has 29 migrations, 18 restrictive session policies and 13 additional guarded RPCs. Local suites: 28/28; native concurrency: 22/22. Payout dispatch remains off; production readiness is not approved.
+
 Updated staging review: [25 November results and launch blockers](MIDEPAY_STAGING_REVIEW_20261125.md). Current source b6da81c passed 27/27 local suites after one filesystem-permission rerun. Payout dispatch remains off; production readiness is not approved.
 
 # Current independent review — 24 November 2026

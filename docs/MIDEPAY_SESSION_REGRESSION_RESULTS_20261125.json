@@ -1,0 +1,143 @@
+[
+  {
+    "suite": "validate_production.js",
+    "exitCode": 0,
+    "seconds": 1.301
+  },
+  {
+    "suite": "test_payment_webhook.js",
+    "exitCode": 0,
+    "seconds": 0.84
+  },
+  {
+    "suite": "test_e2e_runtime.js",
+    "exitCode": 0,
+    "seconds": 0.372
+  },
+  {
+    "suite": "test_security_penetration.js",
+    "exitCode": 0,
+    "seconds": 0.479
+  },
+  {
+    "suite": "test_v46_postgres_migration.mjs",
+    "exitCode": 0,
+    "seconds": 16.041
+  },
+  {
+    "suite": "test_independent_database.mjs",
+    "exitCode": 0,
+    "seconds": 4.437
+  },
+  {
+    "suite": "test_independent_webhook.mjs",
+    "exitCode": 0,
+    "seconds": 0.306
+  },
+  {
+    "suite": "test_phase1_security.mjs",
+    "exitCode": 0,
+    "seconds": 6.903
+  },
+  {
+    "suite": "test_phase1_handlers.mjs",
+    "exitCode": 0,
+    "seconds": 0.299
+  },
+  {
+    "suite": "test_payout_boundaries.mjs",
+    "exitCode": 0,
+    "seconds": 0.307
+  },
+  {
+    "suite": "test_password_recovery.js",
+    "exitCode": 0,
+    "seconds": 0.14
+  },
+  {
+    "suite": "test_paystack_pipeline.mjs",
+    "exitCode": 0,
+    "seconds": 4.839
+  },
+  {
+    "suite": "test_paystack_client.js",
+    "exitCode": 0,
+    "seconds": 0.292
+  },
+  {
+    "suite": "test_browser_sdk.js",
+    "exitCode": 0,
+    "seconds": 0.219
+  },
+  {
+    "suite": "test_staging_preview.js",
+    "exitCode": 0,
+    "seconds": 0.824
+  },
+  {
+    "suite": "test_payment_reconciliation.mjs",
+    "exitCode": 0,
+    "seconds": 5.692
+  },
+  {
+    "suite": "test_operator_payment_review.mjs",
+    "exitCode": 0,
+    "seconds": 4.631
+  },
+  {
+    "suite": "test_accounting_boundaries.mjs",
+    "exitCode": 0,
+    "seconds": 4.182
+  },
+  {
+    "suite": "test_provider_cases.mjs",
+    "exitCode": 0,
+    "seconds": 4.375
+  },
+  {
+    "suite": "test_refund_accounting.mjs",
+    "exitCode": 0,
+    "seconds": 4.896,
+    "rerun": true
+  },
+  {
+    "suite": "test_statement_totals.cjs",
+    "exitCode": 0,
+    "seconds": 0.14
+  },
+  {
+    "suite": "test_sw_updates.cjs",
+    "exitCode": 0,
+    "seconds": 0.195
+  },
+  {
+    "suite": "test_controlled_payout.cjs",
+    "exitCode": 0,
+    "seconds": 0.195
+  },
+  {
+    "suite": "test_wallet_session.cjs",
+    "exitCode": 0,
+    "seconds": 0.158
+  },
+  {
+    "suite": "test_admin_record_display.cjs",
+    "exitCode": 0,
+    "seconds": 0.118
+  },
+  {
+    "suite": "test_receipt_status.cjs",
+    "exitCode": 0,
+    "seconds": 0.136
+  },
+  {
+    "suite": "test_dashboard_loading.cjs",
+    "exitCode": 0,
+    "seconds": 0.136
+  },
+  {
+    "suite": "test_sensitive_sessions.mjs",
+    "exitCode": 0,
+    "seconds": 4.19
+  }
+]
