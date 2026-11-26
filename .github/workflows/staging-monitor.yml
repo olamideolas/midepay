@@ -26,7 +26,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check staging and optionally send attention email
         env:
-          MIDEPAY_STAGING_DATABASE_URL: ${{ secrets.MIDEPAY_STAGING_DATABASE_URL }}
+          STAGING_MONITOR_TOKEN: ${{ secrets.STAGING_MONITOR_TOKEN }}
           MIDEPAY_ALERT_SMTP_USER: ${{ secrets.MIDEPAY_ALERT_SMTP_USER }}
           MIDEPAY_ALERT_SMTP_APP_PASSWORD: ${{ secrets.MIDEPAY_ALERT_SMTP_APP_PASSWORD }}
           MIDEPAY_STAGING_ALERTS_ENABLED: ${{ vars.MIDEPAY_STAGING_ALERTS_ENABLED }}

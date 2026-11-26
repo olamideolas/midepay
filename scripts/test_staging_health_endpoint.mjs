@@ -1,0 +1,13 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {handleStagingHealth} from '../supabase/functions/staging-health/handler.mjs';
+const token='a'.repeat(64),projectUrl='https://ajbhsmcosxgymrtawlmd.supabase.co';
+let calls=0;
+const deps=()=>({token,projectUrl,readHealth:async()=>{calls++;return {project_ref:'ajbhsmcosxgymrtawlmd',recovery_queue:[{state:'review',count:1,last_code:'secret'}],payout_queue:[],http_responses_15m_project_wide:[],signing_key:'secret'};}});
+const request=(headers={},method='POST')=>new Request('https://example.invalid',{method,headers:{Authorization:'Bearer '+token,...headers}});
+test('wrong project or absent token configuration fails closed',async()=>{for(const patch of [{projectUrl:'https://other.supabase.co'},{token:''}])assert.equal((await handleStagingHealth(request(),{...deps(),...patch})).status,503);});
+test('browser origin and non-POST rejected before database read',async()=>{calls=0;assert.equal((await handleStagingHealth(request({Origin:'https://example.invalid'}),deps())).status,403);assert.equal((await handleStagingHealth(request({},'GET'),deps())).status,405);assert.equal(calls,0);});
+test('missing, malformed and wrong token never reach database',async()=>{calls=0;for(const authorization of ['','Bearer short','Bearer '+'b'.repeat(64)])assert.equal((await handleStagingHealth(request({Authorization:authorization}),deps())).status,401);assert.equal(calls,0);});
+test('valid token receives only aggregate allowlisted fields',async()=>{const r=await handleStagingHealth(request(),deps());assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');const text=await r.text();assert.ok(!text.includes('secret'));assert.ok(!text.includes('last_code'));assert.ok(!text.includes('signing_key'));assert.deepEqual(JSON.parse(text).health.recovery_queue,[{state:'review',count:1}]);});
+test('database exception never leaks details',async()=>{const r=await handleStagingHealth(request(),{...deps(),readHealth:async()=>{throw Error('secret connection password')}});assert.equal(r.status,503);assert.equal((await r.json()).error,'MONITOR_UNAVAILABLE');});
+test('wrong project or malformed response not returned',async()=>{for(const data of [null,{project_ref:'other'}, {project_ref:'ajbhsmcosxgymrtawlmd'}])assert.equal((await handleStagingHealth(request(),{...deps(),readHealth:async()=>data})).status,503);});

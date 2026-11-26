@@ -1,28 +1,16 @@
 /** Staging-only aggregate collector. Dry-run by default; never changes database state. */
-import fs from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {evaluateHealth} from './evaluate_staging_health.mjs';
 export const RECIPIENT='olamidesunkanmi727@gmail.com';
 const PROJECT='ajbhsmcosxgymrtawlmd';
-export function databaseConfig(value){
- const u=new URL(value);
- const username=decodeURIComponent(u.username);
- const direct=u.hostname===`db.${PROJECT}.supabase.co`;
- const pooler=/^[a-z0-9-]+\.(?:[a-z0-9-]+\.)?pooler\.supabase\.com$/.test(u.hostname)&&username.endsWith('.'+PROJECT);
- if(!['postgres:','postgresql:'].includes(u.protocol)||(!direct&&!pooler)||u.pathname!=='/postgres'||u.search||u.hash||!u.password||!username||!['','5432','6543'].includes(u.port))throw Error('STAGING_DATABASE_CONFIGURATION_REQUIRED');
- return {host:u.hostname,port:Number(u.port||5432),user:username,password:decodeURIComponent(u.password),database:'postgres',ssl:{rejectUnauthorized:true},connectionTimeoutMillis:10000,statement_timeout:15000,application_name:'midepay-staging-monitor'};
-}
-export async function collectSnapshot(env){
- const {Client}=await import('pg');
- const client=new Client(databaseConfig(env.MIDEPAY_STAGING_DATABASE_URL));
- try{
-  await client.connect();
-  const result=await client.query(fs.readFileSync(new URL('../supabase/staging/operational_health.sql',import.meta.url),'utf8'));
-  const results=Array.isArray(result)?result:[result];
-  const rows=results.flatMap(r=>r.rows||[]);
-  if(rows.length!==1||!rows[0].health)throw Error('INVALID_SNAPSHOT');
-  return rows[0].health;
- }finally{await client.end().catch(()=>{});}
+export async function collectSnapshot(env,{request=fetch}={}){
+ const token=env.STAGING_MONITOR_TOKEN||'';
+ if(!/^[a-f0-9]{64}$/.test(token))throw Error('STAGING_MONITOR_TOKEN_REQUIRED');
+ const response=await request(`https://${PROJECT}.supabase.co/functions/v1/staging-health`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}',redirect:'error',signal:AbortSignal.timeout(10000)});
+ if(!response.ok)throw Error('MONITOR_UNAVAILABLE');
+ const data=await response.json();
+ if(!data?.health)throw Error('INVALID_SNAPSHOT');
+ return data.health;
 }
 export function smtpConfig(env){
  const user=env.MIDEPAY_ALERT_SMTP_USER||'';
