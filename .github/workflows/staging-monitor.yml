@@ -1,5 +1,8 @@
-name: Manual staging operational monitor
+name: Staging operational monitor
 on:
+  push:
+    branches: [fix-v46-migration-repair]
+    paths: [.github/workflows/staging-monitor.yml]
   workflow_dispatch:
     inputs:
       send_alert:
@@ -24,16 +27,30 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Check staging and optionally send attention email
+      - name: Verify private-token health connection without email
+        env:
+          STAGING_MONITOR_TOKEN: ${{ secrets.STAGING_MONITOR_TOKEN }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {runMonitor} from './scripts/run_staging_monitor.mjs';
+          const result=await runMonitor({env:process.env});
+          console.log(JSON.stringify(result,null,2));
+          if(result.exitCode===2)process.exit(2);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            '## Staging monitoring connection\n\nAuthenticated health read succeeded. No email sent.\n\nHealth: '+result.status+'\n\nSignals: '+(result.alerts.map(a=>a.code).join(', ')||'none')+'\n');
+          JS
+      - name: Send explicitly requested staging attention email
+        if: github.event_name == 'workflow_dispatch' && inputs.send_alert
         env:
           STAGING_MONITOR_TOKEN: ${{ secrets.STAGING_MONITOR_TOKEN }}
           MIDEPAY_ALERT_SMTP_USER: ${{ secrets.MIDEPAY_ALERT_SMTP_USER }}
           MIDEPAY_ALERT_SMTP_APP_PASSWORD: ${{ secrets.MIDEPAY_ALERT_SMTP_APP_PASSWORD }}
           MIDEPAY_STAGING_ALERTS_ENABLED: ${{ vars.MIDEPAY_STAGING_ALERTS_ENABLED }}
-          SEND_ALERT: ${{ inputs.send_alert }}
         run: |
-          if [ "$SEND_ALERT" = 'true' ]; then
-            node scripts/run_staging_monitor.mjs --send
-          else
-            node scripts/run_staging_monitor.mjs
-          fi
+          node --input-type=module <<'JS'
+          import {runMonitor} from './scripts/run_staging_monitor.mjs';
+          const result=await runMonitor({env:process.env,send:true});
+          console.log(JSON.stringify(result,null,2));
+          if(result.exitCode===2)process.exit(2);
+          JS
