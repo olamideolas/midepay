@@ -26,7 +26,9 @@ Code commit: `6c7de0c`, on `fix-v46-migration-repair`.
 
 ## Remaining acceptance work
 
-Perform fresh signup, email delivery/resend/expiry, wrong-password handling, successful recovery, old-password rejection and multi-device session revocation with a designated staging account and the owner's private interaction. Password entry/change and real OTP/PIN handling remain with the owner. No claim of a successful hosted password reset or global sign-out is made by this increment.
+Owner-assisted follow-up on 27 November: the owner reported receiving the recovery OTP and completing the reset. After being instructed to test the old password once and then the new password, the owner answered “yes,” confirming the requested outcome: old password rejected and new password accepted. This is owner-reported staging acceptance, not independently captured Auth traffic or a backend session audit. No password or OTP was collected. The shared recovery tab had become blank when its confirmation was inspected, so no successful recovery message was independently observed there.
+
+Still required: fresh signup, resend/expiry and abuse exercises, multi-device session revocation, and independent hosted recovery/session evidence. Password entry/change and real OTP/PIN handling remain with the owner. The owner-reported password result does not prove global sign-out or revoke every outstanding JWT.
 
 The SDK's success/error classification is still relied on; its handling of some 401/403/404 responses may classify an already-missing session as signed out. Global sign-out does not invalidate every unexpired JWT cryptographically; the application's active-session database guards remain important. Concurrent account switches, cross-tab UI synchronization, network delays and pending asynchronous dashboard reads need further hosted exercises. Passing the static validator is not production approval.
 
