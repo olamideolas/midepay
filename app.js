@@ -2419,10 +2419,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
   const adminLogoutBtn = document.getElementById('admin-logout-btn');
 
+  let logoutInProgress = false;
   async function handleLogout() {
+    if (logoutInProgress) return;
+    logoutInProgress = true;
+    const controls = [dashLogoutBtn, navLogoutBtn, mobileLogoutBtn, adminLogoutBtn].filter(Boolean).map(el => ({ el, disabled: el.disabled }));
+    controls.forEach(({ el }) => { el.disabled = true; });
+    try {
     clearTreasurySecrets();
     treasuryOperation=null;
     treasuryPanel?.classList.add('hidden');
+    let logoutResult = null;
+    if (window.MidePayDB && typeof window.MidePayDB.signOut === 'function') {
+      try { logoutResult = await window.MidePayDB.signOut(); } catch (_) {}
+    }
+    // Do not remove SDK tokens before the server sign-out attempt above.
+    let appLocalStateCleared = true;
     try {
       localStorage.removeItem('midepay_session');
       localStorage.removeItem('midepay_active_view');
@@ -2432,7 +2444,7 @@ document.addEventListener('DOMContentLoaded', () => {
           localStorage.removeItem(key);
         }
       });
-    } catch (e) {}
+    } catch (e) { appLocalStateCleared = false; }
 
     state.user = null;
     state.dashBalance = 0.00;
@@ -2451,18 +2463,24 @@ document.addEventListener('DOMContentLoaded', () => {
       window.resetMideSaveAndPayrollState();
     }
 
-    if (window.MidePayDB && typeof window.MidePayDB.signOut === 'function') {
-      try {
-        window.MidePayDB.signOut().catch(console.warn);
-      } catch (e) {}
-    }
-
     try { syncUserToDashboard(); } catch (e) {}
     try { renderBalances(); } catch (e) {}
     try { renderDashboardTransactions(); } catch (e) {}
     try { updateExecutiveNavButtons().catch(() => {}); } catch (e) {}
     try { showView('landing'); } catch (e) {}
-    try { showToast('Logged out of MidePay successfully.'); } catch (e) {}
+    try {
+      if (!appLocalStateCleared || logoutResult?.localStateCleared === false) {
+        showToast('Saved sign-in data could not be cleared. Close this tab before leaving this device.', 'error');
+      } else if (window.MidePayDB?.isConfigured?.() && logoutResult?.sessionsRevoked !== true) {
+        showToast('Signed out on this device. Server sign-out could not be confirmed; reconnect and sign out again.', 'error');
+      } else {
+        showToast('Logged out of MidePay successfully.');
+      }
+    } catch (e) {}
+    } finally {
+      controls.forEach(({ el, disabled }) => { el.disabled = disabled; });
+      logoutInProgress = false;
+    }
   }
   window.handleLogout = handleLogout;
 

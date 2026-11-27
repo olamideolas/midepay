@@ -380,11 +380,19 @@
     },
 
     async signOut() {
+      let sessionsRevoked = false;
+      let localStateCleared = true;
       if (this.isConfigured() && this.client) {
         try {
-          await this.client.auth.signOut();
-        } catch (e) {
-          console.warn('[MidePay] Supabase signOut notice:', e);
+          // Keep the saved session available until Auth has used its access token.
+          const current = await this.client.auth.getSession();
+          if (!current.error && current.data?.session?.access_token) {
+            const result = await this.client.auth.signOut({ scope: 'global' });
+            sessionsRevoked = !result.error;
+          }
+        } catch (_) {}
+        if (!sessionsRevoked) {
+          try { await this.client.auth.signOut({ scope: 'local' }); } catch (_) {}
         }
       }
       try {
@@ -397,7 +405,8 @@
             localStorage.removeItem(key);
           }
         });
-      } catch (e) {}
+      } catch (_) { localStateCleared = false; }
+      return { sessionsRevoked, localStateCleared };
     },
 
     async getCurrentUser() {
