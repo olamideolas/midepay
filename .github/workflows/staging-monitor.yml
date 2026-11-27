@@ -27,7 +27,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Verify private-token health connection without email
+      - name: Diagnose private-token health connection without email
         env:
           STAGING_MONITOR_TOKEN: ${{ secrets.STAGING_MONITOR_TOKEN }}
         run: |

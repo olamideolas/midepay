@@ -3,13 +3,20 @@ import {pathToFileURL} from 'node:url';
 import {evaluateHealth} from './evaluate_staging_health.mjs';
 export const RECIPIENT='olamidesunkanmi727@gmail.com';
 const PROJECT='ajbhsmcosxgymrtawlmd';
+class MonitorCollectionError extends Error{
+ constructor(code){super(code);this.code=code;}
+}
 export async function collectSnapshot(env,{request=fetch}={}){
  const token=env.STAGING_MONITOR_TOKEN||'';
- if(!/^[a-f0-9]{64}$/.test(token))throw Error('STAGING_MONITOR_TOKEN_REQUIRED');
- const response=await request(`https://${PROJECT}.supabase.co/functions/v1/staging-health`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}',redirect:'error',signal:AbortSignal.timeout(10000)});
- if(!response.ok)throw Error('MONITOR_UNAVAILABLE');
- const data=await response.json();
- if(!data?.health)throw Error('INVALID_SNAPSHOT');
+ if(!token)throw new MonitorCollectionError('MONITOR_TOKEN_MISSING');
+ if(!/^[a-f0-9]{64}$/.test(token))throw new MonitorCollectionError('MONITOR_TOKEN_FORMAT_INVALID');
+ let response;
+ try{response=await request(`https://${PROJECT}.supabase.co/functions/v1/staging-health`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}',redirect:'error',signal:AbortSignal.timeout(10000)});}
+ catch{throw new MonitorCollectionError('MONITOR_NETWORK_FAILED');}
+ if(!response.ok)throw new MonitorCollectionError(response.status===401?'MONITOR_AUTH_REJECTED':response.status===503?'MONITOR_ENDPOINT_UNAVAILABLE':'MONITOR_HTTP_FAILED');
+ let data;
+ try{data=await response.json();}catch{throw new MonitorCollectionError('MONITOR_RESPONSE_INVALID');}
+ if(!data?.health)throw new MonitorCollectionError('MONITOR_RESPONSE_INVALID');
  return data.health;
 }
 export function smtpConfig(env){
@@ -30,7 +37,7 @@ export async function deliverAlert(env,report,{createTransport}={}){
 export async function runMonitor({env={},send=false,collect=collectSnapshot,deliver=deliverAlert,now=Date.now()}={}){
  let report;
  try{report=evaluateHealth(await collect(env),{now});}
- catch{report={status:'invalid',exitCode:2,alerts:[{code:'MONITOR_COLLECTION_FAILED',severity:'critical'}]};}
+ catch(error){report={status:'invalid',exitCode:2,alerts:[{code:error instanceof MonitorCollectionError?error.code:'MONITOR_COLLECTION_FAILED',severity:'critical'}]};}
  if(!send)return {...report,delivery:'dry_run'};
  if(env.MIDEPAY_STAGING_ALERTS_ENABLED!=='true')return {...report,exitCode:2,delivery:'disabled'};
  if(report.status==='healthy')return {...report,delivery:'not_needed'};
